@@ -555,16 +555,30 @@
 
     // --- High Score Persistence (Score-based with backwards compatibility) ---
     const STORAGE_KEY = 'gravity_runner_best_score';
-    let bestScore = 0;
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved !== null) {
-        bestScore = parseInt(saved, 10) || 0;
+    const TUTORIAL_STORAGE_KEY = 'gravity_runner_tutorial_done';
+
+    function getStoredBestScore() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved !== null && saved !== '') {
+          const val = parseInt(saved, 10);
+          return (!isNaN(val) && val > 0) ? val : 0;
+        }
+      } catch(e) {}
+      return 0;
+    }
+
+    function isTutorialCompleted() {
+      try {
+        return localStorage.getItem(TUTORIAL_STORAGE_KEY) === 'true';
+      } catch(e) {
+        return false;
       }
-    } catch(e) {}
+    }
+
+    let bestScore = getStoredBestScore();
 
     // --- Tutorial System State ---
-    const TUTORIAL_STORAGE_KEY = 'gravity_runner_tutorial_done';
     let isTutorialActive = false;
     let tutorialStep = 0; // 1: Tap to flip, 2: Float until landing, 3: Collect coins, 4: Near miss
     let tutorialStepTimer = 0;
@@ -575,12 +589,28 @@
       if (!isTutorialActive) return;
       isTutorialActive = false;
       tutorialStep = 0;
+      tutorialStepTimer = 0;
       try {
         localStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
       } catch(e) {}
       sound.playSpeedUp();
       spawnPopupText(virtualW / 2, trackCenterY, 'チュートリアル完了！ START!', '#10b981', 18, true);
       nextSpawnX = virtualW + 200;
+    }
+
+    function advanceTutorialToStep4() {
+      if (!isTutorialActive || tutorialStep !== 3) return;
+      tutorialStep = 4;
+      tutorialStepTimer = 0;
+      sound.playTutorialChime();
+      if (!tutorialObstacleSpawned) {
+        const obsX = player.x + 420;
+        const obs = new Obstacle({ surface: 'floor', type: 'block', x: obsX, w: 34, h: 36 });
+        obs.isTutorial = true;
+        obstacles.push(obs);
+        spawnCoinArc(obsX - currentSpeed * 0.28, 'floor', 'ceiling', 5);
+        tutorialObstacleSpawned = true;
+      }
     }
 
     // --- Game State & Metrics ---
@@ -595,6 +625,7 @@
     let maxCombo = 0;
     let isNewBest = false;
     let gameOverTimer = 0;
+    let startInputLockTimer = 0;
     let gameTime = 0;
     const GAME_OVER_INPUT_LOCK = 0.6; // 0.6s input lock after game over
 
@@ -765,6 +796,7 @@
       },
 
       flip() {
+        if (startInputLockTimer > 0) return false;
         if (!this.isGrounded) {
           // Responsive input buffer: tap arrives up to 0.12s before landing
           this.flipBufferTimer = FLIP_BUFFER_WINDOW;
@@ -1204,16 +1236,7 @@
 
           // Tutorial Step 3 progression
           if (isTutorialActive && tutorialStep === 3) {
-            tutorialStep = 4;
-            tutorialStepTimer = 0;
-            sound.playTutorialChime();
-            // Spawn safe tutorial obstacle ahead with guidance arc
-            const obsX = player.x + 420;
-            const obs = new Obstacle({ surface: 'floor', type: 'block', x: obsX, w: 34, h: 36 });
-            obs.isTutorial = true;
-            obstacles.push(obs);
-            spawnCoinArc(obsX - currentSpeed * 0.28, 'floor', 'ceiling', 5);
-            tutorialObstacleSpawned = true;
+            advanceTutorialToStep4();
           }
         }
 
@@ -1549,8 +1572,15 @@
         if (state === 'playing') {
           // 1. Collision check
           if (obs.collidesWith(hitbox)) {
-            triggerGameOver();
-            return;
+            if (obs.isTutorial) {
+              // Safe tutorial completion even if player bumps the practice obstacle
+              sound.playLand();
+              spawnPopupText(player.x, player.y - 10, 'ドンマイ！ 練習完了！', '#f59e0b', 14, true);
+              completeTutorial();
+            } else {
+              triggerGameOver();
+              return;
+            }
           }
 
           // 2. Near Miss check
@@ -1641,7 +1671,9 @@
       popupTexts = [];
 
       // Check tutorial trigger (first time or explicit replay)
-      const tutorialDone = (localStorage.getItem(TUTORIAL_STORAGE_KEY) === 'true');
+      bestScore = getStoredBestScore();
+      startInputLockTimer = 0.22;
+      const tutorialDone = isTutorialCompleted();
       if (!tutorialDone || forceTutorial) {
         isTutorialActive = true;
         tutorialStep = 1;
@@ -1674,12 +1706,16 @@
       createDeathExplosion(player);
 
       const finalScore = Math.floor(gameScore);
-      if (finalScore > bestScore) {
+      const currentStoredBest = getStoredBestScore();
+      if (finalScore > currentStoredBest && finalScore > 0) {
         bestScore = finalScore;
         isNewBest = true;
         try {
           localStorage.setItem(STORAGE_KEY, String(bestScore));
         } catch(e) {}
+      } else {
+        bestScore = currentStoredBest;
+        isNewBest = false;
       }
       syncGameTestingObj();
     }
@@ -1689,6 +1725,7 @@
       if (state === 'title') {
         startGame();
       } else if (state === 'playing') {
+        if (startInputLockTimer > 0) return;
         player.flip();
       } else if (state === 'gameover') {
         if (gameOverTimer >= GAME_OVER_INPUT_LOCK) {
@@ -1716,7 +1753,7 @@
     let lastInputTime = 0;
     function handlePointer(e, clientX, clientY) {
       const now = performance.now();
-      if (now - lastInputTime < 35) return;
+      if (now - lastInputTime < 80) return;
       lastInputTime = now;
 
       if (isMuteButtonClicked(clientX, clientY)) {
@@ -1750,10 +1787,8 @@
       handlePointer(e, e.clientX, e.clientY);
     }, { passive: false });
 
-    window.addEventListener('touchstart', (e) => {
-      if (e.touches && e.touches.length > 0) {
-        handlePointer(e, e.touches[0].clientX, e.touches[0].clientY);
-      }
+    window.addEventListener('click', (e) => {
+      handlePointer(e, e.clientX, e.clientY);
     }, { passive: false });
 
     window.addEventListener('keydown', (e) => {
@@ -1788,15 +1823,23 @@
         tierTransitionTimer = Math.max(0, tierTransitionTimer - dt);
       }
 
+      if (startInputLockTimer > 0) {
+        startInputLockTimer = Math.max(0, startInputLockTimer - dt);
+      }
+
       if (state === 'playing') {
         gameTime += simDt;
 
         if (isTutorialActive) {
           tutorialStepTimer += simDt;
-          // Safety backup: in Step 3, if coins missed, respawn arc
-          if (tutorialStep === 3 && (coins.length === 0 || tutorialStepTimer > 4.0)) {
-            tutorialStepTimer = 0;
-            spawnCoinArc(player.x + 130, player.groundedSurface, player.groundedSurface === 'floor' ? 'ceiling' : 'floor', 6);
+          if (tutorialStep === 3) {
+            if (coins.length === 0 || tutorialStepTimer > 3.5) {
+              advanceTutorialToStep4();
+            }
+          } else if (tutorialStep === 4) {
+            if (tutorialStepTimer > 5.0) {
+              completeTutorial();
+            }
           }
         }
 
@@ -2556,31 +2599,31 @@
       ctx.restore();
     }
 
-    // --- Tutorial Guide Banner in Playfield ---
+    // --- Tutorial Guide Banner in Playfield (Positioned prominently at Track Center) ---
     function renderTutorialBanner() {
       if (!isTutorialActive || state !== 'playing') return;
 
-      const bannerW = Math.min(virtualW - 60, 420);
-      const bannerH = 58;
+      const bannerW = Math.min(virtualW - 40, 480);
+      const bannerH = 76;
       const bannerX = (virtualW - bannerW) / 2;
-      const bannerY = ceilingY + 16;
+      const bannerY = trackCenterY - bannerH / 2;
       const palette = getActivePalette();
 
       ctx.save();
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
       ctx.strokeStyle = palette.accent;
-      ctx.lineWidth = 2.0;
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
-      ctx.shadowBlur = 12;
-      roundRect(ctx, bannerX, bannerY, bannerW, bannerH, 14);
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+      ctx.shadowBlur = 16;
+      roundRect(ctx, bannerX, bannerY, bannerW, bannerH, 16);
       ctx.fill();
       ctx.stroke();
       ctx.shadowColor = 'transparent';
 
       const steps = [
-        { title: 'タップで重力反転！', sub: '画面をタップまたはスペースキー' },
-        { title: '着地するまで次の反転はできない', sub: '天井へふんわり浮遊中...' },
-        { title: '空中のコインを集めよう', sub: '反転の弧に沿ってコインを獲得！' },
+        { title: 'タップで重力反転！', sub: '画面タップ または スペースキー で反転' },
+        { title: '着地するまで次の反転はできない', sub: '天井へふんわり浮遊中... 着地を待とう' },
+        { title: '空中のコインを集めよう', sub: '反転して弧状のコイン列を獲得！' },
         { title: '障害物すれすれでNEAR MISS！', sub: '直前で反転してボーナス獲得！' }
       ];
       const cur = steps[tutorialStep - 1] || steps[0];
@@ -2588,15 +2631,22 @@
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
+      // Step badge
       ctx.fillStyle = palette.accent;
-      ctx.font = '800 11px system-ui, sans-serif';
-      ctx.letterSpacing = '1px';
-      ctx.fillText(`TUTORIAL  STEP ${tutorialStep}/4`, bannerX + bannerW / 2, bannerY + 16);
+      ctx.font = '800 12px system-ui, sans-serif';
+      ctx.letterSpacing = '1.5px';
+      ctx.fillText(`TUTORIAL  STEP ${tutorialStep}/4`, bannerX + bannerW / 2, bannerY + 20);
       ctx.letterSpacing = '0px';
 
+      // Main Instruction Title
       ctx.fillStyle = '#ffffff';
-      ctx.font = '800 15px system-ui, sans-serif';
-      ctx.fillText(cur.title, bannerX + bannerW / 2, bannerY + 38);
+      ctx.font = '900 17px system-ui, sans-serif';
+      ctx.fillText(cur.title, bannerX + bannerW / 2, bannerY + 43);
+
+      // Sub hint
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 12px system-ui, sans-serif';
+      ctx.fillText(cur.sub, bannerX + bannerW / 2, bannerY + 62);
 
       ctx.restore();
     }
@@ -2654,9 +2704,10 @@
       ctx.fillText(`${dist} m`, 16, hudBottomY - 17);
 
       // Best Score
+      const currentBest = Math.max(score, getStoredBestScore());
       ctx.font = '600 12px system-ui, sans-serif';
       ctx.fillStyle = (currentTierIndex >= 2) ? '#94a3b8' : '#94a3b8';
-      ctx.fillText(`BEST ${Math.max(score, bestScore).toLocaleString()}`, 16, hudBottomY);
+      ctx.fillText(`BEST ${currentBest.toLocaleString()}`, 16, hudBottomY);
 
       // 2. Flip Availability HUD Pill (Center)
       const pillW = 114;
@@ -2862,10 +2913,11 @@
       ctx.lineTo(centerX + linkW / 2, linkY + 2);
       ctx.stroke();
 
-      if (bestScore > 0) {
+      const currentBest = getStoredBestScore();
+      if (currentBest > 0) {
         ctx.fillStyle = '#64748b';
         ctx.font = '600 12px system-ui, sans-serif';
-        ctx.fillText(`最高スコア: ${bestScore.toLocaleString()} pts`, centerX, cardY - 14);
+        ctx.fillText(`最高スコア: ${currentBest.toLocaleString()} pts`, centerX, cardY - 14);
       }
 
       ctx.restore();
@@ -2947,10 +2999,11 @@
       ctx.fillText(`${nearMissCount} 回`, col2X, statsY + lineGap * 3);
 
       // Self Best Note
+      const currentBest = getStoredBestScore();
       ctx.textAlign = 'center';
       ctx.fillStyle = '#94a3b8';
       ctx.font = '600 10px system-ui, sans-serif';
-      ctx.fillText(`自己ベスト: ${bestScore.toLocaleString()} pts`, centerX, cardY + 208);
+      ctx.fillText(`自己ベスト: ${currentBest.toLocaleString()} pts`, centerX, cardY + 208);
 
       // Retry Prompt Button
       const btnW = 180;
@@ -3035,7 +3088,7 @@
           configurable: true,
           enumerable: true
         });
-        Object.defineProperty(window.__game, 'bestScore', { get: () => bestScore, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'bestScore', { get: () => getStoredBestScore(), configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'isGrounded', { get: () => player.isGrounded, configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'speed', { get: () => currentSpeed, configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'player', { get: () => player, configurable: true, enumerable: true });
@@ -3097,8 +3150,12 @@
           tierTransitionTimer = 0;
           hitStopTimer = 0;
           slowMotionTimer = 0;
-          isTutorialActive = false;
-          tutorialStep = 0;
+          bestScore = getStoredBestScore();
+          const tutorialDone = isTutorialCompleted();
+          isTutorialActive = !tutorialDone;
+          tutorialStep = isTutorialActive ? 1 : 0;
+          tutorialStepTimer = 0;
+          tutorialObstacleSpawned = false;
           player.reset();
           resetObstacles();
           sound.stopBgm();
