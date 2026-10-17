@@ -4,6 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>積み上げタワー</title>
+  <meta name="description" content="タイミングよくタップしてブロックをどこまでも高く積み上げよう！ブラウザで遊べる無料タワー積み上げゲーム。">
+  <meta name="theme-color" content="#0d1117">
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="積み上げタワー">
+  <meta property="og:description" content="タイミングよくタップしてブロックをどこまでも高く積み上げよう！ブラウザで遊べる無料タワー積み上げゲーム。">
+  <meta property="og:image" content="thumbnail.png">
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="積み上げタワー">
+  <meta name="twitter:description" content="タイミングよくタップしてブロックをどこまでも高く積み上げよう！ブラウザで遊べる無料タワー積み上げゲーム。">
+  <meta name="twitter:image" content="thumbnail.png">
   <!-- Inline SVG favicon to prevent 404 requests -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='28' height='7' x='2' y='22' rx='2' fill='%234facfe'/%3E%3Crect width='22' height='7' x='5' y='13' rx='2' fill='%2300f2fe'/%3E%3Crect width='16' height='7' x='8' y='4' rx='2' fill='%23ff0844'/%3E%3C/svg%3E">
   <style>
@@ -37,6 +49,34 @@
       display: block;
       width: 100%;
       height: 100%;
+    }
+    #back-link {
+      position: absolute;
+      top: max(16px, env(safe-area-inset-top));
+      left: max(16px, env(safe-area-inset-left));
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 44px;
+      padding: 0 16px;
+      border-radius: 22px;
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.2s ease;
+      touch-action: manipulation;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+    #back-link:active {
+      transform: scale(0.94);
+      background: rgba(15, 23, 42, 0.8);
     }
     #pause-btn {
       position: absolute;
@@ -122,6 +162,7 @@
   <div id="canvas-container">
     <canvas id="gameCanvas"></canvas>
   </div>
+  <a id="back-link" href="../" aria-label="ゲーム一覧へ戻る">← ゲーム一覧</a>
   <button id="pause-btn" aria-label="一時停止">
     <svg id="pause-icon" viewBox="0 0 24 24">
       <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
@@ -170,6 +211,8 @@
       const DANGER_WIDTH = 35;        // Remaining width threshold for ギリギリ!
       const REGROW_AMOUNT = 8;        // Width regrowth when combo >= 3
       const GRAVITY = 950;            // Falling debris gravity in virtual px/sec^2
+      const MAX_PARTICLES = 100;      // Performance cap for particles
+      const MAX_DEBRIS = 20;          // Performance cap for debris blocks
 
       // Difficulty speed curve (Smooth ramp: gentle 1-10, fast around 30)
       function getBlockSpeed(level) {
@@ -191,6 +234,27 @@
       const muteBtn = document.getElementById('mute-btn');
       const muteIconOn = document.getElementById('mute-icon-on');
       const muteIconOff = document.getElementById('mute-icon-off');
+      const backLink = document.getElementById('back-link');
+
+      function updateNavUI() {
+        if (backLink) {
+          if (gameState === 'title' || gameState === 'over') {
+            backLink.style.display = 'flex';
+          } else {
+            backLink.style.display = 'none';
+          }
+        }
+      }
+
+      function onBackLinkEvent(e) {
+        if (e && e.stopPropagation) e.stopPropagation();
+      }
+      if (backLink) {
+        backLink.addEventListener('pointerdown', onBackLinkEvent);
+        backLink.addEventListener('mousedown', onBackLinkEvent);
+        backLink.addEventListener('touchstart', onBackLinkEvent, { passive: true });
+        backLink.addEventListener('click', onBackLinkEvent);
+      }
 
       function updatePauseUI() {
         if (gameState === 'play' && !isPaused && !isCountingDown) {
@@ -248,6 +312,9 @@
       // --- Audio System (Web Audio API) ---
       let audioCtx = null;
       let isMuted = localStorage.getItem('stackTowerMuted') === 'true';
+      let bgmEnabled = localStorage.getItem('stackTowerBgm') !== null
+        ? (localStorage.getItem('stackTowerBgm') === 'true')
+        : true;
 
       function updateMuteUI() {
         muteIconOn.style.display = isMuted ? 'none' : 'block';
@@ -288,6 +355,161 @@
       // Pentatonic pitch scale for combos
       const PENTATONIC = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51, 1567.98, 1760.00, 2093.00];
 
+      // --- Procedural Layered BGM System (Web Audio API) ---
+      // Chord Progression: | Fmaj7 | G6 | Em7 | Am7 | (4 bars, 104 BPM, layered across altitude zones)
+      const BGM_BPM = 104;
+      const BGM_STEP_DUR = 60 / BGM_BPM / 2; // 1/8 note duration (~0.288s)
+      let bgmNextTime = 0;
+      let bgmStep = 0; // 0 to 31 (4 bars x 8 eighth-notes)
+
+      const CHORD_DATA = [
+        // Bar 0: Fmaj7 (steps 0-7)
+        { bass: 87.31, pad: [174.61, 220.00, 261.63, 329.63], arps: [349.23, 440.00, 523.25, 659.25] },
+        // Bar 1: G6 (steps 8-15)
+        { bass: 98.00, pad: [196.00, 246.94, 293.66, 329.63], arps: [392.00, 493.88, 587.33, 659.25] },
+        // Bar 2: Em7 (steps 16-23)
+        { bass: 82.41, pad: [164.81, 196.00, 246.94, 293.66], arps: [329.63, 392.00, 493.88, 587.33] },
+        // Bar 3: Am7 (steps 24-31)
+        { bass: 110.00, pad: [220.00, 261.63, 329.63, 392.00], arps: [440.00, 523.25, 659.25, 783.99] }
+      ];
+
+      const SPACE_SPARKLES = [1046.50, 1174.66, 1318.51, 1567.98, 1760.00, 2093.00, 2349.32];
+
+      function getAltitudeZone(lvl) {
+        if (lvl >= 40) return 4; // 宇宙
+        if (lvl >= 30) return 3; // 夜空
+        if (lvl >= 20) return 2; // 夕焼け
+        if (lvl >= 10) return 1; // 雲の上
+        return 0;                // 地上
+      }
+
+      function updateBgmScheduler() {
+        if (!bgmEnabled || !audioCtx || gameState !== 'play' || isPaused || isCountingDown) {
+          return;
+        }
+
+        const now = audioCtx.currentTime;
+        if (bgmNextTime === 0 || bgmNextTime < now) {
+          bgmNextTime = now + 0.05;
+        }
+
+        // Schedule ahead up to 0.15s
+        while (bgmNextTime < now + 0.15) {
+          scheduleBgmStep(bgmStep, bgmNextTime);
+          bgmNextTime += BGM_STEP_DUR;
+          bgmStep = (bgmStep + 1) % 32;
+        }
+      }
+
+      function scheduleBgmStep(step, time) {
+        if (!audioCtx) return;
+        const currentZone = getAltitudeZone(score);
+        const barIdx = Math.floor(step / 8);
+        const stepInBar = step % 8;
+        const chord = CHORD_DATA[barIdx];
+
+        // 1. LAYER 0 (地上: 0段〜): メインアルペジオ (Soft Sine, マリンバ/エレピ調)
+        const arpPattern = [0, 1, 2, 3, 2, 1, 2, 0];
+        const arpNoteFreq = chord.arps[arpPattern[stepInBar]];
+        const osc1 = audioCtx.createOscillator();
+        const g1 = audioCtx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(arpNoteFreq, time);
+        const vol1 = (stepInBar === 0 || stepInBar === 4) ? 0.042 : 0.032;
+        g1.gain.setValueAtTime(0, time);
+        g1.gain.setValueAtTime(vol1, time + 0.005);
+        g1.gain.exponentialRampToValueAtTime(0.0001, time + BGM_STEP_DUR * 0.9);
+        osc1.connect(g1);
+        g1.connect(audioCtx.destination);
+        osc1.start(time);
+        osc1.stop(time + BGM_STEP_DUR * 0.9);
+
+        // 2. LAYER 1 (雲の上: 10段〜): 軽快な高音プラック (Triangle, 16分アクセント)
+        if (currentZone >= 1) {
+          const pluckPattern = [2, -1, 3, 1, -1, 2, 3, -1];
+          const pIdx = pluckPattern[stepInBar];
+          if (pIdx >= 0) {
+            const pFreq = chord.arps[pIdx] * 1.5;
+            const pOsc = audioCtx.createOscillator();
+            const pGain = audioCtx.createGain();
+            pOsc.type = 'triangle';
+            pOsc.frequency.setValueAtTime(pFreq, time + 0.02);
+            pGain.gain.setValueAtTime(0, time + 0.02);
+            pGain.gain.setValueAtTime(0.028, time + 0.025);
+            pGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.18);
+            pOsc.connect(pGain);
+            pGain.connect(audioCtx.destination);
+            pOsc.start(time + 0.02);
+            pOsc.stop(time + 0.18);
+          }
+        }
+
+        // 3. LAYER 2 (夕焼け: 20段〜): 温かいパッド和音 (LPF Sawtooth, 持続コード)
+        if (currentZone >= 2) {
+          if (stepInBar === 0) {
+            const padDur = BGM_STEP_DUR * 7.8;
+            chord.pad.forEach((freq, idx) => {
+              const padOsc = audioCtx.createOscillator();
+              const padFilter = audioCtx.createBiquadFilter();
+              const padGain = audioCtx.createGain();
+
+              padOsc.type = 'sawtooth';
+              padOsc.frequency.setValueAtTime(freq, time);
+
+              padFilter.type = 'lowpass';
+              padFilter.frequency.setValueAtTime(650 + idx * 80, time);
+
+              padGain.gain.setValueAtTime(0, time);
+              padGain.gain.linearRampToValueAtTime(0.014, time + 0.35); // Slow attack
+              padGain.gain.setValueAtTime(0.014, time + padDur - 0.4);
+              padGain.gain.linearRampToValueAtTime(0.0001, time + padDur);
+
+              padOsc.connect(padFilter);
+              padFilter.connect(padGain);
+              padGain.connect(audioCtx.destination);
+              padOsc.start(time);
+              padOsc.stop(time + padDur);
+            });
+          }
+        }
+
+        // 4. LAYER 3 (夜空: 30段〜): 深いベースライン (Triangle, リズミカルな低音)
+        if (currentZone >= 3) {
+          const bassPattern = [0, -1, 0, -1, 0, 0, -1, 0];
+          if (bassPattern[stepInBar] >= 0) {
+            const bOsc = audioCtx.createOscillator();
+            const bGain = audioCtx.createGain();
+            bOsc.type = 'triangle';
+            bOsc.frequency.setValueAtTime(chord.bass, time);
+            bGain.gain.setValueAtTime(0, time);
+            bGain.gain.setValueAtTime(0.05, time + 0.008);
+            bGain.gain.exponentialRampToValueAtTime(0.0001, time + BGM_STEP_DUR * 0.85);
+            bOsc.connect(bGain);
+            bGain.connect(audioCtx.destination);
+            bOsc.start(time);
+            bOsc.stop(time + BGM_STEP_DUR * 0.85);
+          }
+        }
+
+        // 5. LAYER 4 (宇宙: 40段〜): 宇宙のきらめきベル (High Sine Sparkle)
+        if (currentZone >= 4) {
+          if (step % 2 === 1) {
+            const sparkleFreq = SPACE_SPARKLES[(step * 3) % SPACE_SPARKLES.length];
+            const sOsc = audioCtx.createOscillator();
+            const sGain = audioCtx.createGain();
+            sOsc.type = 'sine';
+            sOsc.frequency.setValueAtTime(sparkleFreq, time + 0.05);
+            sGain.gain.setValueAtTime(0, time + 0.05);
+            sGain.gain.setValueAtTime(0.026, time + 0.06);
+            sGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.25);
+            sOsc.connect(sGain);
+            sGain.connect(audioCtx.destination);
+            sOsc.start(time + 0.05);
+            sOsc.stop(time + 0.25);
+          }
+        }
+      }
+
       function playSound(type, combo = 1) {
         if (isMuted) return;
         initAudio();
@@ -296,35 +518,63 @@
         const now = audioCtx.currentTime;
 
         if (type === 'drop') {
-          // GOOD drop: tactile thud
+          // GOOD drop: 軽快な音 (Light tactile tap)
           const osc = audioCtx.createOscillator();
           const gain = audioCtx.createGain();
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(240, now);
-          osc.frequency.exponentialRampToValueAtTime(140, now + 0.08);
+          osc.frequency.setValueAtTime(460, now);
+          osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
+
+          gain.gain.setValueAtTime(0.16, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.05);
+        } else if (type === 'great') {
+          // GREAT drop: 澄んだ軽快なチィン音
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(640, now);
+          osc.frequency.exponentialRampToValueAtTime(480, now + 0.07);
 
           gain.gain.setValueAtTime(0.18, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
 
           osc.connect(gain);
           gain.connect(audioCtx.destination);
           osc.start(now);
-          osc.stop(now + 0.08);
-        } else if (type === 'great') {
-          // GREAT drop: crisper higher buoyant thud
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(360, now);
-          osc.frequency.exponentialRampToValueAtTime(220, now + 0.1);
+          osc.stop(now + 0.07);
+        } else if (type === 'slice') {
+          // 切り落とし: スパッ！ (Sharp slice cut sound via filtered white noise)
+          try {
+            const bufSize = Math.floor(audioCtx.sampleRate * 0.07);
+            const noiseBuf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const out = noiseBuf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) {
+              out[i] = Math.random() * 2 - 1;
+            }
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = noiseBuf;
 
-          gain.gain.setValueAtTime(0.2, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(3200, now);
+            filter.frequency.exponentialRampToValueAtTime(1400, now + 0.07);
+            filter.Q.setValueAtTime(2.2, now);
 
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-          osc.start(now);
-          osc.stop(now + 0.1);
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.24, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            noise.start(now);
+            noise.stop(now + 0.07);
+          } catch (_) {}
         } else if (type === 'danger') {
           // ギリギリ! drop: low dramatic suspense thud
           const osc = audioCtx.createOscillator();
@@ -412,36 +662,83 @@
             osc.stop(t + 0.25);
           });
         } else if (type === 'gameover') {
-          // Melancholy descending glide
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(320, now);
-          osc.frequency.exponentialRampToValueAtTime(90, now + 0.45);
+          // ゲームオーバー: ガラガラ…ガラシャーンと崩れ落ちる音 (Rumbling collapse & crumble)
+          try {
+            // 1. 崩落ノイズバースト
+            const bufLen = Math.floor(audioCtx.sampleRate * 0.65);
+            const nBuffer = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+            const nData = nBuffer.getChannelData(0);
+            for (let i = 0; i < bufLen; i++) {
+              nData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.28));
+            }
+            const noiseSrc = audioCtx.createBufferSource();
+            noiseSrc.buffer = nBuffer;
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(450, now);
+            filter.frequency.exponentialRampToValueAtTime(90, now + 0.65);
 
-          gain.gain.setValueAtTime(0.25, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+            const nGain = audioCtx.createGain();
+            nGain.gain.setValueAtTime(0.28, now);
+            nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
 
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-          osc.start(now);
-          osc.stop(now + 0.45);
-        } else if (type === 'gold_perfect') {
-          // Golden crystalline chime cascade
-          const notes = [659.25, 830.61, 987.77, 1318.51, 1661.22];
+            noiseSrc.connect(filter);
+            filter.connect(nGain);
+            nGain.connect(audioCtx.destination);
+            noiseSrc.start(now);
+            noiseSrc.stop(now + 0.65);
+
+            // 2. 複数の岩・ブロック崩落衝撃音（ガラガラ…）
+            const rumbleHits = [
+              { t: 0, f: 160, endF: 60, d: 0.35, vol: 0.22 },
+              { t: 0.08, f: 120, endF: 45, d: 0.30, vol: 0.20 },
+              { t: 0.16, f: 95, endF: 40, d: 0.32, vol: 0.18 },
+              { t: 0.24, f: 75, endF: 35, d: 0.38, vol: 0.16 }
+            ];
+            rumbleHits.forEach(hit => {
+              const hitTime = now + hit.t;
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+              osc.type = 'triangle';
+              osc.frequency.setValueAtTime(hit.f, hitTime);
+              osc.frequency.exponentialRampToValueAtTime(hit.endF, hitTime + hit.d);
+              gain.gain.setValueAtTime(hit.vol, hitTime);
+              gain.gain.exponentialRampToValueAtTime(0.001, hitTime + hit.d);
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+              osc.start(hitTime);
+              osc.stop(hitTime + hit.d);
+            });
+          } catch (_) {}
+        } else if (type === 'gold_perfect' || type === 'gold_sparkle') {
+          // ゴールド: 煌びやかなキラキラチャイムカスケード
+          const notes = [659.25, 830.61, 987.77, 1318.51, 1661.22, 1975.53];
           notes.forEach((freq, idx) => {
-            const t = now + idx * 0.05;
+            const t = now + idx * 0.04;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = 'triangle';
+            osc.type = 'sine';
             osc.frequency.setValueAtTime(freq, t);
             gain.gain.setValueAtTime(0, t);
             gain.gain.setValueAtTime(0.18, t + 0.01);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.start(t);
-            osc.stop(t + 0.35);
+            osc.stop(t + 0.32);
+
+            // キラキラ倍音
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.type = 'triangle';
+            osc2.frequency.setValueAtTime(freq * 1.5, t);
+            gain2.gain.setValueAtTime(0, t);
+            gain2.gain.setValueAtTime(0.08, t + 0.01);
+            gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.start(t);
+            osc2.stop(t + 0.22);
           });
         } else if (type === 'speed_bonus') {
           // Electric zip and ping
@@ -891,6 +1188,121 @@
         }
       }
 
+      // --- Title Screen Layout Configuration ---
+      function getTitleLayout(vH) {
+        // vH corresponds to vHeight.
+        // Check if landscape or low height screen (e.g. 844x390, 960x600)
+        const isLowHeight = (typeof screenWidth !== 'undefined' && typeof screenHeight !== 'undefined')
+          ? (screenWidth > screenHeight || screenHeight < 620)
+          : (vH < 750);
+
+        if (isLowHeight) {
+          // Compact layout for landscape / low-height screens so missions and start button never overlap
+          const titleFontSize = 26;
+          const titleY = 50;
+
+          const descW = 250;
+          const descH = 20;
+          const descFontSize = 10;
+          const descX = (V_WIDTH - descW) / 2;
+          const descY = titleY + 10;
+
+          const rankW = 175;
+          const rankH = 20;
+          const rankFontSize = 10;
+          const rankX = (V_WIDTH - rankW) / 2;
+          const rankY = descY + descH + 6;
+
+          const btnW = 115;
+          const btnH = 24;
+          const btnFontSize = 10;
+          const btnGap = 12;
+          const helpBtnX = (V_WIDTH - (btnW * 2 + btnGap)) / 2;
+          const helpBtnY = rankY + rankH + 6;
+          const bestBtnX = helpBtnX + btnW + btnGap;
+          const bestBtnY = helpBtnY;
+
+          const missionHeaderY = helpBtnY + btnH + 12;
+          const missionHeaderFontSize = 11;
+          const cardH = 24;
+          const cardGap = 4;
+          const cardStartY = missionHeaderY + 6;
+          const card3Bottom = cardStartY + cardH * 3 + cardGap * 2;
+
+          const startBtnW = 210;
+          const startBtnH = 44;
+          const startBtnFontSize = 16;
+          const startBtnSubFontSize = 10;
+          const startBtnGap = 20;
+          const startBtnX = (V_WIDTH - startBtnW) / 2;
+          const startBtnY = card3Bottom + startBtnGap;
+
+          return {
+            titleFontSize,
+            titleY,
+            descW, descH, descFontSize, descX, descY,
+            rankW, rankH, rankFontSize, rankX, rankY,
+            btnW, btnH, btnFontSize, helpBtnX, helpBtnY, bestBtnX, bestBtnY,
+            missionHeaderY, missionHeaderFontSize,
+            cardH, cardGap, cardStartY, card3Bottom,
+            startBtnW, startBtnH, startBtnFontSize, startBtnSubFontSize, startBtnX, startBtnY
+          };
+        }
+
+        // Standard / tall portrait layout (e.g. 390x844):
+        // Back-link button bottom is at 60px (top: 16px + height: 44px).
+        // Placing titleY at 160px gives ~71px clear margin between back-link and title.
+        const titleFontSize = 36;
+        const titleY = 160;
+
+        const descW = 300;
+        const descH = 28;
+        const descFontSize = 12;
+        const descX = (V_WIDTH - descW) / 2;
+        const descY = titleY + 16;
+
+        const rankW = 200;
+        const rankH = 26;
+        const rankFontSize = 12;
+        const rankX = (V_WIDTH - rankW) / 2;
+        const rankY = descY + descH + 12;
+
+        const btnW = 130;
+        const btnH = 30;
+        const btnFontSize = 12;
+        const btnGap = 16;
+        const helpBtnX = (V_WIDTH - (btnW * 2 + btnGap)) / 2;
+        const helpBtnY = rankY + rankH + 12;
+        const bestBtnX = helpBtnX + btnW + btnGap;
+        const bestBtnY = helpBtnY;
+
+        const missionHeaderY = helpBtnY + btnH + 22;
+        const missionHeaderFontSize = 13;
+        const cardH = 36;
+        const cardGap = 5;
+        const cardStartY = missionHeaderY + 9;
+        const card3Bottom = cardStartY + cardH * 3 + cardGap * 2;
+
+        const startBtnW = 260;
+        const startBtnH = 60;
+        const startBtnFontSize = 20;
+        const startBtnSubFontSize = 12;
+        const startBtnGap = 24;
+        const startBtnX = (V_WIDTH - startBtnW) / 2;
+        const startBtnY = card3Bottom + startBtnGap;
+
+        return {
+          titleFontSize,
+          titleY,
+          descW, descH, descFontSize, descX, descY,
+          rankW, rankH, rankFontSize, rankX, rankY,
+          btnW, btnH, btnFontSize, helpBtnX, helpBtnY, bestBtnX, bestBtnY,
+          missionHeaderY, missionHeaderFontSize,
+          cardH, cardGap, cardStartY, card3Bottom,
+          startBtnW, startBtnH, startBtnFontSize, startBtnSubFontSize, startBtnX, startBtnY
+        };
+      }
+
       // Testing Hook Object
       window.__game = {
         state: 'title',
@@ -898,6 +1310,7 @@
         points: 0,
         best: best,
         combo: 0,
+        getTitleLayout: getTitleLayout,
         width: INITIAL_WIDTH,
         perfectCount: 0,
         maxCombo: 0,
@@ -919,6 +1332,11 @@
           isMuted = !val;
           localStorage.setItem('stackTowerMuted', isMuted ? 'true' : 'false');
           updateMuteUI();
+        },
+        get bgmEnabled() { return bgmEnabled; },
+        set bgmEnabled(val) {
+          bgmEnabled = !!val;
+          localStorage.setItem('stackTowerBgm', bgmEnabled ? 'true' : 'false');
         },
         pause: function() { pauseGame(); },
         resume: function() { startResumeCountdown(); },
@@ -1058,6 +1476,245 @@
         { x: 180, y: 0.40, width: 180, height: 48, speed: 8 },
         { x: 80,  y: 0.60, width: 120, height: 35, speed: 10 }
       ];
+
+      // --- Background Demo Tower for Title Screen ---
+      let demoTower = [];
+      let demoMovingBlock = null;
+      let demoDebris = [];
+      let demoCameraY = 0;
+      let demoTargetCameraY = 0;
+      let demoScore = 0;
+      let demoScenarioIndex = 0;
+      let demoFadeAlpha = 1.0;
+      let demoResetTimer = 0;
+      const DEMO_SCENARIO = [0, 0, 22, 0, 0, -18, 0, 0];
+
+      function initDemoTower() {
+        demoTower = [];
+        demoDebris = [];
+        demoScore = 0;
+        demoScenarioIndex = 0;
+        demoCameraY = 0;
+        demoTargetCameraY = 0;
+        demoFadeAlpha = 1.0;
+        demoResetTimer = 0;
+
+        const floorY = vHeight * 0.70;
+        const baseWidth = INITIAL_WIDTH;
+        const baseX = (V_WIDTH - baseWidth) / 2;
+        demoTower.push({
+          x: baseX,
+          y: floorY,
+          width: baseWidth,
+          height: BLOCK_HEIGHT,
+          hue: getBlockHue(0),
+          flash: 0,
+          dangerPulse: 0,
+          regrow: null,
+          isBase: true
+        });
+
+        spawnDemoMovingBlock(1);
+      }
+
+      function spawnDemoMovingBlock(level) {
+        if (demoTower.length === 0) return;
+        const topBlock = demoTower[demoTower.length - 1];
+        const width = topBlock.width;
+        const y = topBlock.y - BLOCK_HEIGHT;
+        const dir = (level % 2 === 1) ? 1 : -1;
+        const startX = (dir > 0) ? -width - 25 : V_WIDTH + 25;
+
+        demoMovingBlock = {
+          x: startX,
+          y: y,
+          width: width,
+          height: BLOCK_HEIGHT,
+          hue: getBlockHue(level),
+          dir: dir,
+          speed: 135, // ゆっくり (通常の約0.65倍)
+          minX: -width - 30,
+          maxX: V_WIDTH + 30,
+          targetOffset: DEMO_SCENARIO[demoScenarioIndex % DEMO_SCENARIO.length]
+        };
+      }
+
+      function updateDemo(dt) {
+        if (gameState !== 'title') return;
+
+        if (demoResetTimer > 0) {
+          demoResetTimer -= dt;
+          demoFadeAlpha = Math.max(0, demoResetTimer / 1.0);
+          if (demoResetTimer <= 0) {
+            initDemoTower();
+          }
+          return;
+        }
+
+        // デモ破片物理演算
+        for (let i = demoDebris.length - 1; i >= 0; i--) {
+          const d = demoDebris[i];
+          d.vy += GRAVITY * dt;
+          d.x += d.vx * dt;
+          d.y += d.vy * dt;
+          d.rot += d.vRot * dt;
+          d.alpha -= dt * 0.7;
+          if (d.alpha <= 0 || d.y - demoCameraY > vHeight + 60) {
+            demoDebris.splice(i, 1);
+          }
+        }
+
+        // ブロックフラッシュ減衰
+        for (let b of demoTower) {
+          if (b.flash > 0) b.flash = Math.max(0, b.flash - dt * 3.5);
+        }
+
+        // デモカメラ追従
+        if (demoTower.length > 0) {
+          const topY = demoTower[demoTower.length - 1].y;
+          const idealCameraY = Math.min(0, topY - vHeight * 0.42);
+          demoTargetCameraY = idealCameraY;
+          demoCameraY += (demoTargetCameraY - demoCameraY) * Math.min(1, dt * 4.0);
+        }
+
+        // デモ移動ブロック
+        if (demoMovingBlock && demoTower.length > 0) {
+          const topBlock = demoTower[demoTower.length - 1];
+          demoMovingBlock.x += demoMovingBlock.dir * demoMovingBlock.speed * dt;
+
+          // 折り返し
+          if (demoMovingBlock.dir > 0 && demoMovingBlock.x >= demoMovingBlock.maxX) {
+            demoMovingBlock.dir = -1;
+            demoMovingBlock.x = demoMovingBlock.maxX;
+          } else if (demoMovingBlock.dir < 0 && demoMovingBlock.x <= demoMovingBlock.minX) {
+            demoMovingBlock.dir = 1;
+            demoMovingBlock.x = demoMovingBlock.minX;
+          }
+
+          // 目標地点到達判定
+          const targetX = topBlock.x + demoMovingBlock.targetOffset;
+          const dist = targetX - demoMovingBlock.x;
+          const movingTowards = (demoMovingBlock.dir > 0 && dist >= 0) || (demoMovingBlock.dir < 0 && dist <= 0);
+          const threshold = Math.max(demoMovingBlock.speed * dt * 1.5, 6.0);
+
+          if (movingTowards && Math.abs(dist) <= threshold) {
+            demoMovingBlock.x = targetX;
+            const diff = demoMovingBlock.x - topBlock.x;
+            const absDiff = Math.abs(diff);
+
+            if (absDiff <= PERFECT_TOLERANCE) {
+              // PERFECT
+              demoTower.push({
+                x: topBlock.x,
+                y: demoMovingBlock.y,
+                width: demoMovingBlock.width,
+                height: BLOCK_HEIGHT,
+                hue: demoMovingBlock.hue,
+                flash: 0.8,
+                dangerPulse: 0,
+                regrow: null,
+                isBase: false
+              });
+            } else {
+              // CUT
+              let overhangWidth = 0;
+              let newWidth = 0;
+              let newX = 0;
+              let debrisX = 0;
+              let debrisVx = 0;
+
+              if (diff < 0) {
+                overhangWidth = topBlock.x - demoMovingBlock.x;
+                newWidth = demoMovingBlock.width - overhangWidth;
+                newX = topBlock.x;
+                debrisX = demoMovingBlock.x;
+                debrisVx = -75;
+              } else {
+                overhangWidth = (demoMovingBlock.x + demoMovingBlock.width) - (topBlock.x + topBlock.width);
+                newWidth = demoMovingBlock.width - overhangWidth;
+                newX = demoMovingBlock.x;
+                debrisX = topBlock.x + topBlock.width;
+                debrisVx = 75;
+              }
+
+              if (newWidth > 15) {
+                demoDebris.push({
+                  x: debrisX,
+                  y: demoMovingBlock.y,
+                  width: overhangWidth,
+                  height: BLOCK_HEIGHT,
+                  hue: demoMovingBlock.hue,
+                  vx: debrisVx,
+                  vy: -35,
+                  rot: 0,
+                  vRot: debrisVx > 0 ? 3.5 : -3.5,
+                  alpha: 0.85
+                });
+                demoTower.push({
+                  x: newX,
+                  y: demoMovingBlock.y,
+                  width: newWidth,
+                  height: BLOCK_HEIGHT,
+                  hue: demoMovingBlock.hue,
+                  flash: 0.4,
+                  dangerPulse: 0,
+                  regrow: null,
+                  isBase: false
+                });
+              }
+            }
+
+            demoScenarioIndex++;
+            demoScore = demoTower.length - 1;
+
+            const lastW = demoTower[demoTower.length - 1].width;
+            if (demoScore >= 8 || lastW < 60) {
+              demoMovingBlock = null;
+              demoResetTimer = 1.8;
+            } else {
+              spawnDemoMovingBlock(demoTower.length);
+            }
+          }
+        }
+      }
+
+      function renderDemo(context) {
+        if (gameState !== 'title') return;
+
+        context.save();
+        context.globalAlpha = 0.42 * demoFadeAlpha;
+
+        context.save();
+        context.translate(0, -demoCameraY);
+
+        // デモ台座
+        const floorY = vHeight * 0.70;
+        const pedestalHeight = Math.max(300, vHeight - floorY + 200);
+        context.fillStyle = '#1a2332';
+        context.beginPath();
+        context.roundRect((V_WIDTH - 240) / 2, floorY + BLOCK_HEIGHT, 240, pedestalHeight, [4, 4, 0, 0]);
+        context.fill();
+
+        // デモ塔ブロック
+        for (let b of demoTower) {
+          if (b.y - demoCameraY > vHeight + 50 || b.y + b.height - demoCameraY < -50) continue;
+          draw2DBlock(context, b.x, b.y, b.width, b.height, b.hue, b.flash, 0, null, null, b.isBase);
+        }
+
+        // デモ移動ブロック
+        if (demoMovingBlock) {
+          draw2DBlock(context, demoMovingBlock.x, demoMovingBlock.y, demoMovingBlock.width, demoMovingBlock.height, demoMovingBlock.hue, 0, 0, null, null, false);
+        }
+
+        // デモ破片
+        for (let d of demoDebris) {
+          if (d.y - demoCameraY > vHeight + 50 || d.y + d.height - demoCameraY < -50) continue;
+          drawDebris(context, d);
+        }
+
+        context.restore(); // Restore demoCameraY
+        context.restore(); // Restore globalAlpha
+      }
 
       // --- Initialization & Resets ---
       function initTower() {
@@ -1247,6 +1904,9 @@
       // --- Debris & Particle Spawners ---
       function spawnDebris(x, y, width, height, hue, vx, vy, vRot) {
         if (width <= 0) return;
+        if (debrisList.length >= MAX_DEBRIS) {
+          debrisList.shift();
+        }
         debrisList.push({
           x: x,
           y: y,
@@ -1261,11 +1921,18 @@
         });
       }
 
+      function addParticle(p) {
+        if (particles.length >= MAX_PARTICLES) {
+          particles.shift();
+        }
+        particles.push(p);
+      }
+
       function spawnCutSparks(x, y, count, dirVx = 0) {
         for (let i = 0; i < count; i++) {
           const angle = (Math.random() * Math.PI) - (Math.PI / 2);
           const spd = Math.random() * 140 + 70;
-          particles.push({
+          addParticle({
             x: x,
             y: y,
             vx: Math.cos(angle) * spd + (dirVx > 0 ? 50 : (dirVx < 0 ? -50 : 0)),
@@ -1407,36 +2074,43 @@
         if (isPaused) {
           if (vx !== undefined && vy !== undefined) {
             const mw = 290;
-            const mh = 330;
+            const mh = 360;
             const mx = (V_WIDTH - mw) / 2;
             const my = (vHeight - mh) / 2;
 
-            // 1. 画面の揺れ ON/OFF
-            const row1Y = my + 90;
+            // 1. BGM (音楽) ON/OFF
+            const row1Y = my + 86;
             if (vx >= mx + 16 && vx <= mx + mw - 16 && vy >= row1Y && vy <= row1Y + 38) {
-              window.__game.shakeEnabled = !shakeEnabled;
+              window.__game.bgmEnabled = !bgmEnabled;
               playSound('countdown');
               return;
             }
-            // 2. 振動 ON/OFF
-            const row2Y = my + 140;
+            // 2. 効果音 ON/OFF
+            const row2Y = my + 134;
             if (vx >= mx + 16 && vx <= mx + mw - 16 && vy >= row2Y && vy <= row2Y + 38) {
-              window.__game.vibrateEnabled = !vibrateEnabled;
-              playSound('countdown');
-              return;
-            }
-            // 3. 効果音 ON/OFF
-            const row3Y = my + 190;
-            if (vx >= mx + 16 && vx <= mx + mw - 16 && vy >= row3Y && vy <= row3Y + 38) {
               window.__game.soundEnabled = !window.__game.soundEnabled;
               playSound('countdown');
               return;
             }
-            // 4. ゲーム再開ボタン
+            // 3. 画面の揺れ ON/OFF
+            const row3Y = my + 182;
+            if (vx >= mx + 16 && vx <= mx + mw - 16 && vy >= row3Y && vy <= row3Y + 38) {
+              window.__game.shakeEnabled = !shakeEnabled;
+              playSound('countdown');
+              return;
+            }
+            // 4. 振動 ON/OFF
+            const row4Y = my + 230;
+            if (vx >= mx + 16 && vx <= mx + mw - 16 && vy >= row4Y && vy <= row4Y + 38) {
+              window.__game.vibrateEnabled = !vibrateEnabled;
+              playSound('countdown');
+              return;
+            }
+            // 5. ゲーム再開ボタン
             const resumeBtnW = 230;
             const resumeBtnH = 42;
             const resumeBtnX = (V_WIDTH - resumeBtnW) / 2;
-            const resumeBtnY = my + 255;
+            const resumeBtnY = my + 292;
             if (vx >= resumeBtnX && vx <= resumeBtnX + resumeBtnW && vy >= resumeBtnY && vy <= resumeBtnY + resumeBtnH) {
               startResumeCountdown();
               return;
@@ -1459,11 +2133,9 @@
         if (gameState === 'title') {
           // タイトル画面で「あそびかた」ボタンがタップされたか判定
           if (vx !== undefined && vy !== undefined) {
-            const btnW = 135;
-            const btnH = 30;
-            const btnX = 52;
-            const btnY = vHeight * 0.245 - 15;
-            if (vx >= btnX && vx <= btnX + btnW && vy >= btnY && vy <= btnY + btnH) {
+            const layout = getTitleLayout(vHeight);
+            if (vx >= layout.helpBtnX && vx <= layout.helpBtnX + layout.btnW &&
+                vy >= layout.helpBtnY && vy <= layout.helpBtnY + layout.btnH) {
               showHelpModal = true;
               return;
             }
@@ -1710,6 +2382,7 @@
               debrisVRot
             );
             spawnCutSparks(debrisVx > 0 ? debrisX : debrisX + debrisWidth, movingBlock.y + BLOCK_HEIGHT / 2, 10, debrisVx);
+            playSound('slice');
 
             // Determine Judgment Tier: ギリギリ! / GREAT / GOOD
             let tierName = 'GOOD';
@@ -1933,7 +2606,11 @@
       let lastInputTime = 0;
       function onUserInput(e) {
         hasUserInteracted = true;
-        if (e && e.target && e.target.closest && (e.target.closest('#mute-btn') || e.target.closest('#pause-btn'))) return;
+        if (e && e.target && e.target.closest && (
+          e.target.closest('#mute-btn') ||
+          e.target.closest('#pause-btn') ||
+          e.target.closest('#back-link')
+        )) return;
         if (e && e.preventDefault && e.cancelable) {
           e.preventDefault();
         }
@@ -2030,8 +2707,15 @@
 
       // --- Update Loop ---
       function update(dt) {
+        updateNavUI();
+        updateBgmScheduler();
+
         if (copyFeedbackTimer > 0) {
           copyFeedbackTimer = Math.max(0, copyFeedbackTimer - dt);
+        }
+
+        if (gameState === 'title') {
+          updateDemo(dt);
         }
 
         // 一時停止中はゲーム世界の更新を停止
@@ -2200,8 +2884,10 @@
           }
         }
 
-        // Placed blocks updates: flash decay, red danger pulse, width regrowth animation
-        for (let b of tower) {
+        // Placed blocks updates: recent blocks only for maximum lightweight performance
+        const updateStartIdx = Math.max(0, tower.length - 25);
+        for (let i = updateStartIdx; i < tower.length; i++) {
+          const b = tower[i];
           if (b.flash > 0) {
             b.flash = Math.max(0, b.flash - dt * 4.0);
           }
@@ -2217,7 +2903,7 @@
 
             // Emit outward expanding sparkles from both ends
             if (Math.random() < 0.7) {
-              particles.push({
+              addParticle({
                 x: b.x,
                 y: b.y + BLOCK_HEIGHT / 2,
                 vx: -Math.random() * 110 - 40,
@@ -2227,7 +2913,7 @@
                 alpha: 1.0,
                 life: 0.35
               });
-              particles.push({
+              addParticle({
                 x: b.x + b.width,
                 y: b.y + BLOCK_HEIGHT / 2,
                 vx: Math.random() * 110 + 40,
@@ -2247,7 +2933,7 @@
           }
         }
 
-        // Debris physics
+        // Debris physics (capped and culled)
         for (let i = debrisList.length - 1; i >= 0; i--) {
           const d = debrisList[i];
           d.vy += GRAVITY * dt;
@@ -2255,21 +2941,27 @@
           d.y += d.vy * dt;
           d.rot += d.vRot * dt;
           d.alpha -= dt * 0.7; // Smooth fade as it falls
-          if (d.alpha <= 0 || d.y - cameraY > vHeight + 100) {
+          if (d.alpha <= 0 || d.y - cameraY > vHeight + 60 || d.y - cameraY < -200 || d.x < -100 || d.x > V_WIDTH + 100) {
             debrisList.splice(i, 1);
           }
         }
+        if (debrisList.length > MAX_DEBRIS) {
+          debrisList.splice(0, debrisList.length - MAX_DEBRIS);
+        }
 
-        // Particles
+        // Particles (capped and culled)
         for (let i = particles.length - 1; i >= 0; i--) {
           const p = particles[i];
           p.x += p.vx * dt;
           p.y += p.vy * dt;
           p.vy += GRAVITY * 0.4 * dt;
           p.alpha -= dt / p.life;
-          if (p.alpha <= 0) {
+          if (p.alpha <= 0 || p.y - cameraY > vHeight + 40 || p.y - cameraY < -80 || p.x < -50 || p.x > V_WIDTH + 50) {
             particles.splice(i, 1);
           }
+        }
+        if (particles.length > MAX_PARTICLES) {
+          particles.splice(0, particles.length - MAX_PARTICLES);
         }
 
         // Expanding rings
@@ -2624,8 +3316,9 @@
         context.fillStyle = 'rgba(15, 23, 42, 0.65)';
         context.strokeStyle = 'rgba(255, 255, 255, 0.16)';
         context.lineWidth = 1;
+        const radius = Math.min(8, Math.round(h * 0.24));
         context.beginPath();
-        context.roundRect(x, y, w, h, 8);
+        context.roundRect(x, y, w, h, radius);
         context.fill();
         context.stroke();
 
@@ -2633,21 +3326,25 @@
         const targetVal = m.target;
         const isDone = clearedMissionIds.includes(m.id) || curVal >= targetVal;
 
+        const titleFontSize = Math.max(10, Math.min(12, Math.round(h * 0.35)));
+        const numFontSize = Math.max(9, Math.min(11, Math.round(h * 0.32)));
+        const textY = y + Math.round(h * 0.44);
+        const barY = y + Math.round(h * 0.68);
+        const barH = Math.max(3, Math.min(4, Math.round(h * 0.11)));
+
         context.fillStyle = '#ffffff';
-        context.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+        context.font = `bold ${titleFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif`;
         context.textAlign = 'left';
-        context.fillText(`🎯 ${m.title}`, x + 10, y + 15);
+        context.fillText(`🎯 ${m.title}`, x + 10, textY);
 
         context.textAlign = 'right';
-        context.font = 'bold 11px -apple-system, sans-serif';
+        context.font = `bold ${numFontSize}px -apple-system, sans-serif`;
         context.fillStyle = isDone ? '#4ade80' : '#38bdf8';
-        context.fillText(isDone ? 'CLEAR!' : `${curVal} / ${targetVal}`, x + w - 10, y + 15);
+        context.fillText(isDone ? 'CLEAR!' : `${curVal} / ${targetVal}`, x + w - 10, textY);
 
         // プログレスバー
         const barX = x + 10;
-        const barY = y + 22;
         const barW = w - 20;
-        const barH = 4;
         context.fillStyle = 'rgba(255, 255, 255, 0.12)';
         context.beginPath();
         context.roundRect(barX, barY, barW, barH, 2);
@@ -2791,9 +3488,9 @@
         context.fillStyle = 'rgba(10, 15, 26, 0.85)';
         context.fillRect(0, 0, V_WIDTH, vHeight);
 
-        // モーダルボックス (290 x 330)
+        // モーダルボックス (290 x 360)
         const mw = 290;
-        const mh = 330;
+        const mh = 360;
         const mx = (V_WIDTH - mw) / 2;
         const my = (vHeight - mh) / 2;
 
@@ -2811,18 +3508,19 @@
         context.textAlign = 'center';
         context.fillStyle = '#ffffff';
         context.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
-        context.fillText('⏸️ 一時停止', V_WIDTH / 2, my + 38);
+        context.fillText('⏸️ 一時停止', V_WIDTH / 2, my + 36);
 
         // 設定小見出し
         context.fillStyle = 'rgba(255, 255, 255, 0.6)';
         context.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        context.fillText('設定 (タップで切替)', V_WIDTH / 2, my + 66);
+        context.fillText('設定 (タップで切替)', V_WIDTH / 2, my + 64);
 
         // 設定トグルリスト
         const settings = [
-          { name: '画面の揺れ', enabled: shakeEnabled, y: my + 90 },
-          { name: '振動',       enabled: vibrateEnabled, y: my + 140 },
-          { name: '効果音',     enabled: !isMuted,       y: my + 190 }
+          { name: 'BGM (音楽)', enabled: bgmEnabled,     y: my + 86 },
+          { name: '効果音',     enabled: !isMuted,       y: my + 134 },
+          { name: '画面の揺れ', enabled: shakeEnabled,   y: my + 182 },
+          { name: '振動',       enabled: vibrateEnabled, y: my + 230 }
         ];
 
         for (let s of settings) {
@@ -2869,7 +3567,7 @@
         const resumeBtnW = 230;
         const resumeBtnH = 42;
         const resumeBtnX = (V_WIDTH - resumeBtnW) / 2;
-        const resumeBtnY = my + 255;
+        const resumeBtnY = my + 292;
 
         context.fillStyle = 'rgba(56, 189, 248, 0.25)';
         context.strokeStyle = '#38bdf8';
@@ -2980,194 +3678,200 @@
           }
         }
 
-        // Camera offset for world objects
-        ctx.save();
-        ctx.translate(0, -cameraY);
+        if (gameState === 'title') {
+          // タイトル画面の背景デモ（薄め・ゆっくり）
+          renderDemo(ctx);
+        } else {
+          // Camera offset for world objects
+          ctx.save();
+          ctx.translate(0, -cameraY);
 
-        // Apply tactile tower bounce to pedestal and placed blocks
-        ctx.save();
-        ctx.translate(0, towerBounceY);
+          // Apply tactile tower bounce to pedestal and placed blocks
+          ctx.save();
+          ctx.translate(0, towerBounceY);
 
-        // Draw ground foundation pedestal
-        const floorY = vHeight * 0.70;
-        const pedestalHeight = Math.max(300, vHeight - floorY + 200);
-        const pedestalGrad = ctx.createLinearGradient(0, floorY + BLOCK_HEIGHT, 0, floorY + BLOCK_HEIGHT + pedestalHeight);
-        pedestalGrad.addColorStop(0, '#1a2332');
-        pedestalGrad.addColorStop(1, '#0b111a');
-        ctx.fillStyle = pedestalGrad;
-        ctx.beginPath();
-        ctx.roundRect((V_WIDTH - 240) / 2, floorY + BLOCK_HEIGHT, 240, pedestalHeight, [4, 4, 0, 0]);
-        ctx.fill();
+          // Draw ground foundation pedestal
+          const floorY = vHeight * 0.70;
+          const pedestalHeight = Math.max(300, vHeight - floorY + 200);
+          const pedestalGrad = ctx.createLinearGradient(0, floorY + BLOCK_HEIGHT, 0, floorY + BLOCK_HEIGHT + pedestalHeight);
+          pedestalGrad.addColorStop(0, '#1a2332');
+          pedestalGrad.addColorStop(1, '#0b111a');
+          ctx.fillStyle = pedestalGrad;
+          ctx.beginPath();
+          ctx.roundRect((V_WIDTH - 240) / 2, floorY + BLOCK_HEIGHT, 240, pedestalHeight, [4, 4, 0, 0]);
+          ctx.fill();
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-        ctx.fillRect((V_WIDTH - 236) / 2, floorY + BLOCK_HEIGHT, 236, 2);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+          ctx.fillRect((V_WIDTH - 236) / 2, floorY + BLOCK_HEIGHT, 236, 2);
 
-        // 4. ベスト目標: 塔の横（世界座標）に自己ベストの高さの位置に「BEST」の点線ラインを描く
-        if (best > 0) {
-          const bestY = floorY - best * BLOCK_HEIGHT;
-          if (bestY - cameraY >= -80 && bestY - cameraY <= vHeight + 80) {
-            ctx.save();
-            ctx.setLineDash([6, 5]);
-            ctx.strokeStyle = 'rgba(255, 215, 0, 0.75)';
-            ctx.lineWidth = 1.8;
-            ctx.shadowColor = 'rgba(255, 215, 0, 0.5)';
-            ctx.shadowBlur = 6;
-            ctx.beginPath();
-            ctx.moveTo(10, bestY);
-            ctx.lineTo(V_WIDTH - 18, bestY);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // BEST フラグラベル（画面右端の高度メーターより内側に収め、重ならないように配置）
-            const labelW = 80;
-            const labelH = 20;
-            const labelX = V_WIDTH - 52 - labelW;
-            const labelY = bestY - 10;
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-            ctx.strokeStyle = '#ffd700';
-            ctx.lineWidth = 1.2;
-            ctx.beginPath();
-            ctx.roundRect(labelX, labelY, labelW, labelH, 4);
-            ctx.fill();
-            ctx.stroke();
-
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#ffd700';
-            ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText(`👑 BEST ${best}段`, labelX + labelW / 2, labelY + 14);
-            ctx.restore();
-          }
-        }
-
-        // Draw placed tower blocks
-        for (let b of tower) {
-          // Viewport culling
-          if (b.y - cameraY > vHeight + 50 || b.y + b.height - cameraY < -50) continue;
-          draw2DBlock(ctx, b.x, b.y, b.width, b.height, b.hue, b.flash, b.dangerPulse, b.regrow, b.specialType, b.isBase);
-        }
-
-        ctx.restore(); // Restore towerBounceY
-
-        // Draw moving block (with残像 for fast blocks, gold aura for gold blocks)
-        if (movingBlock) {
-          // 速いブロックの残像描画
-          if (movingBlock.specialType === 'fast' && movingBlock.afterimages) {
-            for (let img of movingBlock.afterimages) {
+          // 4. ベスト目標: 塔の横（世界座標）に自己ベストの高さの位置に「BEST」の点線ラインを描く
+          if (best > 0) {
+            const bestY = floorY - best * BLOCK_HEIGHT;
+            if (bestY - cameraY >= -80 && bestY - cameraY <= vHeight + 80) {
               ctx.save();
-              ctx.globalAlpha = Math.max(0, img.alpha * 0.55);
-              draw2DBlock(ctx, img.x, img.y, img.width, img.height, movingBlock.hue, 0, 0, null, 'fast', false);
+              ctx.setLineDash([6, 5]);
+              ctx.strokeStyle = 'rgba(255, 215, 0, 0.75)';
+              ctx.lineWidth = 1.8;
+              ctx.shadowColor = 'rgba(255, 215, 0, 0.5)';
+              ctx.shadowBlur = 6;
+              ctx.beginPath();
+              ctx.moveTo(10, bestY);
+              ctx.lineTo(V_WIDTH - 18, bestY);
+              ctx.stroke();
+              ctx.setLineDash([]);
+
+              // BEST フラグラベル（画面右端の高度メーターより内側に収め、目盛りと重ならないように配置）
+              const labelW = 80;
+              const labelH = 20;
+              const labelX = V_WIDTH - 100 - labelW;
+              const labelY = bestY - 10;
+              ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+              ctx.strokeStyle = '#ffd700';
+              ctx.lineWidth = 1.2;
+              ctx.beginPath();
+              ctx.roundRect(labelX, labelY, labelW, labelH, 4);
+              ctx.fill();
+              ctx.stroke();
+
+              ctx.shadowBlur = 0;
+              ctx.fillStyle = '#ffd700';
+              ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillText(`👑 BEST ${best}段`, labelX + labelW / 2, labelY + 14);
               ctx.restore();
             }
           }
 
-          // 移動ブロック本体
-          draw2DBlock(ctx, movingBlock.x, movingBlock.y, movingBlock.width, movingBlock.height, movingBlock.hue, 0, 0, null, movingBlock.specialType, false);
+          // Draw placed tower blocks (View frustum culling)
+          for (let b of tower) {
+            if (b.y - cameraY > vHeight + 50 || b.y + b.height - cameraY < -50) continue;
+            draw2DBlock(ctx, b.x, b.y, b.width, b.height, b.hue, b.flash, b.dangerPulse, b.regrow, b.specialType, b.isBase);
+          }
 
-          // 特殊ブロックのヘッドバッジ (見た目ですぐ分かるように)
-          if (movingBlock.specialType === 'gold') {
+          ctx.restore(); // Restore towerBounceY
+
+          // Draw moving block (with残像 for fast blocks, gold aura for gold blocks)
+          if (movingBlock) {
+            // 速いブロックの残像描画
+            if (movingBlock.specialType === 'fast' && movingBlock.afterimages) {
+              for (let img of movingBlock.afterimages) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, img.alpha * 0.55);
+                draw2DBlock(ctx, img.x, img.y, img.width, img.height, movingBlock.hue, 0, 0, null, 'fast', false);
+                ctx.restore();
+              }
+            }
+
+            // 移動ブロック本体
+            draw2DBlock(ctx, movingBlock.x, movingBlock.y, movingBlock.width, movingBlock.height, movingBlock.hue, 0, 0, null, movingBlock.specialType, false);
+
+            // 特殊ブロックのヘッドバッジ (見た目ですぐ分かるように)
+            if (movingBlock.specialType === 'gold') {
+              ctx.save();
+              const badgeW = 68;
+              const badgeH = 18;
+              const badgeX = movingBlock.x + (movingBlock.width - badgeW) / 2;
+              const badgeY = movingBlock.y - 23;
+              ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+              ctx.strokeStyle = '#ffd700';
+              ctx.lineWidth = 1.2;
+              ctx.shadowColor = 'rgba(255, 215, 0, 0.7)';
+              ctx.shadowBlur = 8;
+              ctx.beginPath();
+              ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 9);
+              ctx.fill();
+              ctx.stroke();
+
+              ctx.shadowBlur = 0;
+              ctx.fillStyle = '#ffd700';
+              ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillText('★ GOLD ★', badgeX + badgeW / 2, badgeY + 13);
+              ctx.restore();
+            } else if (movingBlock.specialType === 'fast') {
+              ctx.save();
+              const badgeW = 76;
+              const badgeH = 18;
+              const badgeX = movingBlock.x + (movingBlock.width - badgeW) / 2;
+              const badgeY = movingBlock.y - 23;
+              ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+              ctx.strokeStyle = '#00f2fe';
+              ctx.lineWidth = 1.2;
+              ctx.shadowColor = 'rgba(0, 242, 254, 0.7)';
+              ctx.shadowBlur = 8;
+              ctx.beginPath();
+              ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 9);
+              ctx.fill();
+              ctx.stroke();
+
+              ctx.shadowBlur = 0;
+              ctx.fillStyle = '#00f2fe';
+              ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillText('⚡ SPEED 1.6x', badgeX + badgeW / 2, badgeY + 13);
+              ctx.restore();
+            }
+          }
+
+          // Draw falling sliced debris (View frustum culling)
+          for (let d of debrisList) {
+            if (d.y - cameraY > vHeight + 50 || d.y + d.height - cameraY < -50) continue;
+            drawDebris(ctx, d);
+          }
+
+          // Draw expanding rings
+          for (let r of rings) {
             ctx.save();
-            const badgeW = 68;
-            const badgeH = 18;
-            const badgeX = movingBlock.x + (movingBlock.width - badgeW) / 2;
-            const badgeY = movingBlock.y - 23;
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-            ctx.strokeStyle = '#ffd700';
-            ctx.lineWidth = 1.2;
-            ctx.shadowColor = 'rgba(255, 215, 0, 0.7)';
-            ctx.shadowBlur = 8;
+            ctx.strokeStyle = `hsla(${r.hue}, 100%, 75%, ${r.alpha})`;
+            ctx.lineWidth = 2.5;
             ctx.beginPath();
-            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 9);
-            ctx.fill();
+            ctx.ellipse(r.x, r.y, r.radiusX * r.scale, r.radiusY * r.scale * 1.5, 0, 0, Math.PI * 2);
             ctx.stroke();
-
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#ffd700';
-            ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('★ GOLD ★', badgeX + badgeW / 2, badgeY + 13);
-            ctx.restore();
-          } else if (movingBlock.specialType === 'fast') {
-            ctx.save();
-            const badgeW = 76;
-            const badgeH = 18;
-            const badgeX = movingBlock.x + (movingBlock.width - badgeW) / 2;
-            const badgeY = movingBlock.y - 23;
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-            ctx.strokeStyle = '#00f2fe';
-            ctx.lineWidth = 1.2;
-            ctx.shadowColor = 'rgba(0, 242, 254, 0.7)';
-            ctx.shadowBlur = 8;
-            ctx.beginPath();
-            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 9);
-            ctx.fill();
-            ctx.stroke();
-
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#00f2fe';
-            ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('⚡ SPEED 1.6x', badgeX + badgeW / 2, badgeY + 13);
             ctx.restore();
           }
-        }
 
-        // Draw falling sliced debris
-        for (let d of debrisList) {
-          drawDebris(ctx, d);
-        }
-
-        // Draw expanding rings
-        for (let r of rings) {
-          ctx.save();
-          ctx.strokeStyle = `hsla(${r.hue}, 100%, 75%, ${r.alpha})`;
-          ctx.lineWidth = 2.5;
-          ctx.beginPath();
-          ctx.ellipse(r.x, r.y, r.radiusX * r.scale, r.radiusY * r.scale * 1.5, 0, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.restore();
-        }
-
-        // Draw particles
-        for (let p of particles) {
-          ctx.save();
-          ctx.fillStyle = p.color;
-          ctx.globalAlpha = Math.max(0, p.alpha);
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
-        }
-
-        // Draw floating judgment and score popup texts
-        for (let ft of floatingTexts) {
-          ctx.save();
-          const currentScale = ft.currentScale || ft.baseScale || 1.0;
-          const drawX = ft.jitter ? ft.x + (Math.random() - 0.5) * 3.5 : ft.x;
-          const drawY = ft.jitter ? ft.y + (Math.random() - 0.5) * 3.5 : ft.y;
-          ctx.font = `bold ${Math.round((ft.fontSize || 18) * currentScale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.globalAlpha = Math.max(0, ft.alpha);
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-          ctx.shadowBlur = 5;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 1.5;
-          ctx.strokeStyle = '#070c18';
-          ctx.lineWidth = ft.type === 'point' ? 3.5 : 4;
-          ctx.strokeText(ft.text, drawX, drawY);
-
-          ctx.fillStyle = ft.color;
-          if (ft.glow) {
-            ctx.shadowColor = ft.glow;
-            ctx.shadowBlur = 12;
-          } else {
-            ctx.shadowBlur = 0;
+          // Draw particles (View frustum culling)
+          for (let p of particles) {
+            if (p.y - cameraY > vHeight + 30 || p.y - cameraY < -30) continue;
+            ctx.save();
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = Math.max(0, p.alpha);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
           }
-          ctx.fillText(ft.text, drawX, drawY);
-          ctx.restore();
-        }
 
-        ctx.restore(); // Restore camera translation
+          // Draw floating judgment and score popup texts
+          for (let ft of floatingTexts) {
+            ctx.save();
+            const currentScale = ft.currentScale || ft.baseScale || 1.0;
+            const drawX = ft.jitter ? ft.x + (Math.random() - 0.5) * 3.5 : ft.x;
+            const drawY = ft.jitter ? ft.y + (Math.random() - 0.5) * 3.5 : ft.y;
+            ctx.font = `bold ${Math.round((ft.fontSize || 18) * currentScale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.globalAlpha = Math.max(0, ft.alpha);
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+            ctx.shadowBlur = 5;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 1.5;
+            ctx.strokeStyle = '#070c18';
+            ctx.lineWidth = ft.type === 'point' ? 3.5 : 4;
+            ctx.strokeText(ft.text, drawX, drawY);
+
+            ctx.fillStyle = ft.color;
+            if (ft.glow) {
+              ctx.shadowColor = ft.glow;
+              ctx.shadowBlur = 12;
+            } else {
+              ctx.shadowBlur = 0;
+            }
+            ctx.fillText(ft.text, drawX, drawY);
+            ctx.restore();
+          }
+
+          ctx.restore(); // Restore camera translation
+        }
 
         // --- HUD Overlay (Fixed Screen Space within Column) ---
         if (gameState === 'play') {
@@ -3275,28 +3979,26 @@
           ctx.save();
           ctx.textAlign = 'center';
 
+          const layout = getTitleLayout(vHeight);
+
           // 1. タイトルロゴ
-          ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          ctx.font = `bold ${layout.titleFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif`;
           ctx.strokeStyle = 'rgba(15, 23, 42, 0.7)';
           ctx.lineWidth = 4;
-          ctx.strokeText('積み上げタワー', V_WIDTH / 2, vHeight * 0.115);
+          ctx.strokeText('積み上げタワー', V_WIDTH / 2, layout.titleY);
           ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
           ctx.shadowBlur = 10;
           ctx.shadowOffsetY = 2;
           ctx.fillStyle = '#ffffff';
-          ctx.fillText('積み上げタワー', V_WIDTH / 2, vHeight * 0.115);
+          ctx.fillText('積み上げタワー', V_WIDTH / 2, layout.titleY);
 
           // 2. サブタイトル帯
-          const descW = 310;
-          const descH = 28;
-          const descX = (V_WIDTH - descW) / 2;
-          const descY = vHeight * 0.158 - 14;
           ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
           ctx.shadowBlur = 6;
           ctx.shadowOffsetY = 2;
           ctx.fillStyle = 'rgba(15, 23, 42, 0.58)';
           ctx.beginPath();
-          ctx.roundRect(descX, descY, descW, descH, 14);
+          ctx.roundRect(layout.descX, layout.descY, layout.descW, layout.descH, layout.descH / 2);
           ctx.fill();
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
           ctx.lineWidth = 1;
@@ -3305,87 +4007,70 @@
           ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
           ctx.shadowBlur = 4;
           ctx.shadowOffsetY = 1;
-          ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          ctx.font = `600 ${layout.descFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif`;
           ctx.fillStyle = '#ffffff';
-          ctx.fillText('タイミングよくタップしてブロックを積もう！', V_WIDTH / 2, vHeight * 0.158 + 4);
+          ctx.fillText('タイミングよくタップしてブロックを積もう！', V_WIDTH / 2, layout.descY + Math.round(layout.descH * 0.65));
 
           // 3. 称号表示バッジ
           const playerRank = getPlayerRank(clearedMissionIds.length);
-          const rankW = 210;
-          const rankH = 26;
-          const rankX = (V_WIDTH - rankW) / 2;
-          const rankY = vHeight * 0.20 - 13;
           ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
           ctx.strokeStyle = playerRank.color;
           ctx.lineWidth = 1.2;
           ctx.beginPath();
-          ctx.roundRect(rankX, rankY, rankW, rankH, 13);
+          ctx.roundRect(layout.rankX, layout.rankY, layout.rankW, layout.rankH, layout.rankH / 2);
           ctx.fill();
           ctx.stroke();
 
-          ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          ctx.font = `bold ${layout.rankFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif`;
           ctx.fillStyle = playerRank.color;
-          ctx.fillText(`称号: ${playerRank.name} ${playerRank.stars}`, V_WIDTH / 2, rankY + 17);
+          ctx.fillText(`称号: ${playerRank.name} ${playerRank.stars}`, V_WIDTH / 2, layout.rankY + Math.round(layout.rankH * 0.65));
 
           // 4. 「❓ あそびかた」ボタン & 「👑 自己ベスト」
-          const btnW = 135;
-          const btnH = 30;
-          const helpBtnX = 52;
-          const helpBtnY = vHeight * 0.245 - 15;
-
           // あそびかたボタン（濃い背景＋白文字で青空の上でもはっきり読める）
           ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
           ctx.strokeStyle = '#38bdf8';
           ctx.lineWidth = 1.2;
           ctx.beginPath();
-          ctx.roundRect(helpBtnX, helpBtnY, btnW, btnH, 15);
+          ctx.roundRect(layout.helpBtnX, layout.helpBtnY, layout.btnW, layout.btnH, layout.btnH / 2);
           ctx.fill();
           ctx.stroke();
 
-          ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          ctx.font = `bold ${layout.btnFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif`;
           ctx.fillStyle = '#ffffff';
-          ctx.fillText('❓ あそびかた', helpBtnX + btnW / 2, helpBtnY + 19);
+          ctx.fillText('❓ あそびかた', layout.helpBtnX + layout.btnW / 2, layout.helpBtnY + Math.round(layout.btnH * 0.65));
 
           // 自己ベスト
-          const bestBtnX = 203;
-          const bestBtnY = helpBtnY;
           ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
           ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)';
           ctx.lineWidth = 1.2;
           ctx.beginPath();
-          ctx.roundRect(bestBtnX, bestBtnY, btnW, btnH, 15);
+          ctx.roundRect(layout.bestBtnX, layout.bestBtnY, layout.btnW, layout.btnH, layout.btnH / 2);
           ctx.fill();
           ctx.stroke();
 
           ctx.fillStyle = '#ffd700';
-          ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          ctx.fillText(`👑 BEST: ${best}段`, bestBtnX + btnW / 2, bestBtnY + 19);
+          ctx.font = `bold ${layout.btnFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          ctx.fillText(`👑 BEST: ${best}段`, layout.bestBtnX + layout.btnW / 2, layout.bestBtnY + Math.round(layout.btnH * 0.65));
 
           // 5. 常に3つのミッション表示
-          const missionHeaderY = vHeight * 0.29;
           ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          ctx.font = `bold ${layout.missionHeaderFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif`;
           ctx.textAlign = 'left';
-          ctx.fillText('🎯 現在のミッション (3つ)', 32, missionHeaderY);
+          ctx.fillText('🎯 現在のミッション (3つ)', 32, layout.missionHeaderY);
           ctx.textAlign = 'right';
           ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-          ctx.font = '11px -apple-system, sans-serif';
-          ctx.fillText(`達成: ${clearedMissionIds.length} / ${MISSION_LIST.length}`, V_WIDTH - 32, missionHeaderY);
+          ctx.font = `${Math.max(10, layout.missionHeaderFontSize - 2)}px -apple-system, sans-serif`;
+          ctx.fillText(`達成: ${clearedMissionIds.length} / ${MISSION_LIST.length}`, V_WIDTH - 32, layout.missionHeaderY);
 
           const activeMissions = getActiveMissions();
-          let cardY = missionHeaderY + 8;
+          let cardY = layout.cardStartY;
           for (let m of activeMissions) {
-            drawMissionCard(ctx, m, 30, cardY, V_WIDTH - 60, 36);
-            cardY += 41;
+            drawMissionCard(ctx, m, 30, cardY, V_WIDTH - 60, layout.cardH);
+            cardY += layout.cardH + layout.cardGap;
           }
 
           // 6. スタートボタン
           const pulse = Math.sin(performance.now() * 0.005) * 0.2 + 0.8;
-          const startBtnW = 260;
-          const startBtnH = 62;
-          const startBtnX = (V_WIDTH - startBtnW) / 2;
-          const startBtnY = vHeight * 0.46;
-
           ctx.save();
           ctx.fillStyle = `rgba(15, 23, 42, ${0.60 * pulse + 0.15})`;
           ctx.strokeStyle = `rgba(78, 237, 255, ${0.5 * pulse + 0.3})`;
@@ -3394,7 +4079,7 @@
           ctx.shadowBlur = 10;
           ctx.shadowOffsetY = 3;
           ctx.beginPath();
-          ctx.roundRect(startBtnX, startBtnY, startBtnW, startBtnH, 31);
+          ctx.roundRect(layout.startBtnX, layout.startBtnY, layout.startBtnW, layout.startBtnH, layout.startBtnH / 2);
           ctx.fill();
           ctx.stroke();
 
@@ -3403,12 +4088,12 @@
           ctx.shadowBlur = 6;
           ctx.shadowOffsetY = 1;
           ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
-          ctx.fillText('▶ タップでスタート', V_WIDTH / 2, startBtnY + 28);
+          ctx.font = `bold ${layout.startBtnFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif`;
+          ctx.fillText('▶ タップでスタート', V_WIDTH / 2, layout.startBtnY + Math.round(layout.startBtnH * 0.46));
 
-          ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+          ctx.font = `${layout.startBtnSubFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
           ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
-          ctx.fillText('[Space] キーまたはクリック', V_WIDTH / 2, startBtnY + 48);
+          ctx.fillText('[Space] キーまたはクリック', V_WIDTH / 2, layout.startBtnY + Math.round(layout.startBtnH * 0.78));
           ctx.restore();
 
           // 7. あそびかたモーダル描画
@@ -3703,7 +4388,9 @@
       }
 
       // Start on title screen
+      initDemoTower();
       initTower();
+      updateNavUI();
       requestAnimationFrame(gameLoop);
 
     })();
