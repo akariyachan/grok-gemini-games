@@ -3,7 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>重力反転ランナー</title>
+  <title>重力反転ランナー - ワンタップ爽快グラビティアクション</title>
+  <meta name="description" content="タップで天地を駆け巡れ！反転ジャンプとニアミスでコンボを繋ぐワンタップ重力反転ハイスピードランナーゲーム。">
+  <meta name="theme-color" content="#0284c7">
+  <!-- OGP -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://akariyachan.github.io/grok-gemini-games/gravity-runner/">
+  <meta property="og:title" content="重力反転ランナー - ワンタップ爽快グラビティアクション">
+  <meta property="og:description" content="タップで天地を駆け巡れ！反転ジャンプとニアミスでコンボを繋ぐワンタップ重力反転ハイスピードランナーゲーム。">
+  <meta property="og:image" content="https://akariyachan.github.io/grok-gemini-games/gravity-runner/thumbnail.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="重力反転ランナー - ワンタップ爽快グラビティアクション">
+  <meta name="twitter:description" content="タップで天地を駆け巡れ！反転ジャンプとニアミスでコンボを繋ぐワンタップ重力反転ハイスピードランナーゲーム。">
+  <meta name="twitter:image" content="https://akariyachan.github.io/grok-gemini-games/gravity-runner/thumbnail.png">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230284c7'/><path d='M16 6 L22 13 L18 13 L18 26 L14 26 L14 13 L10 13 Z' fill='%23ffffff'/></svg>">
   <style>
     * {
@@ -29,9 +41,42 @@
       height: 100%;
       background: transparent;
     }
+    #back-link {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #334155;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid #cbd5e1;
+      border-radius: 9999px;
+      text-decoration: none;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+      transition: all 0.15s ease;
+      z-index: 50;
+      pointer-events: auto;
+    }
+    #back-link:hover {
+      background: #ffffff;
+      color: #0284c7;
+      border-color: #0284c7;
+      box-shadow: 0 2px 6px rgba(2, 132, 199, 0.18);
+      transform: translateY(-1px);
+    }
+    #back-link.hidden {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
+  <a id="back-link" href="../" aria-label="ゲーム一覧に戻る">← ゲーム一覧</a>
   <canvas id="game-canvas"></canvas>
 
   <script>
@@ -50,6 +95,7 @@
         this.bgmStep = 0;
         this.nextNoteTime = 0;
         this.bpm = 118;
+        this.currentTier = 0;
         try {
           const saved = localStorage.getItem('gravity_runner_muted');
           if (saved !== null) this.muted = (saved === 'true');
@@ -94,6 +140,10 @@
         this.bpm = newBpm;
       }
 
+      setTier(tierIndex) {
+        this.currentTier = Math.max(0, Math.min(3, tierIndex || 0));
+      }
+
       startBgm() {
         this.init();
         if (this.bgmPlaying) return;
@@ -125,15 +175,36 @@
 
         const bar = Math.floor(step / 16);
         const beatInBar = step % 16;
+        const tier = this.currentTier;
 
-        // 1. Drum: Kick on 0, 4, 8, 12 (Four-on-the-floor)
-        if (beatInBar % 4 === 0) {
+        // 1. Kick Drum: Instrumentation evolves with tiers
+        let isKick = false;
+        let kickGainVal = 0.32;
+        if (tier === 0) {
+          // Tier 0 (Day): Soft kick on downbeats 0, 8 (half notes)
+          isKick = (beatInBar === 0 || beatInBar === 8);
+          kickGainVal = 0.28;
+        } else if (tier === 1) {
+          // Tier 1 (Sunset): Four-on-the-floor
+          isKick = (beatInBar % 4 === 0);
+          kickGainVal = 0.33;
+        } else if (tier === 2) {
+          // Tier 2 (Night/Neon): Punchy four-on-the-floor
+          isKick = (beatInBar % 4 === 0);
+          kickGainVal = 0.36;
+        } else {
+          // Tier 3 (Warning/Hyper): Four-on-the-floor with driving 14-step syncopated kick
+          isKick = (beatInBar % 4 === 0 || beatInBar === 14);
+          kickGainVal = 0.38;
+        }
+
+        if (isKick) {
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(115, time);
+          osc.frequency.setValueAtTime(tier >= 2 ? 125 : 110, time);
           osc.frequency.exponentialRampToValueAtTime(32, time + 0.07);
-          gain.gain.setValueAtTime(0.35, time);
+          gain.gain.setValueAtTime(kickGainVal, time);
           gain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
           osc.connect(gain);
           gain.connect(this.bgmGain);
@@ -141,54 +212,123 @@
           osc.stop(time + 0.09);
         }
 
-        // 2. Drum: Hi-hat on offbeats (2, 6, 10, 14)
-        if (beatInBar % 4 === 2) {
+        // 2. Hi-hat: Evolves from silent in Tier 0 to 16th-note ride in Tier 3
+        let isHiHat = false;
+        let hatDecay = 0.025;
+        let hatGain = 0.07;
+        if (tier === 1) {
+          // Offbeat 8th notes (2, 6, 10, 14)
+          isHiHat = (beatInBar % 4 === 2);
+          hatGain = 0.07;
+        } else if (tier === 2) {
+          // 16th notes on all even steps (0, 2, 4, 6, 8, 10, 12, 14)
+          isHiHat = (beatInBar % 2 === 0);
+          hatGain = (beatInBar % 4 === 2) ? 0.08 : 0.05;
+        } else if (tier >= 3) {
+          // Fast driving 16th hats with open hat accents
+          isHiHat = (beatInBar % 2 === 0);
+          const isOpen = (beatInBar === 2 || beatInBar === 10);
+          hatDecay = isOpen ? 0.055 : 0.022;
+          hatGain = isOpen ? 0.10 : 0.06;
+        }
+
+        if (isHiHat) {
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.type = 'square';
-          osc.frequency.setValueAtTime(800, time);
-          gain.gain.setValueAtTime(0.08, time);
-          gain.gain.exponentialRampToValueAtTime(0.001, time + 0.025);
+          osc.frequency.setValueAtTime(tier >= 2 ? 1100 : 850, time);
+          gain.gain.setValueAtTime(hatGain, time);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + hatDecay);
           osc.connect(gain);
           gain.connect(this.bgmGain);
           osc.start(time);
-          osc.stop(time + 0.03);
+          osc.stop(time + hatDecay + 0.01);
         }
 
-        // 3. Bassline: Am - F - C - G progression (1 bar each)
+        // 3. Snare / Clap: Added in Tier 2 and Tier 3 on backbeats (4, 12)
+        if (tier >= 2 && (beatInBar === 4 || beatInBar === 12)) {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(260, time);
+          osc.frequency.exponentialRampToValueAtTime(75, time + 0.06);
+          gain.gain.setValueAtTime(tier >= 3 ? 0.18 : 0.14, time);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + 0.07);
+          osc.connect(gain);
+          gain.connect(this.bgmGain);
+          osc.start(time);
+          osc.stop(time + 0.08);
+        }
+
+        // 4. Bassline: Am - F - C - G progression (1 bar each)
         const rootFreqs = [55.0, 43.65, 65.4, 49.0];
         const currentRoot = rootFreqs[bar];
 
-        // Bass groove pattern on steps 0, 3, 6, 8, 11, 14
-        const isBassStep = (beatInBar === 0 || beatInBar === 3 || beatInBar === 6 || beatInBar === 8 || beatInBar === 11 || beatInBar === 14);
+        let isBassStep = false;
+        let bassFreq = currentRoot;
+        if (tier === 0) {
+          // Simple root notes on 0, 8
+          isBassStep = (beatInBar === 0 || beatInBar === 8);
+          bassFreq = currentRoot;
+        } else if (tier === 1) {
+          // Standard groove pattern on 0, 3, 6, 8, 11, 14
+          isBassStep = (beatInBar === 0 || beatInBar === 3 || beatInBar === 6 || beatInBar === 8 || beatInBar === 11 || beatInBar === 14);
+          const freqMultiplier = (beatInBar === 6 || beatInBar === 14) ? 2.0 : 1.0;
+          bassFreq = currentRoot * freqMultiplier;
+        } else if (tier === 2) {
+          // Funk bass on 0, 2, 3, 6, 8, 10, 11, 14 with octave jumps
+          isBassStep = (beatInBar === 0 || beatInBar === 2 || beatInBar === 3 || beatInBar === 6 || beatInBar === 8 || beatInBar === 10 || beatInBar === 11 || beatInBar === 14);
+          const freqMultiplier = (beatInBar === 6 || beatInBar === 14) ? 2.0 : (beatInBar === 10 ? 1.5 : 1.0);
+          bassFreq = currentRoot * freqMultiplier;
+        } else {
+          // Driving 16th acid bassline in Tier 3
+          isBassStep = (beatInBar % 2 === 0 || beatInBar === 3 || beatInBar === 7 || beatInBar === 11 || beatInBar === 15);
+          const freqMultiplier = (beatInBar % 4 === 2) ? 2.0 : 1.0;
+          bassFreq = currentRoot * freqMultiplier;
+        }
+
         if (isBassStep) {
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
-          osc.type = 'sawtooth';
-          const freqMultiplier = (beatInBar === 6 || beatInBar === 14) ? 2.0 : 1.0;
-          osc.frequency.setValueAtTime(currentRoot * freqMultiplier, time);
+          osc.type = (tier === 0) ? 'triangle' : 'sawtooth';
+          osc.frequency.setValueAtTime(bassFreq, time);
 
-          gain.gain.setValueAtTime(0.18, time);
-          gain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+          const bassGainVal = (tier >= 2 ? 0.20 : 0.16);
+          gain.gain.setValueAtTime(bassGainVal, time);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + (tier === 0 ? 0.16 : 0.11));
           osc.connect(gain);
           gain.connect(this.bgmGain);
           osc.start(time);
           osc.stop(time + 0.14);
         }
 
-        // 4. Arpeggiated high chime melody on selected syncopated steps
-        const isChimeStep = (beatInBar === 2 || beatInBar === 5 || beatInBar === 7 || beatInBar === 10 || beatInBar === 13);
+        // 5. Arpeggiated chime / synth melody
+        let isChimeStep = false;
+        if (tier === 0) {
+          // Gentle chimes on steps 2, 7, 10
+          isChimeStep = (beatInBar === 2 || beatInBar === 7 || beatInBar === 10);
+        } else if (tier === 1) {
+          // Standard arpeggio on 2, 5, 7, 10, 13
+          isChimeStep = (beatInBar === 2 || beatInBar === 5 || beatInBar === 7 || beatInBar === 10 || beatInBar === 13);
+        } else if (tier === 2) {
+          // Upbeat syncopated melody
+          isChimeStep = (beatInBar % 2 === 1 || beatInBar === 6 || beatInBar === 14);
+        } else {
+          // High octane arpeggio stream in Tier 3
+          isChimeStep = (beatInBar % 2 === 1 || beatInBar % 4 === 2);
+        }
+
         if (isChimeStep) {
-          const pentatonicOffsets = [0, 3, 7, 10, 12];
-          const offsetIndex = (beatInBar * 3 + bar) % pentatonicOffsets.length;
+          const pentatonicOffsets = [0, 3, 7, 10, 12, 15];
+          const offsetIndex = (beatInBar * 3 + bar * 2) % pentatonicOffsets.length;
           const semitone = pentatonicOffsets[offsetIndex];
           const chimeFreq = currentRoot * 8 * Math.pow(2, semitone / 12);
 
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
-          osc.type = 'sine';
+          osc.type = (tier >= 2) ? 'triangle' : 'sine';
           osc.frequency.setValueAtTime(chimeFreq, time);
-          gain.gain.setValueAtTime(0.08, time);
+          gain.gain.setValueAtTime(tier >= 2 ? 0.09 : 0.07, time);
           gain.gain.exponentialRampToValueAtTime(0.001, time + 0.09);
           osc.connect(gain);
           gain.connect(this.bgmGain);
@@ -197,67 +337,74 @@
         }
       }
 
+      canPlay(isStartSound = false) {
+        if (this.muted || !this.ctx || !this.sfxGain) return false;
+        if (!isStartSound && typeof state !== 'undefined' && state === 'title') return false;
+        return true;
+      }
+
+      // --- Differentiated SFX with Balanced Levels ---
       playFlip(isToCeiling) {
-        if (this.muted || !this.ctx || !this.sfxGain) return;
+        if (!this.canPlay()) return;
         try {
           const t = this.ctx.currentTime;
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.type = 'sine';
           if (isToCeiling) {
-            osc.frequency.setValueAtTime(260, t);
-            osc.frequency.exponentialRampToValueAtTime(540, t + 0.18);
+            osc.frequency.setValueAtTime(280, t);
+            osc.frequency.exponentialRampToValueAtTime(560, t + 0.16);
           } else {
-            osc.frequency.setValueAtTime(500, t);
-            osc.frequency.exponentialRampToValueAtTime(240, t + 0.18);
+            osc.frequency.setValueAtTime(540, t);
+            osc.frequency.exponentialRampToValueAtTime(260, t + 0.16);
           }
-          gain.gain.setValueAtTime(0.15, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+          gain.gain.setValueAtTime(0.14, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
           osc.connect(gain);
           gain.connect(this.sfxGain);
           osc.start(t);
-          osc.stop(t + 0.24);
+          osc.stop(t + 0.20);
         } catch(e) {}
       }
 
       playLand() {
-        if (this.muted || !this.ctx || !this.sfxGain) return;
+        if (!this.canPlay()) return;
         try {
           const t = this.ctx.currentTime;
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.type = 'triangle';
-          osc.frequency.setValueAtTime(140, t);
-          osc.frequency.exponentialRampToValueAtTime(45, t + 0.08);
-          gain.gain.setValueAtTime(0.18, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+          osc.frequency.setValueAtTime(130, t);
+          osc.frequency.exponentialRampToValueAtTime(45, t + 0.07);
+          gain.gain.setValueAtTime(0.16, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
           osc.connect(gain);
           gain.connect(this.sfxGain);
           osc.start(t);
-          osc.stop(t + 0.12);
+          osc.stop(t + 0.10);
         } catch(e) {}
       }
 
       playCrash() {
-        if (this.muted || !this.ctx || !this.sfxGain) return;
+        if (!this.canPlay()) return;
         try {
           const t = this.ctx.currentTime;
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(180, t);
-          osc.frequency.exponentialRampToValueAtTime(28, t + 0.38);
-          gain.gain.setValueAtTime(0.26, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
+          osc.frequency.setValueAtTime(190, t);
+          osc.frequency.exponentialRampToValueAtTime(26, t + 0.42);
+          gain.gain.setValueAtTime(0.28, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
           osc.connect(gain);
           gain.connect(this.sfxGain);
           osc.start(t);
-          osc.stop(t + 0.44);
+          osc.stop(t + 0.46);
         } catch(e) {}
       }
 
       playStart() {
-        if (this.muted || !this.ctx || !this.sfxGain) return;
+        if (!this.canPlay(true)) return;
         try {
           const t = this.ctx.currentTime;
           const osc = this.ctx.createOscillator();
@@ -275,29 +422,14 @@
       }
 
       playCoin(streakStep = 0, multiplier = 1, isStar = false) {
-        if (this.muted || !this.ctx || !this.sfxGain) return;
+        if (!this.canPlay()) return;
+        if (isStar) {
+          this.playGoldStar();
+          return;
+        }
         try {
           const t = this.ctx.currentTime;
-          if (isStar) {
-            // High sparkling gold star arpeggio chime (+50)
-            const freqs = [880, 1108.73, 1318.51, 1760, 2217.46]; // A5, C#6, E6, A6, C#7
-            freqs.forEach((freq, idx) => {
-              const osc = this.ctx.createOscillator();
-              const gain = this.ctx.createGain();
-              osc.type = 'triangle';
-              const nStart = t + idx * 0.035;
-              osc.frequency.setValueAtTime(freq, nStart);
-              gain.gain.setValueAtTime(0.18, nStart);
-              gain.gain.exponentialRampToValueAtTime(0.001, nStart + 0.18);
-              osc.connect(gain);
-              gain.connect(this.sfxGain);
-              osc.start(nStart);
-              osc.stop(nStart + 0.2);
-            });
-            return;
-          }
-
-          // Pentatonic scale with octave escalation for satisfying consecutive pickups
+          // Pentatonic scale ascending with consecutive pickups
           const scale = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51, 1567.98, 1760.0, 2093.0];
           const stepIndex = Math.min(scale.length - 1, Math.max(0, streakStep));
           const f1 = scale[stepIndex];
@@ -317,28 +449,50 @@
           const osc2 = this.ctx.createOscillator();
           const gain2 = this.ctx.createGain();
           osc2.type = 'sine';
-          osc2.frequency.setValueAtTime(f2, t + 0.03);
-          gain2.gain.setValueAtTime(0.18, t + 0.03);
-          gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+          osc2.frequency.setValueAtTime(f2, t + 0.025);
+          gain2.gain.setValueAtTime(0.16, t + 0.025);
+          gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
           osc2.connect(gain2);
           gain2.connect(this.sfxGain);
-          osc2.start(t + 0.03);
-          osc2.stop(t + 0.15);
+          osc2.start(t + 0.025);
+          osc2.stop(t + 0.14);
+        } catch(e) {}
+      }
+
+      // Distinct, sparkling Gold Star sound (+50)
+      playGoldStar() {
+        if (!this.canPlay()) return;
+        try {
+          const t = this.ctx.currentTime;
+          const freqs = [880, 1108.73, 1318.51, 1760, 2217.46, 2637.02]; // A5, C#6, E6, A6, C#7, E7
+          freqs.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            const nStart = t + idx * 0.032;
+            osc.frequency.setValueAtTime(freq, nStart);
+            gain.gain.setValueAtTime(0.19, nStart);
+            gain.gain.exponentialRampToValueAtTime(0.001, nStart + 0.17);
+            osc.connect(gain);
+            gain.connect(this.sfxGain);
+            osc.start(nStart);
+            osc.stop(nStart + 0.19);
+          });
         } catch(e) {}
       }
 
       playPowerUp() {
-        if (this.muted || !this.ctx || !this.sfxGain) return;
+        if (!this.canPlay()) return;
         try {
           const t = this.ctx.currentTime;
-          const freqs = [440, 554.37, 659.25, 880, 1108.73]; // A major rising flourish
+          const freqs = [523.25, 659.25, 783.99, 1046.5, 1318.51]; // C major rising flourish
           freqs.forEach((freq, idx) => {
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
             osc.type = 'triangle';
             const noteStart = t + idx * 0.04;
             osc.frequency.setValueAtTime(freq, noteStart);
-            gain.gain.setValueAtTime(0.2, noteStart);
+            gain.gain.setValueAtTime(0.20, noteStart);
             gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.16);
             osc.connect(gain);
             gain.connect(this.sfxGain);
@@ -349,16 +503,16 @@
       }
 
       playShieldBreak() {
-        if (this.muted || !this.ctx || !this.sfxGain) return;
+        if (!this.canPlay()) return;
         try {
           const t = this.ctx.currentTime;
           // Glass shattering metallic burst
           const osc1 = this.ctx.createOscillator();
           const gain1 = this.ctx.createGain();
           osc1.type = 'sawtooth';
-          osc1.frequency.setValueAtTime(980, t);
-          osc1.frequency.exponentialRampToValueAtTime(140, t + 0.22);
-          gain1.gain.setValueAtTime(0.28, t);
+          osc1.frequency.setValueAtTime(1050, t);
+          osc1.frequency.exponentialRampToValueAtTime(150, t + 0.22);
+          gain1.gain.setValueAtTime(0.26, t);
           gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
           osc1.connect(gain1);
           gain1.connect(this.sfxGain);
@@ -368,19 +522,19 @@
           const osc2 = this.ctx.createOscillator();
           const gain2 = this.ctx.createGain();
           osc2.type = 'triangle';
-          osc2.frequency.setValueAtTime(1600, t);
-          osc2.frequency.exponentialRampToValueAtTime(300, t + 0.18);
-          gain2.gain.setValueAtTime(0.22, t);
-          gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+          osc2.frequency.setValueAtTime(1800, t);
+          osc2.frequency.exponentialRampToValueAtTime(280, t + 0.17);
+          gain2.gain.setValueAtTime(0.20, t);
+          gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.19);
           osc2.connect(gain2);
           gain2.connect(this.sfxGain);
           osc2.start(t);
-          osc2.stop(t + 0.21);
+          osc2.stop(t + 0.20);
         } catch(e) {}
       }
 
       playMilestone() {
-        if (this.muted || !this.ctx || !this.sfxGain) return;
+        if (!this.canPlay()) return;
         try {
           const t = this.ctx.currentTime;
           const freqs = [587.33, 739.99, 880, 1174.66]; // D, F#, A, D
@@ -401,7 +555,7 @@
       }
 
       playBestRecord() {
-        if (this.muted || !this.ctx || !this.sfxGain) return;
+        if (!this.canPlay()) return;
         try {
           const t = this.ctx.currentTime;
           const freqs = [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98]; // Celebratory fanfare
@@ -423,14 +577,14 @@
 
       // Enhanced Near Miss SFX (punchy whoosh + high crystalline chime)
       playNearMiss() {
-        if (this.muted || !this.ctx || !this.sfxGain) return;
+        if (!this.canPlay()) return;
         try {
           const t = this.ctx.currentTime;
           // Punchy dynamic whoosh
           const osc1 = this.ctx.createOscillator();
           const gain1 = this.ctx.createGain();
           osc1.type = 'triangle';
-          osc1.frequency.setValueAtTime(320, t);
+          osc1.frequency.setValueAtTime(340, t);
           osc1.frequency.exponentialRampToValueAtTime(70, t + 0.14);
           gain1.gain.setValueAtTime(0.24, t);
           gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
@@ -443,9 +597,9 @@
           const osc2 = this.ctx.createOscillator();
           const gain2 = this.ctx.createGain();
           osc2.type = 'sine';
-          osc2.frequency.setValueAtTime(1400, t);
-          osc2.frequency.exponentialRampToValueAtTime(2800, t + 0.06);
-          osc2.frequency.exponentialRampToValueAtTime(1200, t + 0.16);
+          osc2.frequency.setValueAtTime(1500, t);
+          osc2.frequency.exponentialRampToValueAtTime(3000, t + 0.06);
+          osc2.frequency.exponentialRampToValueAtTime(1300, t + 0.16);
           gain2.gain.setValueAtTime(0.22, t);
           gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
           osc2.connect(gain2);
@@ -456,7 +610,7 @@
       }
 
       playTutorialChime() {
-        if (this.muted || !this.ctx || !this.sfxGain) return;
+        if (!this.canPlay()) return;
         try {
           const t = this.ctx.currentTime;
           const osc = this.ctx.createOscillator();
@@ -474,28 +628,28 @@
       }
 
       playSpeedUp() {
-        if (this.muted || !this.ctx || !this.sfxGain) return;
+        if (!this.canPlay()) return;
         try {
           const t = this.ctx.currentTime;
-          const freqs = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+          const freqs = [698.46, 880, 1046.5, 1396.91]; // F5, A5, C6, F6 fanfare
           freqs.forEach((freq, idx) => {
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
-            osc.type = 'sine';
+            osc.type = 'triangle';
             const noteStart = t + idx * 0.045;
             osc.frequency.setValueAtTime(freq, noteStart);
-            gain.gain.setValueAtTime(0.14, noteStart);
-            gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.12);
+            gain.gain.setValueAtTime(0.22, noteStart);
+            gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.22);
             osc.connect(gain);
             gain.connect(this.sfxGain);
             osc.start(noteStart);
-            osc.stop(noteStart + 0.13);
+            osc.stop(noteStart + 0.24);
           });
         } catch(e) {}
       }
 
       playCountdown(num) {
-        if (this.muted || !this.ctx || !this.sfxGain) return;
+        if (!this.canPlay()) return;
         try {
           const t = this.ctx.currentTime;
           const osc = this.ctx.createOscillator();
@@ -828,6 +982,15 @@
     let screenShake = { timer: 0, duration: 0, intensity: 0 };
     let speedUpBanner = { active: false, timer: 0, title: '', accent: '#0284c7' };
 
+    // OS prefers-reduced-motion accessibility support
+    const reducedMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    let prefersReducedMotion = reducedMotionQuery ? reducedMotionQuery.matches : false;
+    if (reducedMotionQuery && reducedMotionQuery.addEventListener) {
+      reducedMotionQuery.addEventListener('change', (e) => {
+        prefersReducedMotion = !!e.matches;
+      });
+    }
+
     const SCREENSHAKE_STORAGE_KEY = 'gravity_runner_screenshake';
     let screenShakeEnabled = true;
     try {
@@ -838,6 +1001,9 @@
     } catch(e) {}
 
     function toggleScreenShake() {
+      if (prefersReducedMotion) {
+        return false; // Locked to OFF when OS prefers-reduced-motion is active
+      }
       screenShakeEnabled = !screenShakeEnabled;
       try {
         localStorage.setItem(SCREENSHAKE_STORAGE_KEY, String(screenShakeEnabled));
@@ -846,8 +1012,9 @@
     }
 
     function addScreenShake(intensity, duration) {
-      if (!screenShakeEnabled) {
+      if (!screenShakeEnabled || prefersReducedMotion) {
         screenShake.timer = 0;
+        screenShake.intensity = 0;
         return;
       }
       screenShake.intensity = Math.max(screenShake.intensity, intensity);
@@ -1007,27 +1174,34 @@
     let autopilotActionCooldown = 0;
 
     function updateAutopilot(dt) {
-      if (!autopilot) return;
+      // Run if autopilot enabled (?bot=1) OR during title screen demo
+      if (!autopilot && state !== 'title') return;
 
       autopilotActionCooldown = Math.max(0, autopilotActionCooldown - dt);
 
       if (state === 'title') {
-        if (autopilotActionCooldown <= 0) {
-          autopilotActionCooldown = 0.5;
-          startGame();
+        if (autopilot) {
+          // Automated testing bot starts game automatically from title
+          if (autopilotActionCooldown <= 0) {
+            autopilotActionCooldown = 0.5;
+            startGame();
+          }
+          return;
         }
-        return;
+        // In normal mode, title demo runner continues below!
       }
 
       if (state === 'gameover') {
-        if (gameOverTimer >= GAME_OVER_INPUT_LOCK + 0.3 && autopilotActionCooldown <= 0) {
-          autopilotActionCooldown = 0.5;
-          startGame();
+        if (autopilot) {
+          if (gameOverTimer >= GAME_OVER_INPUT_LOCK + 0.3 && autopilotActionCooldown <= 0) {
+            autopilotActionCooldown = 0.5;
+            startGame();
+          }
         }
         return;
       }
 
-      if (state !== 'playing' || !player.isGrounded) return;
+      if ((state !== 'playing' && state !== 'title') || !player.isGrounded) return;
 
       const surf = player.groundedSurface; // 'floor' | 'ceiling'
       const otherSurf = (surf === 'floor') ? 'ceiling' : 'floor';
@@ -1068,7 +1242,7 @@
       // 2. Comprehensive Trajectory Safety Simulation:
       // Checks if flipping NOW would cause collision during transit or immediately on landing.
       function isSafeToFlip() {
-        const totalSimTime = transitTime + 0.35; // Transit duration across actual trackHeight + landing reaction buffer
+        const totalSimTime = transitTime + 0.36; // Transit duration across actual trackHeight + landing reaction buffer
         const steps = Math.max(20, Math.round(totalSimTime * 28));
 
         for (let i = 1; i <= steps; i++) {
@@ -1131,38 +1305,42 @@
 
         // Escape time calculation based on obstacle height and gravity acceleration
         const obsH = threat.h || 40;
-        const minEscapeTime = Math.max(0.44, Math.sqrt((obsH + 10) * 2 / GRAVITY_ACCEL) + 0.08);
-        const lookaheadTime = Math.max(0.72, transitTime * 0.65);
+        const minEscapeTime = Math.max(0.38, Math.sqrt((obsH + 8) * 2 / GRAVITY_ACCEL) + 0.06);
 
-        // React when within lookahead window
-        if (timeToHit <= lookaheadTime && autopilotActionCooldown <= 0) {
-          if (isSafeToFlip() || timeToHit <= minEscapeTime) {
-            autopilotActionCooldown = Math.min(0.35, transitTime * 0.4);
-            player.flip();
-            return;
+        // Check for upcoming coin arc or gold star in front of the obstacle
+        const coinInFront = coins.find(c => !c.collected && c.x >= player.x && c.x <= threat.x + 20);
+
+        if (coinInFront) {
+          // If coins/stars are present ahead, wait until takeoff sweet-spot (0.32 - 0.42s)
+          // to ride the aerial coin arc and collect gold stars while clearing the obstacle
+          const optimalCoinFlipTime = Math.max(minEscapeTime + 0.04, 0.40);
+          if (timeToHit <= optimalCoinFlipTime && autopilotActionCooldown <= 0) {
+            if (isSafeToFlip() || timeToHit <= minEscapeTime) {
+              autopilotActionCooldown = Math.min(0.35, transitTime * 0.4);
+              player.flip();
+              return;
+            }
+          }
+        } else {
+          // Standard obstacle avoidance: react with safe lookahead
+          const lookaheadTime = Math.max(0.54, Math.min(0.66, transitTime * 0.58));
+          if (timeToHit <= lookaheadTime && autopilotActionCooldown <= 0) {
+            if (isSafeToFlip() || timeToHit <= minEscapeTime) {
+              autopilotActionCooldown = Math.min(0.35, transitTime * 0.4);
+              player.flip();
+              return;
+            }
           }
         }
       }
 
-      // 4. Safe Opportunistic Flip for Power-ups, Gold Stars, and Aerial Coins
-      const safeClearWindow = transitTime + 0.75;
-      const isCurrentSurfaceClear = !threat || ((threat.x - player.x) / currentSpeed > safeClearWindow);
+      // 4. Safe Opportunistic Flip for Power-ups, Gold Stars, and Coins
+      // Consider flipping if current surface is safe for at least 1.05s ahead
+      const isCurrentSurfaceClear = !threat || ((threat.x - player.x) / currentSpeed > 1.05);
 
-      const destThreat = obstacles.find(o => {
-        if (o.x + o.w <= player.x - 5) return false;
-        if (o.surface === otherSurf) return true;
-        if (o.surface === 'moving') {
-          const oy = o.getY();
-          const targetY = (otherSurf === 'floor') ? (floorY - FIGURE_HALF_HEIGHT) : (ceilingY + FIGURE_HALF_HEIGHT);
-          return Math.abs(oy + o.h / 2 - targetY) < 70;
-        }
-        return false;
-      });
-      const isDestinationClear = !destThreat || ((destThreat.x - player.x) / currentSpeed > safeClearWindow);
-
-      if (isCurrentSurfaceClear && isDestinationClear && autopilotActionCooldown <= 0) {
+      if (isCurrentSurfaceClear && autopilotActionCooldown <= 0) {
         // (a) Target aerial Power-ups (Shield, Magnet)
-        const powerUpAhead = powerUps.find(p => !p.collected && p.x > player.x + 20 && p.x < player.x + transitDist + 70);
+        const powerUpAhead = powerUps.find(p => !p.collected && p.x > player.x + 20 && p.x < player.x + transitDist + 90);
         if (powerUpAhead && isSafeToFlip()) {
           autopilotActionCooldown = 0.45;
           player.flip();
@@ -1170,15 +1348,15 @@
         }
 
         // (b) Target high-value Gold Stars (+50)
-        const starAhead = coins.find(c => !c.collected && c.type === 'star' && c.x > player.x + 30 && c.x < player.x + transitDist + 50);
+        const starAhead = coins.find(c => !c.collected && c.type === 'star' && c.x > player.x + 20 && c.x < player.x + transitDist + 90);
         if (starAhead && isSafeToFlip()) {
           autopilotActionCooldown = 0.45;
           player.flip();
           return;
         }
 
-        // (c) Target aerial Coin arcs if safe and profitable
-        const coinsAhead = coins.filter(c => !c.collected && c.x >= player.x + 40 && c.x <= player.x + transitDist + 40);
+        // (c) Target coins on opposite surface (Runway Coins) or aerial coin arcs
+        const coinsAhead = coins.filter(c => !c.collected && c.x >= player.x + 20 && c.x <= player.x + transitDist + 80);
         if (coinsAhead.length >= 2 && isSafeToFlip()) {
           autopilotActionCooldown = 0.45;
           player.flip();
@@ -1391,15 +1569,24 @@
     playerInitialized = true;
 
     // --- Particle & Floating Popup Systems ---
+    const MAX_PARTICLES = 120;
     let particles = [];
     let deathDebris = [];
     let popupTexts = [];
 
+    function addParticle(p) {
+      if (particles.length >= MAX_PARTICLES) {
+        particles.shift();
+      }
+      particles.push(p);
+    }
+
     function spawnDustBurst(x, y, count, normalY) {
-      for (let i = 0; i < count; i++) {
+      const n = prefersReducedMotion ? Math.max(1, Math.floor(count * 0.3)) : count;
+      for (let i = 0; i < n; i++) {
         const angle = normalY > 0 ? (Math.PI * 0.2 + Math.random() * Math.PI * 0.6) : (-Math.PI * 0.2 - Math.random() * Math.PI * 0.6);
         const spd = 40 + Math.random() * 80;
-        particles.push({
+        addParticle({
           type: 'dust',
           x: x + (Math.random() - 0.5) * 10,
           y: y,
@@ -1413,10 +1600,11 @@
     }
 
     function spawnCoinSparkles(x, y, count = 8) {
-      for (let i = 0; i < count; i++) {
+      const n = prefersReducedMotion ? Math.max(2, Math.floor(count * 0.3)) : count;
+      for (let i = 0; i < n; i++) {
         const angle = Math.random() * Math.PI * 2;
         const spd = 50 + Math.random() * 110;
-        particles.push({
+        addParticle({
           type: 'sparkle',
           x: x,
           y: y,
@@ -1431,10 +1619,11 @@
     }
 
     function spawnNearMissSparkles(x, y) {
-      for (let i = 0; i < 14; i++) {
+      const n = prefersReducedMotion ? 4 : 14;
+      for (let i = 0; i < n; i++) {
         const angle = Math.random() * Math.PI * 2;
         const spd = 90 + Math.random() * 160;
-        particles.push({
+        addParticle({
           type: 'sparkle',
           x: x,
           y: y,
@@ -1495,10 +1684,11 @@
     }
 
     function spawnShieldBreakParticles(x, y) {
-      for (let i = 0; i < 18; i++) {
+      const n = prefersReducedMotion ? 5 : 18;
+      for (let i = 0; i < n; i++) {
         const angle = Math.random() * Math.PI * 2;
         const spd = 70 + Math.random() * 180;
-        particles.push({
+        addParticle({
           type: 'sparkle',
           x: x,
           y: y,
@@ -1510,15 +1700,17 @@
           life: 0.4 + Math.random() * 0.3
         });
       }
-      particles.push({
-        type: 'shockwave',
-        x: x,
-        y: y,
-        r: 8,
-        maxR: 45,
-        alpha: 0.8,
-        life: 0.3
-      });
+      if (!prefersReducedMotion) {
+        addParticle({
+          type: 'shockwave',
+          x: x,
+          y: y,
+          r: 8,
+          maxR: 45,
+          alpha: 0.8,
+          life: 0.3
+        });
+      }
     }
 
     function createDeathExplosion(p) {
@@ -1548,15 +1740,17 @@
         });
       }
 
-      particles.push({
-        type: 'shockwave',
-        x: p.x,
-        y: p.y,
-        r: 10,
-        maxR: 55,
-        alpha: 0.9,
-        life: 0.4
-      });
+      if (!prefersReducedMotion) {
+        addParticle({
+          type: 'shockwave',
+          x: p.x,
+          y: p.y,
+          r: 10,
+          maxR: 55,
+          alpha: 0.9,
+          life: 0.4
+        });
+      }
     }
 
     function updateParticles(dt) {
@@ -1571,7 +1765,7 @@
           pt.y += pt.vy * dt;
           pt.alpha = Math.max(0, pt.life / 0.4);
         }
-        if (pt.life <= 0 || pt.alpha <= 0) {
+        if (pt.life <= 0 || pt.alpha <= 0 || pt.x < -100 || pt.x > virtualW + 100 || pt.y < -100 || pt.y > virtualH + 100) {
           particles.splice(i, 1);
         }
       }
@@ -1581,8 +1775,8 @@
         d.originX += d.vx * dt;
         d.originY += d.vy * dt;
         d.rot += d.rotSpeed * dt;
-        d.alpha -= dt * 0.6;
-        if (d.alpha <= 0) {
+        d.alpha -= dt * 0.8;
+        if (d.alpha <= 0 || d.originX < -150 || d.originX > virtualW + 150 || d.originY < -150 || d.originY > virtualH + 150) {
           deathDebris.splice(i, 1);
         }
       }
@@ -1891,42 +2085,52 @@
         const c = coins[i];
         c.update(dt);
 
-        if (state === 'playing' && !c.collected && c.collidesWith(hitbox)) {
+        if ((state === 'playing' || state === 'title') && !c.collected && c.collidesWith(hitbox)) {
           c.collected = true;
-          coinsCollected++;
 
-          // Consecutive pickup chain pitch elevation
-          if (coinStreakTimer > 0) {
-            coinStreak++;
+          if (state === 'playing') {
+            coinsCollected++;
+
+            // Consecutive pickup chain pitch elevation
+            if (coinStreakTimer > 0) {
+              coinStreak++;
+            } else {
+              coinStreak = 0;
+            }
+            coinStreakTimer = 0.85;
+
+            // Combo progression
+            comboCount++;
+            comboMultiplier = getComboMultiplier(comboCount);
+            comboTimer = 2.0; // Reset landing timer
+            maxCombo = Math.max(maxCombo, comboCount);
+
+            const isStar = (c.type === 'star');
+            const baseGain = c.value;
+            const gain = baseGain * comboMultiplier;
+            gameScore += gain;
+
+            sound.playCoin(coinStreak, comboMultiplier, isStar);
+
+            if (isStar) {
+              spawnNearMissSparkles(c.x, c.y);
+              spawnPopupText(c.x, c.y - 16, `★ GOLD STAR! +${gain}`, '#f59e0b', 15, true);
+            } else {
+              spawnCoinSparkles(c.x, c.y);
+              spawnPopupText(c.x, c.y - 12, `+${gain}`, c.type === 'low' ? '#fcd34d' : '#f59e0b', 13, true);
+            }
+
+            // Tutorial Step 3 progression
+            if (isTutorialActive && tutorialStep === 3) {
+              advanceTutorialToStep4();
+            }
           } else {
-            coinStreak = 0;
-          }
-          coinStreakTimer = 0.85;
-
-          // Combo progression
-          comboCount++;
-          comboMultiplier = getComboMultiplier(comboCount);
-          comboTimer = 2.0; // Reset landing timer
-          maxCombo = Math.max(maxCombo, comboCount);
-
-          const isStar = (c.type === 'star');
-          const baseGain = c.value;
-          const gain = baseGain * comboMultiplier;
-          gameScore += gain;
-
-          sound.playCoin(coinStreak, comboMultiplier, isStar);
-
-          if (isStar) {
-            spawnNearMissSparkles(c.x, c.y);
-            spawnPopupText(c.x, c.y - 16, `★ GOLD STAR! +${gain}`, '#f59e0b', 15, true);
-          } else {
-            spawnCoinSparkles(c.x, c.y);
-            spawnPopupText(c.x, c.y - 12, `+${gain}`, c.type === 'low' ? '#fcd34d' : '#f59e0b', 13, true);
-          }
-
-          // Tutorial Step 3 progression
-          if (isTutorialActive && tutorialStep === 3) {
-            advanceTutorialToStep4();
+            // Title screen demo pickup: sparkle effects only, zero score impact, no audio
+            if (c.type === 'star') {
+              spawnNearMissSparkles(c.x, c.y);
+            } else {
+              spawnCoinSparkles(c.x, c.y);
+            }
           }
         }
 
@@ -1947,18 +2151,24 @@
         const p = powerUps[i];
         p.update(dt);
 
-        if (state === 'playing' && !p.collected && p.collidesWith(hitbox)) {
+        if ((state === 'playing' || state === 'title') && !p.collected && p.collidesWith(hitbox)) {
           p.collected = true;
-          sound.playPowerUp();
 
-          if (p.type === 'shield') {
-            player.hasShield = true;
+          if (state === 'playing') {
+            sound.playPowerUp();
+
+            if (p.type === 'shield') {
+              player.hasShield = true;
+              spawnShieldBreakParticles(p.x, p.y);
+              spawnPopupText(p.x, p.y - 18, '🛡️ SHIELD GET! (1被弾無効)', '#38bdf8', 15, true);
+            } else if (p.type === 'magnet') {
+              magnetTimer = 5.0;
+              spawnNearMissSparkles(p.x, p.y);
+              spawnPopupText(p.x, p.y - 18, '🧲 MAGNET GET! (5秒吸着)', '#ef4444', 15, true);
+            }
+          } else {
+            // Title demo pickup: visual effect only
             spawnShieldBreakParticles(p.x, p.y);
-            spawnPopupText(p.x, p.y - 18, '🛡️ SHIELD GET! (1被弾無効)', '#38bdf8', 15, true);
-          } else if (p.type === 'magnet') {
-            magnetTimer = 5.0;
-            spawnNearMissSparkles(p.x, p.y);
-            spawnPopupText(p.x, p.y - 18, '🧲 MAGNET GET! (5秒吸着)', '#ef4444', 15, true);
           }
         }
 
@@ -2356,7 +2566,7 @@
     }
 
     function updateObstacles(dt) {
-      if (!isTutorialActive && gameTime >= 1.5) {
+      if (!isTutorialActive && (gameTime >= 1.5 || state === 'title')) {
         nextSpawnX -= currentSpeed * dt;
         if (nextSpawnX < virtualW + 40) {
           nextSpawnX = virtualW + 40;
@@ -2422,8 +2632,8 @@
             const bonus = 50 * comboMultiplier;
             gameScore += bonus;
 
-            // Satisfying 0.15s slow-motion
-            slowMotionTimer = 0.15;
+            // Satisfying 0.15s slow-motion (disabled if prefers-reduced-motion)
+            slowMotionTimer = prefersReducedMotion ? 0 : 0.15;
 
             sound.playNearMiss();
             spawnNearMissSparkles(player.x, player.y);
@@ -2437,6 +2647,11 @@
           // Tutorial obstacle safe pass completion
           if (isTutorialActive && tutorialStep === 4 && obs.isTutorial && (obs.x + obs.w < player.x)) {
             completeTutorial();
+          }
+        } else if (state === 'title') {
+          // In title demo: near miss triggers visual sparkles, collision does not end game
+          if (obs.checkNearMiss(hitbox)) {
+            spawnNearMissSparkles(player.x, player.y);
           }
         }
 
@@ -2776,11 +2991,13 @@
 
       updateScreenShake(dt);
 
-      // 0.15s Slow-motion on Near Miss (dt clamped for physics simulation)
+      // 0.15s Slow-motion on Near Miss (dt clamped for physics simulation, disabled if prefersReducedMotion)
       let simDt = dt;
-      if (slowMotionTimer > 0) {
+      if (!prefersReducedMotion && slowMotionTimer > 0) {
         slowMotionTimer -= dt;
         simDt = dt * 0.35;
+      } else {
+        slowMotionTimer = 0;
       }
 
       // Tier transition 1-second color blend countdown
@@ -2843,7 +3060,7 @@
           for (let i = 0; i < 35; i++) {
             const angle = Math.random() * Math.PI * 2;
             const spd = 70 + Math.random() * 220;
-            particles.push({
+            addParticle({
               type: 'sparkle',
               x: player.x,
               y: trackCenterY,
@@ -2869,6 +3086,7 @@
               speedUpBanner.title = SPEED_TIERS[i].bannerTitle;
               speedUpBanner.accent = SPEED_TIERS[i].accent;
               sound.setBpm(SPEED_TIERS[i].bpm);
+              sound.setTier(currentTierIndex);
               sound.playSpeedUp();
             }
             break;
@@ -2895,13 +3113,15 @@
         updateBackground(simDt);
         sound.updateBgm();
       } else if (state === 'title') {
+        // Title Screen Autopilot Demo Runner:
+        // Runs physical simulation in background with autopilot flips.
+        // Zero impact on game score, best distance, or localStorage.
         updateAutopilot(dt);
-        player.animPhase += 14 * dt;
-        player.y = floorY - FIGURE_HALF_HEIGHT;
-        player.rotation = 0;
-        player.isGrounded = true;
-        player.groundedSurface = 'floor';
-        updateBackground(dt * 0.8);
+        player.update(dt);
+        updateObstacles(dt);
+        updateCoins(dt);
+        updatePowerUps(dt);
+        updateBackground(dt * 0.9);
       } else if (state === 'gameover') {
         updateAutopilot(dt);
         gameOverTimer += dt;
@@ -4006,10 +4226,28 @@
       const cardY = trackCenterY - cardH / 2 - 10;
 
       ctx.save();
-      ctx.fillStyle = '#ffffff';
+
+      // Demo Indicator above card
+      ctx.fillStyle = 'rgba(2, 132, 199, 0.12)';
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 1;
+      const demoW = 120;
+      const demoH = 20;
+      roundRect(ctx, centerX - demoW / 2, cardY - 32, demoW, demoH, 10);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#0284c7';
+      ctx.font = '800 10px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('⚡ DEMO RUNNING', centerX, cardY - 22);
+
+      // Main Title Card: Semi-translucent to elegantly display the running/flipping demo in the background
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.90)';
       ctx.strokeStyle = '#0f172a';
       ctx.lineWidth = 2.5;
-      ctx.shadowColor = 'rgba(15, 23, 42, 0.12)';
+      ctx.shadowColor = 'rgba(15, 23, 42, 0.14)';
       ctx.shadowBlur = 18;
       ctx.shadowOffsetY = 6;
       roundRect(ctx, cardX, cardY, cardW, cardH, 16);
@@ -4019,6 +4257,7 @@
 
       // Title
       ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
       ctx.fillStyle = '#0f172a';
       ctx.font = '900 34px system-ui, sans-serif';
       ctx.fillText('重力反転ランナー', centerX, cardY + 48);
@@ -4063,21 +4302,25 @@
       ctx.fillText('タップでスタート', centerX, btnY + 23);
 
       // Screen Shake Toggle Button
-      const shakeBtnW = 160;
+      const shakeBtnW = 180;
       const shakeBtnH = 26;
       const shakeBtnX = centerX - shakeBtnW / 2;
       const shakeBtnY = cardY + cardH - 62;
 
-      ctx.fillStyle = screenShakeEnabled ? 'rgba(2, 132, 199, 0.08)' : 'rgba(241, 245, 249, 0.8)';
-      ctx.strokeStyle = screenShakeEnabled ? '#0284c7' : '#94a3b8';
+      const shakeEffective = screenShakeEnabled && !prefersReducedMotion;
+      ctx.fillStyle = shakeEffective ? 'rgba(2, 132, 199, 0.08)' : 'rgba(241, 245, 249, 0.8)';
+      ctx.strokeStyle = shakeEffective ? '#0284c7' : '#94a3b8';
       ctx.lineWidth = 1.2;
       roundRect(ctx, shakeBtnX, shakeBtnY, shakeBtnW, shakeBtnH, 13);
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = screenShakeEnabled ? '#0284c7' : '#64748b';
+      ctx.fillStyle = shakeEffective ? '#0284c7' : '#64748b';
       ctx.font = '600 11px system-ui, sans-serif';
-      ctx.fillText(`画面の揺れ: ${screenShakeEnabled ? 'ON' : 'OFF'}`, centerX, shakeBtnY + 17);
+      const shakeLabel = prefersReducedMotion
+        ? '画面の揺れ: OFF (OS設定)'
+        : `画面の揺れ: ${screenShakeEnabled ? 'ON' : 'OFF'}`;
+      ctx.fillText(shakeLabel, centerX, shakeBtnY + 17);
 
       // Tutorial Replay Link
       const linkY = cardY + cardH - 18;
@@ -4641,6 +4884,12 @@
       renderPauseOverlay();
       renderPauseButton();
       renderMuteButton();
+
+      // Back-to-games link: visible ONLY on title and gameover screens
+      const backLink = document.getElementById('back-link');
+      if (backLink) {
+        backLink.classList.toggle('hidden', state === 'playing');
+      }
 
       requestAnimationFrame(gameLoop);
     }
