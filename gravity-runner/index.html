@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>重力反転ランナー</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230284c7'/><path d='M16 6 L22 13 L18 13 L18 26 L14 26 L14 13 L10 13 Z' fill='%23ffffff'/></svg>">
   <style>
     * {
       box-sizing: border-box;
@@ -37,11 +38,18 @@
   (function() {
     'use strict';
 
-    // --- Audio System (Pure Web Audio API, zero external assets) ---
+    // --- Audio System (Pure Web Audio API with procedural BGM & SFX) ---
     class SoundFx {
       constructor() {
         this.ctx = null;
         this.muted = false;
+        this.masterGain = null;
+        this.sfxGain = null;
+        this.bgmGain = null;
+        this.bgmPlaying = false;
+        this.bgmStep = 0;
+        this.nextNoteTime = 0;
+        this.bpm = 118;
         try {
           const saved = localStorage.getItem('gravity_runner_muted');
           if (saved !== null) this.muted = (saved === 'true');
@@ -53,6 +61,17 @@
           const AudioContextClass = window.AudioContext || window.webkitAudioContext;
           if (AudioContextClass) {
             this.ctx = new AudioContextClass();
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.connect(this.ctx.destination);
+            this.masterGain.gain.setValueAtTime(this.muted ? 0 : 1, this.ctx.currentTime);
+
+            this.sfxGain = this.ctx.createGain();
+            this.sfxGain.gain.setValueAtTime(0.85, this.ctx.currentTime);
+            this.sfxGain.connect(this.masterGain);
+
+            this.bgmGain = this.ctx.createGain();
+            this.bgmGain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+            this.bgmGain.connect(this.masterGain);
           }
         }
         if (this.ctx && this.ctx.state === 'suspended') {
@@ -65,11 +84,122 @@
         try {
           localStorage.setItem('gravity_runner_muted', String(this.muted));
         } catch(e) {}
+        if (this.masterGain && this.ctx) {
+          this.masterGain.gain.setValueAtTime(this.muted ? 0 : 1, this.ctx.currentTime);
+        }
         return this.muted;
       }
 
+      setBpm(newBpm) {
+        this.bpm = newBpm;
+      }
+
+      startBgm() {
+        this.init();
+        if (this.bgmPlaying) return;
+        this.bgmPlaying = true;
+        this.bgmStep = 0;
+        if (this.ctx) {
+          this.nextNoteTime = this.ctx.currentTime + 0.05;
+        }
+      }
+
+      stopBgm() {
+        this.bgmPlaying = false;
+      }
+
+      updateBgm() {
+        if (this.muted || !this.ctx || !this.bgmPlaying) return;
+        const currentTime = this.ctx.currentTime;
+        const secondsPerStep = (60.0 / this.bpm) / 4; // 16th note
+
+        while (this.nextNoteTime < currentTime + 0.12) {
+          this.scheduleBgmStep(this.bgmStep, this.nextNoteTime);
+          this.nextNoteTime += secondsPerStep;
+          this.bgmStep = (this.bgmStep + 1) % 64; // 4 bars (16 steps each)
+        }
+      }
+
+      scheduleBgmStep(step, time) {
+        if (!this.ctx || !this.bgmGain) return;
+
+        const bar = Math.floor(step / 16);
+        const beatInBar = step % 16;
+
+        // 1. Drum: Kick on 0, 4, 8, 12 (Four-on-the-floor)
+        if (beatInBar % 4 === 0) {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(115, time);
+          osc.frequency.exponentialRampToValueAtTime(32, time + 0.07);
+          gain.gain.setValueAtTime(0.35, time);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+          osc.connect(gain);
+          gain.connect(this.bgmGain);
+          osc.start(time);
+          osc.stop(time + 0.09);
+        }
+
+        // 2. Drum: Hi-hat on offbeats (2, 6, 10, 14)
+        if (beatInBar % 4 === 2) {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(800, time);
+          gain.gain.setValueAtTime(0.08, time);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + 0.025);
+          osc.connect(gain);
+          gain.connect(this.bgmGain);
+          osc.start(time);
+          osc.stop(time + 0.03);
+        }
+
+        // 3. Bassline: Am - F - C - G progression (1 bar each)
+        // Root frequencies: A1=55, F1=43.65, C2=65.4, G1=49.0
+        const rootFreqs = [55.0, 43.65, 65.4, 49.0];
+        const currentRoot = rootFreqs[bar];
+
+        // Bass groove pattern on steps 0, 3, 6, 8, 11, 14
+        const isBassStep = (beatInBar === 0 || beatInBar === 3 || beatInBar === 6 || beatInBar === 8 || beatInBar === 11 || beatInBar === 14);
+        if (isBassStep) {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          const freqMultiplier = (beatInBar === 6 || beatInBar === 14) ? 2.0 : 1.0;
+          osc.frequency.setValueAtTime(currentRoot * freqMultiplier, time);
+
+          gain.gain.setValueAtTime(0.18, time);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+          osc.connect(gain);
+          gain.connect(this.bgmGain);
+          osc.start(time);
+          osc.stop(time + 0.14);
+        }
+
+        // 4. Arpeggiated high chime melody on selected syncopated steps
+        const isChimeStep = (beatInBar === 2 || beatInBar === 5 || beatInBar === 7 || beatInBar === 10 || beatInBar === 13);
+        if (isChimeStep) {
+          const pentatonicOffsets = [0, 3, 7, 10, 12];
+          const offsetIndex = (beatInBar * 3 + bar) % pentatonicOffsets.length;
+          const semitone = pentatonicOffsets[offsetIndex];
+          const chimeFreq = currentRoot * 8 * Math.pow(2, semitone / 12); // High register
+
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(chimeFreq, time);
+          gain.gain.setValueAtTime(0.08, time);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + 0.09);
+          osc.connect(gain);
+          gain.connect(this.bgmGain);
+          osc.start(time);
+          osc.stop(time + 0.1);
+        }
+      }
+
       playFlip(isToCeiling) {
-        if (this.muted || !this.ctx) return;
+        if (this.muted || !this.ctx || !this.sfxGain) return;
         try {
           const t = this.ctx.currentTime;
           const osc = this.ctx.createOscillator();
@@ -82,17 +212,17 @@
             osc.frequency.setValueAtTime(500, t);
             osc.frequency.exponentialRampToValueAtTime(240, t + 0.18);
           }
-          gain.gain.setValueAtTime(0.12, t);
+          gain.gain.setValueAtTime(0.15, t);
           gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
           osc.connect(gain);
-          gain.connect(this.ctx.destination);
+          gain.connect(this.sfxGain);
           osc.start(t);
           osc.stop(t + 0.24);
         } catch(e) {}
       }
 
       playLand() {
-        if (this.muted || !this.ctx) return;
+        if (this.muted || !this.ctx || !this.sfxGain) return;
         try {
           const t = this.ctx.currentTime;
           const osc = this.ctx.createOscillator();
@@ -100,35 +230,35 @@
           osc.type = 'triangle';
           osc.frequency.setValueAtTime(140, t);
           osc.frequency.exponentialRampToValueAtTime(45, t + 0.08);
-          gain.gain.setValueAtTime(0.14, t);
+          gain.gain.setValueAtTime(0.18, t);
           gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
           osc.connect(gain);
-          gain.connect(this.ctx.destination);
+          gain.connect(this.sfxGain);
           osc.start(t);
           osc.stop(t + 0.12);
         } catch(e) {}
       }
 
       playCrash() {
-        if (this.muted || !this.ctx) return;
+        if (this.muted || !this.ctx || !this.sfxGain) return;
         try {
           const t = this.ctx.currentTime;
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(170, t);
-          osc.frequency.exponentialRampToValueAtTime(32, t + 0.35);
-          gain.gain.setValueAtTime(0.22, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+          osc.frequency.setValueAtTime(180, t);
+          osc.frequency.exponentialRampToValueAtTime(28, t + 0.38);
+          gain.gain.setValueAtTime(0.26, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
           osc.connect(gain);
-          gain.connect(this.ctx.destination);
+          gain.connect(this.sfxGain);
           osc.start(t);
-          osc.stop(t + 0.4);
+          osc.stop(t + 0.44);
         } catch(e) {}
       }
 
       playStart() {
-        if (this.muted || !this.ctx) return;
+        if (this.muted || !this.ctx || !this.sfxGain) return;
         try {
           const t = this.ctx.currentTime;
           const osc = this.ctx.createOscillator();
@@ -136,17 +266,98 @@
           osc.type = 'sine';
           osc.frequency.setValueAtTime(440, t);
           osc.frequency.exponentialRampToValueAtTime(880, t + 0.14);
-          gain.gain.setValueAtTime(0.12, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.17);
+          gain.gain.setValueAtTime(0.14, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
           osc.connect(gain);
-          gain.connect(this.ctx.destination);
+          gain.connect(this.sfxGain);
           osc.start(t);
-          osc.stop(t + 0.19);
+          osc.stop(t + 0.2);
+        } catch(e) {}
+      }
+
+      playCoin(multiplier = 1) {
+        if (this.muted || !this.ctx || !this.sfxGain) return;
+        try {
+          const t = this.ctx.currentTime;
+          const pitchFactor = Math.min(1.6, 1.0 + (multiplier - 1) * 0.12);
+          const f1 = 880 * pitchFactor;
+          const f2 = 1320 * pitchFactor;
+
+          const osc1 = this.ctx.createOscillator();
+          const gain1 = this.ctx.createGain();
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(f1, t);
+          gain1.gain.setValueAtTime(0.14, t);
+          gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+          osc1.connect(gain1);
+          gain1.connect(this.sfxGain);
+          osc1.start(t);
+          osc1.stop(t + 0.11);
+
+          const osc2 = this.ctx.createOscillator();
+          const gain2 = this.ctx.createGain();
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(f2, t + 0.04);
+          gain2.gain.setValueAtTime(0.16, t + 0.04);
+          gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+          osc2.connect(gain2);
+          gain2.connect(this.sfxGain);
+          osc2.start(t + 0.04);
+          osc2.stop(t + 0.16);
+        } catch(e) {}
+      }
+
+      playNearMiss() {
+        if (this.muted || !this.ctx || !this.sfxGain) return;
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(1200, t);
+          osc.frequency.exponentialRampToValueAtTime(2600, t + 0.05);
+          osc.frequency.exponentialRampToValueAtTime(700, t + 0.13);
+          gain.gain.setValueAtTime(0.2, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+          osc.connect(gain);
+          gain.connect(this.sfxGain);
+          osc.start(t);
+          osc.stop(t + 0.16);
+        } catch(e) {}
+      }
+
+      playSpeedUp() {
+        if (this.muted || !this.ctx || !this.sfxGain) return;
+        try {
+          const t = this.ctx.currentTime;
+          const freqs = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+          freqs.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            const noteStart = t + idx * 0.045;
+            osc.frequency.setValueAtTime(freq, noteStart);
+            gain.gain.setValueAtTime(0.12, noteStart);
+            gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.12);
+            osc.connect(gain);
+            gain.connect(this.sfxGain);
+            osc.start(noteStart);
+            osc.stop(noteStart + 0.13);
+          });
         } catch(e) {}
       }
     }
 
     const sound = new SoundFx();
+
+    // --- Speed Tiers ---
+    const SPEED_TIERS = [
+      { minMeters: 0,    name: 'NORMAL', bpm: 118, accent: '#0284c7', bgTone: '#f8fafc', trackTone: '#f1f5f9' },
+      { minMeters: 400,  name: 'FAST',   bpm: 132, accent: '#8b5cf6', bgTone: '#faf5ff', trackTone: '#f3e8ff' },
+      { minMeters: 900,  name: 'TURBO',  bpm: 148, accent: '#f97316', bgTone: '#fff7ed', trackTone: '#ffedd5' },
+      { minMeters: 1500, name: 'HYPER',  bpm: 165, accent: '#ec4899', bgTone: '#fdf2f8', trackTone: '#fce7f3' }
+    ];
+    let currentTierIndex = 0;
 
     // --- Canvas & Responsive Scaling ---
     const canvas = document.getElementById('game-canvas');
@@ -161,6 +372,7 @@
     let virtualW = MIN_VIRTUAL_W;
     let virtualH = MIN_VIRTUAL_H;
     let playerInitialized = false;
+    let isPortrait = false;
 
     // Track vertical bounds (in virtual coordinates)
     const TRACK_HEIGHT = 300;
@@ -174,13 +386,14 @@
       const h = window.innerHeight;
       canvasWidth = w;
       canvasHeight = h;
+      isPortrait = (h > w);
+
       canvas.width = Math.floor(w * dpr);
       canvas.height = Math.floor(h * dpr);
       canvas.style.width = w + 'px';
       canvas.style.height = h + 'px';
 
-      // Ensure at least MIN_VIRTUAL_W virtual width (800px) and MIN_VIRTUAL_H virtual height (500px)
-      // Scales to fit screen in any orientation; letterboxes vertically on portrait
+      // Always guarantee at least 800px virtual width for gameplay visibility
       renderScale = Math.min((w * dpr) / MIN_VIRTUAL_W, (h * dpr) / MIN_VIRTUAL_H);
       if (renderScale <= 0) renderScale = 1;
 
@@ -200,7 +413,7 @@
     window.addEventListener('orientationchange', handleResize);
     handleResize();
 
-    // --- High Score Persistence ---
+    // --- High Score Persistence (Score-based with backwards compatibility) ---
     const STORAGE_KEY = 'gravity_runner_best_score';
     let bestScore = 0;
     try {
@@ -210,27 +423,50 @@
       }
     } catch(e) {}
 
-    // --- Game State ---
+    // --- Game State & Metrics ---
     let state = 'title'; // 'title' | 'playing' | 'gameover'
+    let gameScore = 0;
     let scoreMeters = 0;
+    let coinsCollected = 0;
+    let nearMissCount = 0;
+    let comboCount = 0;
+    let comboMultiplier = 1;
+    let comboTimer = 0;
+    let maxCombo = 0;
     let isNewBest = false;
     let gameOverTimer = 0;
     let gameTime = 0;
     const GAME_OVER_INPUT_LOCK = 0.6; // 0.6s input lock after game over
 
-    // Speed configuration (gradual ramp up)
+    // Juice timers
+    let hitStopTimer = 0;
+    let screenShake = { timer: 0, duration: 0, intensity: 0 };
+    let speedUpBanner = { active: false, timer: 0, name: '' };
+
+    function addScreenShake(intensity, duration) {
+      screenShake.intensity = Math.max(screenShake.intensity, intensity);
+      screenShake.duration = Math.max(screenShake.duration, duration);
+      screenShake.timer = Math.max(screenShake.timer, duration);
+    }
+
+    function getComboMultiplier(combo) {
+      if (combo >= 4) return 5;
+      if (combo === 3) return 3;
+      if (combo === 2) return 2;
+      return 1;
+    }
+
+    // Speed configuration
     const SPEED_INITIAL = 270; // px/s
-    const SPEED_MAX = 530;     // px/s
-    const SPEED_RAMP_METERS = 1300; // reach ~90% max speed around 1300m (~2 mins)
+    const SPEED_MAX = 540;     // px/s
+    const SPEED_RAMP_METERS = 1400;
     let currentSpeed = SPEED_INITIAL;
 
     // Physics parameters (soft floaty gravity)
-    // Distance between floor and ceiling center positions: 300 - 42 = 258 px
-    // Transit time: sqrt(2 * 258 / 1000) ≈ 0.72s
     const GRAVITY_ACCEL = 1000; // px/s^2
     const MAX_VERTICAL_SPEED = 680;
     const FIGURE_HALF_HEIGHT = 21;
-    const PLAYER_X = 80;
+    const PLAYER_X = 84;
     const FLIP_BUFFER_WINDOW = 0.12; // 0.12s input buffer window before landing
 
     // --- Player Object ---
@@ -245,6 +481,7 @@
       groundedSurface: 'floor', // 'floor' | 'ceiling'
       ghostTrails: [],
       flipBufferTimer: 0,
+      squashTimer: 0,
 
       reset() {
         this.x = PLAYER_X;
@@ -257,6 +494,7 @@
         this.animPhase = 0;
         this.ghostTrails = [];
         this.flipBufferTimer = 0;
+        this.squashTimer = 0;
       },
 
       flip() {
@@ -269,7 +507,20 @@
         this.isGrounded = false;
         this.gravityDir = -this.gravityDir;
         this.vy = 0;
+        this.squashTimer = 0;
         sound.playFlip(this.gravityDir === -1);
+
+        // Juice: Minor screen shake and extra trails on flip
+        addScreenShake(3.2, 0.12);
+        for (let i = 0; i < 3; i++) {
+          this.ghostTrails.push({
+            x: this.x - i * 6,
+            y: this.y,
+            rotation: this.rotation,
+            alpha: 0.5 - i * 0.12,
+            phase: this.animPhase
+          });
+        }
 
         // Spawn takeoff dust particles
         spawnDustBurst(this.x, this.y + (this.gravityDir === -1 ? FIGURE_HALF_HEIGHT : -FIGURE_HALF_HEIGHT), 8, -this.gravityDir);
@@ -285,9 +536,14 @@
           this.animPhase += runFrequency * dt;
         }
 
+        // Squash timer countdown
+        if (this.squashTimer > 0) {
+          this.squashTimer = Math.max(0, this.squashTimer - dt);
+        }
+
         const floorCenterY = floorY - FIGURE_HALF_HEIGHT;
         const ceilingCenterY = ceilingY + FIGURE_HALF_HEIGHT;
-        const totalTravel = floorCenterY - ceilingCenterY; // 258px
+        const totalTravel = floorCenterY - ceilingCenterY;
 
         if (!this.isGrounded) {
           // Accelerate gently toward target surface
@@ -298,12 +554,12 @@
           this.y += this.vy * dt;
 
           // Ghost trail record during transit
-          if (Math.random() < 0.45) {
+          if (Math.random() < 0.5) {
             this.ghostTrails.push({
               x: this.x,
               y: this.y,
               rotation: this.rotation,
-              alpha: 0.35,
+              alpha: 0.4,
               phase: this.animPhase
             });
           }
@@ -315,10 +571,11 @@
             this.isGrounded = true;
             this.groundedSurface = 'floor';
             this.rotation = 0;
+            this.squashTimer = 0.16; // Squash & stretch on landing
             sound.playLand();
             spawnDustBurst(this.x, floorY, 6, -1);
 
-            // Execute buffered flip if a tap arrived within 0.12s before landing
+            // Execute buffered flip if a tap arrived within buffer window
             if (this.flipBufferTimer > 0) {
               this.flipBufferTimer = 0;
               this.flip();
@@ -331,10 +588,11 @@
             this.isGrounded = true;
             this.groundedSurface = 'ceiling';
             this.rotation = Math.PI;
+            this.squashTimer = 0.16; // Squash & stretch on landing
             sound.playLand();
             spawnDustBurst(this.x, ceilingY, 6, 1);
 
-            // Execute buffered flip if a tap arrived within 0.12s before landing
+            // Execute buffered flip if a tap arrived within buffer window
             if (this.flipBufferTimer > 0) {
               this.flipBufferTimer = 0;
               this.flip();
@@ -349,12 +607,10 @@
           // Smooth 180° rotation while in transit
           if (!this.isGrounded) {
             if (this.gravityDir === -1) {
-              // Floor -> Ceiling: rotates forward from 0 to PI
               const p = Math.max(0, Math.min(1, (floorCenterY - this.y) / totalTravel));
-              const ease = p * p * (3 - 2 * p); // smoothstep
+              const ease = p * p * (3 - 2 * p);
               this.rotation = ease * Math.PI;
             } else {
-              // Ceiling -> Floor: rotates forward from PI to 2*PI (equivalent to 0)
               const p = Math.max(0, Math.min(1, (this.y - ceilingCenterY) / totalTravel));
               const ease = p * p * (3 - 2 * p);
               this.rotation = Math.PI + ease * Math.PI;
@@ -374,8 +630,8 @@
 
         // Update ghost trails
         for (let i = this.ghostTrails.length - 1; i >= 0; i--) {
-          this.ghostTrails[i].alpha -= dt * 2.2;
-          this.ghostTrails[i].x -= currentSpeed * dt * 0.4;
+          this.ghostTrails[i].alpha -= dt * 2.4;
+          this.ghostTrails[i].x -= currentSpeed * dt * 0.45;
           if (this.ghostTrails[i].alpha <= 0) {
             this.ghostTrails.splice(i, 1);
           }
@@ -383,7 +639,6 @@
       },
 
       getHitbox() {
-        // Forgiving AABB (inset from visual boundary)
         return {
           x: this.x - 7,
           y: this.y - 17,
@@ -394,15 +649,17 @@
     };
     playerInitialized = true;
 
-    // --- Particle System ---
+    // --- Particle & Floating Popup Systems ---
     let particles = [];
     let deathDebris = [];
+    let popupTexts = [];
 
     function spawnDustBurst(x, y, count, normalY) {
       for (let i = 0; i < count; i++) {
         const angle = normalY > 0 ? (Math.PI * 0.2 + Math.random() * Math.PI * 0.6) : (-Math.PI * 0.2 - Math.random() * Math.PI * 0.6);
         const spd = 40 + Math.random() * 80;
         particles.push({
+          type: 'dust',
           x: x + (Math.random() - 0.5) * 10,
           y: y,
           vx: Math.cos(angle) * spd - currentSpeed * 0.3,
@@ -412,6 +669,56 @@
           life: 0.3 + Math.random() * 0.25
         });
       }
+    }
+
+    function spawnCoinSparkles(x, y, count = 7) {
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = 50 + Math.random() * 110;
+        particles.push({
+          type: 'sparkle',
+          x: x,
+          y: y,
+          vx: Math.cos(angle) * spd,
+          vy: Math.sin(angle) * spd,
+          size: 2.5 + Math.random() * 2.5,
+          color: Math.random() < 0.5 ? '#f59e0b' : '#fbbf24',
+          alpha: 1.0,
+          life: 0.35 + Math.random() * 0.2
+        });
+      }
+    }
+
+    function spawnNearMissSparkles(x, y) {
+      for (let i = 0; i < 9; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = 80 + Math.random() * 140;
+        particles.push({
+          type: 'sparkle',
+          x: x,
+          y: y,
+          vx: Math.cos(angle) * spd,
+          vy: Math.sin(angle) * spd,
+          size: 2 + Math.random() * 2.5,
+          color: '#38bdf8',
+          alpha: 1.0,
+          life: 0.3 + Math.random() * 0.2
+        });
+      }
+    }
+
+    function spawnPopupText(x, y, text, color = '#0284c7', fontSize = 14, isBold = true) {
+      popupTexts.push({
+        x: x,
+        y: y,
+        text: text,
+        color: color,
+        fontSize: fontSize,
+        isBold: isBold,
+        vy: -40,
+        alpha: 1.0,
+        life: 0.85
+      });
     }
 
     function createDeathExplosion(p) {
@@ -428,14 +735,14 @@
 
       for (const seg of segments) {
         const angle = Math.random() * Math.PI * 2;
-        const spd = 80 + Math.random() * 180;
+        const spd = 90 + Math.random() * 200;
         deathDebris.push({
           ...seg,
           originX: p.x,
           originY: p.y,
           rot: p.rotation,
-          rotSpeed: (Math.random() - 0.5) * 12,
-          vx: Math.cos(angle) * spd - 50,
+          rotSpeed: (Math.random() - 0.5) * 14,
+          vx: Math.cos(angle) * spd - 40,
           vy: Math.sin(angle) * spd,
           alpha: 1.0
         });
@@ -445,10 +752,10 @@
         type: 'shockwave',
         x: p.x,
         y: p.y,
-        r: 8,
-        maxR: 45,
-        alpha: 0.85,
-        life: 0.35
+        r: 10,
+        maxR: 55,
+        alpha: 0.9,
+        life: 0.4
       });
     }
 
@@ -457,12 +764,12 @@
         const pt = particles[i];
         pt.life -= dt;
         if (pt.type === 'shockwave') {
-          pt.r += (pt.maxR - pt.r) * 10 * dt;
-          pt.alpha = Math.max(0, pt.life / 0.35);
+          pt.r += (pt.maxR - pt.r) * 12 * dt;
+          pt.alpha = Math.max(0, pt.life / 0.4);
         } else {
           pt.x += pt.vx * dt;
           pt.y += pt.vy * dt;
-          pt.alpha = Math.max(0, pt.life / 0.5);
+          pt.alpha = Math.max(0, pt.life / 0.4);
         }
         if (pt.life <= 0 || pt.alpha <= 0) {
           particles.splice(i, 1);
@@ -479,6 +786,125 @@
           deathDebris.splice(i, 1);
         }
       }
+
+      for (let i = popupTexts.length - 1; i >= 0; i--) {
+        const pt = popupTexts[i];
+        pt.y += pt.vy * dt;
+        pt.life -= dt;
+        pt.alpha = Math.max(0, pt.life / 0.85);
+        if (pt.life <= 0) {
+          popupTexts.splice(i, 1);
+        }
+      }
+    }
+
+    // --- Coins & Aerial Arc Trajectories ---
+    let coins = [];
+
+    class Coin {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.r = 8.5;
+        this.collected = false;
+        this.animPhase = Math.random() * Math.PI * 2;
+      }
+
+      update(dt) {
+        this.x -= currentSpeed * dt;
+        this.animPhase += dt * 5.5;
+      }
+
+      render(ctx) {
+        if (this.collected) return;
+        const wScale = Math.abs(Math.sin(this.animPhase));
+        const coinW = Math.max(2, this.r * wScale);
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Subtle glowing halo
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.24)';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.r + 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Rim
+        ctx.fillStyle = '#d97706';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, coinW + 1, this.r + 1, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Gold body
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, coinW, this.r, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Inner highlight slit
+        if (wScale > 0.35) {
+          ctx.fillStyle = '#fffbeb';
+          ctx.beginPath();
+          ctx.ellipse(0, 0, Math.max(1, 2 * wScale), 3.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+
+      collidesWith(hitbox) {
+        if (this.collected) return false;
+        const closestX = Math.max(hitbox.x, Math.min(this.x, hitbox.x + hitbox.w));
+        const closestY = Math.max(hitbox.y, Math.min(this.y, hitbox.y + hitbox.h));
+        const dx = this.x - closestX;
+        const dy = this.y - closestY;
+        return (dx * dx + dy * dy) < (this.r + 5) * (this.r + 5);
+      }
+    }
+
+    function spawnCoinArc(startX, fromSurface, toSurface, count = 5) {
+      const fromY = (fromSurface === 'floor') ? (floorY - 32) : (ceilingY + 32);
+      const toY = (toSurface === 'floor') ? (floorY - 32) : (ceilingY + 32);
+      const transitDist = currentSpeed * 0.72; // Flight distance matching soft gravity flip
+
+      for (let i = 0; i < count; i++) {
+        const t = (i + 1) / (count + 1);
+        const cx = startX + t * transitDist;
+        const ease = t * t * (3 - 2 * t);
+        const cy = fromY + (toY - fromY) * ease;
+        coins.push(new Coin(cx, cy));
+      }
+    }
+
+    function updateCoins(dt) {
+      const hitbox = player.getHitbox();
+
+      for (let i = coins.length - 1; i >= 0; i--) {
+        const c = coins[i];
+        c.update(dt);
+
+        if (state === 'playing' && !c.collected && c.collidesWith(hitbox)) {
+          c.collected = true;
+          coinsCollected++;
+
+          // Combo progression
+          comboCount++;
+          comboMultiplier = getComboMultiplier(comboCount);
+          comboTimer = 2.0; // Reset landing timer
+          maxCombo = Math.max(maxCombo, comboCount);
+
+          const gain = 10 * comboMultiplier;
+          gameScore += gain;
+
+          sound.playCoin(comboMultiplier);
+          spawnCoinSparkles(c.x, c.y);
+          spawnPopupText(c.x, c.y - 12, `+${gain}`, '#f59e0b', 13, true);
+        }
+
+        if (c.x < -60 || c.collected) {
+          coins.splice(i, 1);
+        }
+      }
     }
 
     // --- Obstacle Generation & Passable Patterns ---
@@ -488,18 +914,26 @@
 
     class Obstacle {
       constructor(opts) {
-        this.surface = opts.surface; // 'floor' | 'ceiling'
-        this.type = opts.type;       // 'spike' | 'block'
+        this.surface = opts.surface; // 'floor' | 'ceiling' | 'moving'
+        this.type = opts.type;       // 'spike' | 'block' | 'moving'
         this.x = opts.x;
         this.w = opts.w || 36;
         this.h = opts.h || 40;
+        this.baseY = opts.baseY || trackCenterY;
+        this.amplitude = opts.amplitude || 55;
+        this.speedFactor = opts.speedFactor || 3.2;
+        this.phase = opts.phase || 0;
+        this.nearMissAwarded = false;
       }
 
       getY() {
         if (this.surface === 'floor') {
           return floorY - this.h;
-        } else {
+        } else if (this.surface === 'ceiling') {
           return ceilingY;
+        } else {
+          // Moving hazard oscillating vertically within safe bounds
+          return this.baseY + Math.sin(gameTime * this.speedFactor + this.phase) * this.amplitude - (this.h / 2);
         }
       }
 
@@ -510,7 +944,6 @@
         const oh = this.h;
 
         if (this.type === 'block') {
-          // Inset by 3px for fair hitbox
           const hx = ox + 3;
           const hy = oy + 3;
           const hw = ow - 6;
@@ -522,10 +955,8 @@
             hitbox.y + hitbox.h > hy
           );
         } else if (this.type === 'spike') {
-          // Triangle approximation: base box + tip box for fair forgiving collision
           const isFloor = (this.surface === 'floor');
-
-          // Base box (lower 40% height, width 60%)
+          // Base box
           const baseH = oh * 0.42;
           const baseW = ow * 0.65;
           const baseX = ox + (ow - baseW) / 2;
@@ -534,8 +965,7 @@
               hitbox.y < baseY + baseH && hitbox.y + hitbox.h > baseY) {
             return true;
           }
-
-          // Tip box (upper 58% height, narrow width 32%)
+          // Tip box
           const tipH = oh * 0.58;
           const tipW = ow * 0.32;
           const tipX = ox + (ow - tipW) / 2;
@@ -544,8 +974,56 @@
               hitbox.y < tipY + tipH && hitbox.y + hitbox.h > tipY) {
             return true;
           }
-
           return false;
+        } else if (this.type === 'moving') {
+          // Diamond / Round hazard
+          const hx = ox + 4;
+          const hy = oy + 4;
+          const hw = ow - 8;
+          const hh = oh - 8;
+          return (
+            hitbox.x < hx + hw &&
+            hitbox.x + hitbox.w > hx &&
+            hitbox.y < hy + hh &&
+            hitbox.y + hitbox.h > hy
+          );
+        }
+        return false;
+      }
+
+      checkNearMiss(hitbox) {
+        if (this.nearMissAwarded) return false;
+
+        const ox = this.x;
+        const oy = this.getY();
+        const ow = this.w;
+        const oh = this.h;
+
+        // Trigger near miss when player passes close to the obstacle horizontally
+        const isHorizontallyAligned = (hitbox.x + hitbox.w >= ox - 6 && hitbox.x <= ox + ow + 12);
+        if (!isHorizontallyAligned) return false;
+
+        let verticalGap = 999;
+        if (this.surface === 'floor') {
+          // Gap between player bottom and obstacle top
+          const playerBottom = hitbox.y + hitbox.h;
+          verticalGap = oy - playerBottom;
+        } else if (this.surface === 'ceiling') {
+          // Gap between player top and obstacle bottom
+          const playerTop = hitbox.y;
+          const obstacleBottom = oy + oh;
+          verticalGap = playerTop - obstacleBottom;
+        } else {
+          // Moving hazard
+          const pCenterY = hitbox.y + hitbox.h / 2;
+          const oCenterY = oy + oh / 2;
+          verticalGap = Math.abs(pCenterY - oCenterY) - (hitbox.h / 2 + oh / 2);
+        }
+
+        // Within 22px without colliding counts as an exhilarating Near Miss!
+        if (verticalGap >= 0 && verticalGap <= 22) {
+          this.nearMissAwarded = true;
+          return true;
         }
         return false;
       }
@@ -553,62 +1031,43 @@
 
     function resetObstacles() {
       obstacles = [];
+      coins = [];
       nextSpawnX = virtualW + 40;
       patternIndex = 0;
     }
 
     function spawnNextPattern() {
-      // Dynamic transit distance based on current speed
-      const transitDist = currentSpeed * 0.73;
-      const minRunBuffer = Math.max(150, currentSpeed * 0.5);
+      const transitDist = currentSpeed * 0.72;
+      const minRunBuffer = Math.max(160, currentSpeed * 0.5);
 
       if (patternIndex === 0) {
-        // First obstacle: easy single floor block with wide landing runway
-        obstacles.push(new Obstacle({
-          surface: 'floor',
-          type: 'block',
-          x: nextSpawnX,
-          w: 32,
-          h: 36
-        }));
-        nextSpawnX += transitDist + minRunBuffer + 180;
+        // Tutorial 1: Floor block + aerial coin arc guide
+        obstacles.push(new Obstacle({ surface: 'floor', type: 'block', x: nextSpawnX, w: 32, h: 36 }));
+        spawnCoinArc(nextSpawnX - 80, 'floor', 'ceiling', 5);
+        nextSpawnX += transitDist + minRunBuffer + 160;
       } else if (patternIndex === 1) {
-        // Second obstacle: easy single ceiling block with wide landing runway
-        obstacles.push(new Obstacle({
-          surface: 'ceiling',
-          type: 'block',
-          x: nextSpawnX,
-          w: 32,
-          h: 36
-        }));
-        nextSpawnX += transitDist + minRunBuffer + 180;
+        // Tutorial 2: Ceiling block + downward coin arc guide
+        obstacles.push(new Obstacle({ surface: 'ceiling', type: 'block', x: nextSpawnX, w: 32, h: 36 }));
+        spawnCoinArc(nextSpawnX - 80, 'ceiling', 'floor', 5);
+        nextSpawnX += transitDist + minRunBuffer + 160;
       } else if (patternIndex === 2) {
-        // Third obstacle: easy single floor spike
-        obstacles.push(new Obstacle({
-          surface: 'floor',
-          type: 'spike',
-          x: nextSpawnX,
-          w: 28,
-          h: 36
-        }));
-        nextSpawnX += transitDist + minRunBuffer + 160;
-      } else if (patternIndex === 3) {
-        // Fourth obstacle: easy single ceiling spike
-        obstacles.push(new Obstacle({
-          surface: 'ceiling',
-          type: 'spike',
-          x: nextSpawnX,
-          w: 28,
-          h: 36
-        }));
-        nextSpawnX += transitDist + minRunBuffer + 160;
+        // Floor Spike + coin arc
+        obstacles.push(new Obstacle({ surface: 'floor', type: 'spike', x: nextSpawnX, w: 28, h: 36 }));
+        spawnCoinArc(nextSpawnX - 70, 'floor', 'ceiling', 4);
+        nextSpawnX += transitDist + minRunBuffer + 140;
       } else {
-        // Subsequent patterns: random passable patterns
-        const patternChoice = Math.floor(Math.random() * 8);
+        // Dynamic guaranteed-passable patterns with coin arcs
+        const choices = [0, 1, 2, 3, 4, 5, 6, 7];
+        // Introduce advanced hazards as distance progresses
+        if (scoreMeters >= 250) choices.push(8); // Moving hazard
+        if (scoreMeters >= 450) choices.push(9); // Zigzag rhythm run
+        if (scoreMeters >= 700) choices.push(10); // Narrow tunnel timing
+
+        const patternChoice = choices[Math.floor(Math.random() * choices.length)];
 
         switch (patternChoice) {
           case 0: {
-            // Single Floor Spike / Block
+            // Floor Spike / Block
             const isSpike = Math.random() < 0.6;
             obstacles.push(new Obstacle({
               surface: 'floor',
@@ -617,12 +1076,13 @@
               w: isSpike ? 30 : 38,
               h: isSpike ? 38 : 45
             }));
-            nextSpawnX += transitDist + minRunBuffer + 100;
+            spawnCoinArc(nextSpawnX - 80, 'floor', 'ceiling', 4);
+            nextSpawnX += transitDist + minRunBuffer + 110;
             break;
           }
 
           case 1: {
-            // Single Ceiling Spike / Block
+            // Ceiling Spike / Block
             const isSpike = Math.random() < 0.6;
             obstacles.push(new Obstacle({
               surface: 'ceiling',
@@ -631,122 +1091,119 @@
               w: isSpike ? 30 : 38,
               h: isSpike ? 38 : 45
             }));
-            nextSpawnX += transitDist + minRunBuffer + 100;
+            spawnCoinArc(nextSpawnX - 80, 'ceiling', 'floor', 4);
+            nextSpawnX += transitDist + minRunBuffer + 110;
             break;
           }
 
           case 2: {
-            // COMBO: Floor block followed shortly by ceiling block
-            // Requires player to flip to ceiling, land, run briefly, and flip back down to floor!
-            const floorBlockWidth = 42;
-            obstacles.push(new Obstacle({
-              surface: 'floor',
-              type: 'block',
-              x: nextSpawnX,
-              w: floorBlockWidth,
-              h: 48
-            }));
+            // Floor block -> Runway -> Ceiling block
+            obstacles.push(new Obstacle({ surface: 'floor', type: 'block', x: nextSpawnX, w: 42, h: 48 }));
+            spawnCoinArc(nextSpawnX - 60, 'floor', 'ceiling', 4);
 
             const ceilingX = nextSpawnX + transitDist + minRunBuffer;
-            obstacles.push(new Obstacle({
-              surface: 'ceiling',
-              type: 'block',
-              x: ceilingX,
-              w: 42,
-              h: 48
-            }));
+            obstacles.push(new Obstacle({ surface: 'ceiling', type: 'block', x: ceilingX, w: 42, h: 48 }));
+            spawnCoinArc(ceilingX - 60, 'ceiling', 'floor', 4);
 
-            nextSpawnX = ceilingX + transitDist + minRunBuffer + 130;
+            nextSpawnX = ceilingX + transitDist + minRunBuffer + 140;
             break;
           }
 
           case 3: {
-            // COMBO: Ceiling block followed shortly by floor block
-            const ceilingBlockWidth = 42;
-            obstacles.push(new Obstacle({
-              surface: 'ceiling',
-              type: 'block',
-              x: nextSpawnX,
-              w: ceilingBlockWidth,
-              h: 48
-            }));
+            // Ceiling block -> Runway -> Floor block
+            obstacles.push(new Obstacle({ surface: 'ceiling', type: 'block', x: nextSpawnX, w: 42, h: 48 }));
+            spawnCoinArc(nextSpawnX - 60, 'ceiling', 'floor', 4);
 
             const floorX = nextSpawnX + transitDist + minRunBuffer;
-            obstacles.push(new Obstacle({
-              surface: 'floor',
-              type: 'block',
-              x: floorX,
-              w: 42,
-              h: 48
-            }));
+            obstacles.push(new Obstacle({ surface: 'floor', type: 'block', x: floorX, w: 42, h: 48 }));
+            spawnCoinArc(floorX - 60, 'floor', 'ceiling', 4);
 
-            nextSpawnX = floorX + transitDist + minRunBuffer + 130;
+            nextSpawnX = floorX + transitDist + minRunBuffer + 140;
             break;
           }
 
           case 4: {
             // Double Spikes on Floor
-            obstacles.push(new Obstacle({
-              surface: 'floor',
-              type: 'spike',
-              x: nextSpawnX,
-              w: 28,
-              h: 38
-            }));
-            obstacles.push(new Obstacle({
-              surface: 'floor',
-              type: 'spike',
-              x: nextSpawnX + 34,
-              w: 28,
-              h: 38
-            }));
-            nextSpawnX += transitDist + minRunBuffer + 120;
+            obstacles.push(new Obstacle({ surface: 'floor', type: 'spike', x: nextSpawnX, w: 28, h: 38 }));
+            obstacles.push(new Obstacle({ surface: 'floor', type: 'spike', x: nextSpawnX + 34, w: 28, h: 38 }));
+            spawnCoinArc(nextSpawnX - 60, 'floor', 'ceiling', 5);
+            nextSpawnX += transitDist + minRunBuffer + 130;
             break;
           }
 
           case 5: {
             // Double Spikes on Ceiling
-            obstacles.push(new Obstacle({
-              surface: 'ceiling',
-              type: 'spike',
-              x: nextSpawnX,
-              w: 28,
-              h: 38
-            }));
-            obstacles.push(new Obstacle({
-              surface: 'ceiling',
-              type: 'spike',
-              x: nextSpawnX + 34,
-              w: 28,
-              h: 38
-            }));
-            nextSpawnX += transitDist + minRunBuffer + 120;
+            obstacles.push(new Obstacle({ surface: 'ceiling', type: 'spike', x: nextSpawnX, w: 28, h: 38 }));
+            obstacles.push(new Obstacle({ surface: 'ceiling', type: 'spike', x: nextSpawnX + 34, w: 28, h: 38 }));
+            spawnCoinArc(nextSpawnX - 60, 'ceiling', 'floor', 5);
+            nextSpawnX += transitDist + minRunBuffer + 130;
             break;
           }
 
           case 6: {
-            // Tall Floor Pillar (height 88px)
-            obstacles.push(new Obstacle({
-              surface: 'floor',
-              type: 'block',
-              x: nextSpawnX,
-              w: 44,
-              h: 88
-            }));
-            nextSpawnX += transitDist + minRunBuffer + 120;
+            // Tall Floor Pillar (84px) with high clearance
+            obstacles.push(new Obstacle({ surface: 'floor', type: 'block', x: nextSpawnX, w: 42, h: 84 }));
+            spawnCoinArc(nextSpawnX - 70, 'floor', 'ceiling', 5);
+            nextSpawnX += transitDist + minRunBuffer + 130;
             break;
           }
 
           case 7: {
-            // Tall Ceiling Pillar (height 88px)
+            // Tall Ceiling Pillar (84px) with high clearance
+            obstacles.push(new Obstacle({ surface: 'ceiling', type: 'block', x: nextSpawnX, w: 42, h: 84 }));
+            spawnCoinArc(nextSpawnX - 70, 'ceiling', 'floor', 5);
+            nextSpawnX += transitDist + minRunBuffer + 130;
+            break;
+          }
+
+          case 8: {
+            // Vertically Oscillating Energy Core (Always passable on floor or ceiling)
             obstacles.push(new Obstacle({
-              surface: 'ceiling',
-              type: 'block',
+              surface: 'moving',
+              type: 'moving',
               x: nextSpawnX,
-              w: 44,
-              h: 88
+              w: 36,
+              h: 36,
+              baseY: trackCenterY,
+              amplitude: 56,
+              speedFactor: 3.4,
+              phase: Math.random() * Math.PI * 2
             }));
-            nextSpawnX += transitDist + minRunBuffer + 120;
+            // Guidance coins placed on both floor and ceiling runways
+            coins.push(new Coin(nextSpawnX - 40, floorY - 25));
+            coins.push(new Coin(nextSpawnX + 40, floorY - 25));
+            coins.push(new Coin(nextSpawnX - 40, ceilingY + 25));
+            coins.push(new Coin(nextSpawnX + 40, ceilingY + 25));
+            nextSpawnX += transitDist + minRunBuffer + 150;
+            break;
+          }
+
+          case 9: {
+            // Zigzag Rhythm Sequence: Floor -> Ceiling -> Floor with guaranteed flip landing runways
+            const gap = transitDist + minRunBuffer;
+            obstacles.push(new Obstacle({ surface: 'floor', type: 'spike', x: nextSpawnX, w: 30, h: 36 }));
+            spawnCoinArc(nextSpawnX - 50, 'floor', 'ceiling', 4);
+
+            obstacles.push(new Obstacle({ surface: 'ceiling', type: 'spike', x: nextSpawnX + gap, w: 30, h: 36 }));
+            spawnCoinArc(nextSpawnX + gap - 50, 'ceiling', 'floor', 4);
+
+            obstacles.push(new Obstacle({ surface: 'floor', type: 'spike', x: nextSpawnX + gap * 2, w: 30, h: 36 }));
+            spawnCoinArc(nextSpawnX + gap * 2 - 50, 'floor', 'ceiling', 4);
+
+            nextSpawnX += gap * 2 + transitDist + minRunBuffer + 160;
+            break;
+          }
+
+          case 10: {
+            // Narrow Tunnel Timing Challenge: Staggered overhead & ground barriers with safe trajectory
+            obstacles.push(new Obstacle({ surface: 'floor', type: 'block', x: nextSpawnX, w: 50, h: 45 }));
+            spawnCoinArc(nextSpawnX - 60, 'floor', 'ceiling', 4);
+
+            const tunnelCeilingX = nextSpawnX + transitDist + 70;
+            obstacles.push(new Obstacle({ surface: 'ceiling', type: 'block', x: tunnelCeilingX, w: 50, h: 45 }));
+            spawnCoinArc(tunnelCeilingX - 50, 'ceiling', 'floor', 4);
+
+            nextSpawnX = tunnelCeilingX + transitDist + minRunBuffer + 150;
             break;
           }
         }
@@ -756,9 +1213,8 @@
     }
 
     function updateObstacles(dt) {
-      // 2-second obstacle-free start
-      if (gameTime >= 2.0) {
-        while (nextSpawnX < virtualW + 800) {
+      if (gameTime >= 1.8) {
+        while (nextSpawnX < virtualW + 850) {
           spawnNextPattern();
         }
       }
@@ -769,12 +1225,31 @@
         const obs = obstacles[i];
         obs.x -= currentSpeed * dt;
 
-        if (state === 'playing' && obs.collidesWith(hitbox)) {
-          triggerGameOver();
-          return;
+        if (state === 'playing') {
+          // 1. Collision check
+          if (obs.collidesWith(hitbox)) {
+            triggerGameOver();
+            return;
+          }
+
+          // 2. Near Miss check
+          if (obs.checkNearMiss(hitbox)) {
+            nearMissCount++;
+            comboCount++;
+            comboMultiplier = getComboMultiplier(comboCount);
+            comboTimer = 2.0; // Reset landing timer
+            maxCombo = Math.max(maxCombo, comboCount);
+
+            const bonus = 50 * comboMultiplier;
+            gameScore += bonus;
+
+            sound.playNearMiss();
+            spawnNearMissSparkles(player.x, player.y);
+            spawnPopupText(player.x + 24, player.y - 14, `NEAR MISS! +${bonus}`, '#38bdf8', 14, true);
+          }
         }
 
-        if (obs.x + obs.w < -120) {
+        if (obs.x + obs.w < -140) {
           obstacles.splice(i, 1);
         }
       }
@@ -810,13 +1285,28 @@
       sound.playStart();
       state = 'playing';
       gameTime = 0;
+      gameScore = 0;
       scoreMeters = 0;
+      coinsCollected = 0;
+      nearMissCount = 0;
+      comboCount = 0;
+      comboMultiplier = 1;
+      comboTimer = 0;
+      maxCombo = 0;
+      currentTierIndex = 0;
+      hitStopTimer = 0;
       isNewBest = false;
       currentSpeed = SPEED_INITIAL;
+
       player.reset();
       resetObstacles();
       particles = [];
       deathDebris = [];
+      popupTexts = [];
+
+      sound.setBpm(SPEED_TIERS[0].bpm);
+      sound.startBgm();
+
       syncGameTestingObj();
     }
 
@@ -824,10 +1314,16 @@
       state = 'gameover';
       gameOverTimer = 0;
       player.flipBufferTimer = 0;
+
+      // Juice: 80ms hit-stop & strong screen shake
+      hitStopTimer = 0.08;
+      addScreenShake(14.0, 0.42);
+
       sound.playCrash();
+      sound.stopBgm();
       createDeathExplosion(player);
 
-      const finalScore = Math.floor(scoreMeters);
+      const finalScore = Math.floor(gameScore);
       if (finalScore > bestScore) {
         bestScore = finalScore;
         isNewBest = true;
@@ -845,7 +1341,6 @@
       } else if (state === 'playing') {
         player.flip();
       } else if (state === 'gameover') {
-        // 0.6s input lock after game over prevents in-flight taps from accidentally restarting immediately
         if (gameOverTimer >= GAME_OVER_INPUT_LOCK) {
           startGame();
         }
@@ -853,18 +1348,25 @@
     }
 
     // --- Input Listeners ---
+    const MUTE_BTN_SIZE = 28;
+    const MUTE_BTN_MARGIN = 14;
+
     function isMuteButtonClicked(clientX, clientY) {
-      const btnSize = 44;
-      const margin = 16;
-      const x = canvasWidth - margin - btnSize;
-      const y = margin;
-      return (clientX >= x && clientX <= x + btnSize && clientY >= y && clientY <= y + btnSize);
+      const hitPadding = 8;
+      const x = canvasWidth - MUTE_BTN_MARGIN - MUTE_BTN_SIZE;
+      const y = MUTE_BTN_MARGIN;
+      return (
+        clientX >= x - hitPadding &&
+        clientX <= x + MUTE_BTN_SIZE + hitPadding &&
+        clientY >= y - hitPadding &&
+        clientY <= y + MUTE_BTN_SIZE + hitPadding
+      );
     }
 
     let lastInputTime = 0;
     function handlePointer(e, clientX, clientY) {
       const now = performance.now();
-      if (now - lastInputTime < 35) return; // Prevent duplicate pointerdown + touchstart in same gesture
+      if (now - lastInputTime < 35) return;
       lastInputTime = now;
 
       if (isMuteButtonClicked(clientX, clientY)) {
@@ -877,7 +1379,6 @@
       handleUserInput();
     }
 
-    // Pointer / Touch
     window.addEventListener('pointerdown', (e) => {
       handlePointer(e, e.clientX, e.clientY);
     }, { passive: false });
@@ -888,7 +1389,6 @@
       }
     }, { passive: false });
 
-    // Keyboard (Space, Enter, ArrowUp, ArrowDown, W, S)
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'KeyW' || e.code === 'KeyS') {
         e.preventDefault();
@@ -900,6 +1400,15 @@
 
     // --- Main Update Loop ---
     function update(dt) {
+      // 80ms Hit-stop on death
+      if (hitStopTimer > 0) {
+        hitStopTimer -= dt;
+        updateScreenShake(dt);
+        return;
+      }
+
+      updateScreenShake(dt);
+
       if (state === 'playing') {
         gameTime += dt;
 
@@ -908,13 +1417,46 @@
         currentSpeed = SPEED_INITIAL + (SPEED_MAX - SPEED_INITIAL) * (1 - Math.exp(-progress * 2.8));
 
         // Distance in meters
-        scoreMeters += (currentSpeed * dt) / 24;
+        const deltaMeters = (currentSpeed * dt) / 24;
+        scoreMeters += deltaMeters;
+
+        // Score progression from distance (scaled by combo multiplier)
+        gameScore += deltaMeters * 5 * comboMultiplier;
+
+        // Speed tier check & trigger
+        for (let i = SPEED_TIERS.length - 1; i >= 0; i--) {
+          if (scoreMeters >= SPEED_TIERS[i].minMeters) {
+            if (i > currentTierIndex) {
+              currentTierIndex = i;
+              speedUpBanner.active = true;
+              speedUpBanner.timer = 1.6;
+              speedUpBanner.name = SPEED_TIERS[i].name;
+              sound.setBpm(SPEED_TIERS[i].bpm);
+              sound.playSpeedUp();
+            }
+            break;
+          }
+        }
+
+        // Combo timeout check: combo does not expire in mid-air!
+        // When grounded, 2.0s countdown starts
+        if (player.isGrounded) {
+          if (comboCount > 0) {
+            comboTimer -= dt;
+            if (comboTimer <= 0) {
+              comboCount = 0;
+              comboMultiplier = 1;
+              comboTimer = 0;
+            }
+          }
+        }
 
         player.update(dt);
         updateObstacles(dt);
+        updateCoins(dt);
         updateBackground(dt);
+        sound.updateBgm();
       } else if (state === 'title') {
-        // Stick figure runs on floor during title
         player.animPhase += 14 * dt;
         player.y = floorY - FIGURE_HALF_HEIGHT;
         player.rotation = 0;
@@ -926,17 +1468,36 @@
         updateBackground(dt * 0.2);
       }
 
+      if (speedUpBanner.active) {
+        speedUpBanner.timer -= dt;
+        if (speedUpBanner.timer <= 0) {
+          speedUpBanner.active = false;
+        }
+      }
+
       updateParticles(dt);
       syncGameTestingObj();
     }
 
+    function updateScreenShake(dt) {
+      if (screenShake.timer > 0) {
+        screenShake.timer -= dt;
+        if (screenShake.timer <= 0) {
+          screenShake.intensity = 0;
+          screenShake.duration = 0;
+        }
+      }
+    }
+
     // --- Render Functions ---
     function renderBackground() {
-      // Clean background fill
-      ctx.fillStyle = '#f8fafc';
+      const tier = SPEED_TIERS[currentTierIndex] || SPEED_TIERS[0];
+
+      // Background fill based on tier
+      ctx.fillStyle = tier.bgTone;
       ctx.fillRect(0, 0, virtualW, virtualH);
 
-      // Subtle horizontal speed streaks
+      // Speed streaks
       ctx.lineWidth = 1.2;
       for (const line of speedLines) {
         ctx.strokeStyle = `rgba(148, 163, 184, ${line.alpha})`;
@@ -946,13 +1507,13 @@
         ctx.stroke();
       }
 
-      // Scrolling track pattern outside play zone with clipped architectural hatch
+      // Outside play zone architectural hatch
       // Above ceiling
       ctx.save();
       ctx.beginPath();
       ctx.rect(0, 0, virtualW, ceilingY);
       ctx.clip();
-      ctx.fillStyle = '#f1f5f9';
+      ctx.fillStyle = tier.trackTone;
       ctx.fillRect(0, 0, virtualW, ceilingY);
 
       ctx.strokeStyle = 'rgba(203, 213, 225, 0.45)';
@@ -972,7 +1533,7 @@
       ctx.beginPath();
       ctx.rect(0, floorY, virtualW, virtualH - floorY);
       ctx.clip();
-      ctx.fillStyle = '#f1f5f9';
+      ctx.fillStyle = tier.trackTone;
       ctx.fillRect(0, floorY, virtualW, virtualH - floorY);
 
       ctx.strokeStyle = 'rgba(203, 213, 225, 0.45)';
@@ -986,7 +1547,7 @@
       ctx.stroke();
       ctx.restore();
 
-      // Distance markers every 100m during gameplay
+      // Distance markers every 100m
       if (state === 'playing') {
         const markerStep = 100;
         const currentDist = scoreMeters;
@@ -1011,23 +1572,19 @@
         }
       }
 
-      // Solid Track Boundary Lines
+      // Track Boundary Lines
       ctx.lineWidth = 3.5;
       ctx.strokeStyle = '#0f172a';
-      // Ceiling line
       ctx.beginPath();
       ctx.moveTo(0, ceilingY);
       ctx.lineTo(virtualW, ceilingY);
-      ctx.stroke();
-      // Floor line
-      ctx.beginPath();
       ctx.moveTo(0, floorY);
       ctx.lineTo(virtualW, floorY);
       ctx.stroke();
 
-      // Subtle accent edge stripes
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = '#0284c7';
+      // Dynamic Accent stripes according to speed tier
+      ctx.lineWidth = 2.0;
+      ctx.strokeStyle = tier.accent;
       ctx.beginPath();
       ctx.moveTo(0, ceilingY - 3.5);
       ctx.lineTo(virtualW, ceilingY - 3.5);
@@ -1037,28 +1594,26 @@
     }
 
     function renderObstacles() {
+      const tier = SPEED_TIERS[currentTierIndex] || SPEED_TIERS[0];
+
       for (const obs of obstacles) {
         const oy = obs.getY();
 
         if (obs.type === 'block') {
-          // Block body
           ctx.fillStyle = '#1e293b';
           ctx.fillRect(obs.x, oy, obs.w, obs.h);
 
-          // Dark slate border
           ctx.lineWidth = 2.5;
           ctx.strokeStyle = '#0f172a';
           ctx.strokeRect(obs.x, oy, obs.w, obs.h);
 
-          // Accent pinstripe
-          ctx.fillStyle = '#0284c7';
+          ctx.fillStyle = tier.accent;
           if (obs.surface === 'floor') {
             ctx.fillRect(obs.x + 3, oy + 2, obs.w - 6, 3);
           } else {
             ctx.fillRect(obs.x + 3, oy + obs.h - 5, obs.w - 6, 3);
           }
 
-          // Subtle internal geometric line
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
           ctx.lineWidth = 1.5;
           ctx.beginPath();
@@ -1073,7 +1628,6 @@
           const rightX = obs.x + obs.w;
           const midX = obs.x + (obs.w / 2);
 
-          // Spike triangle
           ctx.fillStyle = '#0f172a';
           ctx.beginPath();
           ctx.moveTo(leftX, baseY);
@@ -1083,31 +1637,75 @@
           ctx.fill();
 
           ctx.lineWidth = 2;
-          ctx.strokeStyle = '#0284c7';
+          ctx.strokeStyle = tier.accent;
           ctx.stroke();
 
-          // Accent tip highlight
-          ctx.fillStyle = '#0284c7';
+          ctx.fillStyle = tier.accent;
           ctx.beginPath();
           ctx.arc(midX, tipY + (isFloor ? 3 : -3), 2.5, 0, Math.PI * 2);
           ctx.fill();
+        } else if (obs.type === 'moving') {
+          // Oscillating Energy Core Hazard
+          const midX = obs.x + obs.w / 2;
+          const midY = oy + obs.h / 2;
+          const r = obs.w / 2;
+
+          ctx.save();
+          ctx.translate(midX, midY);
+          ctx.rotate(gameTime * 4.0);
+
+          // Glow halo
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.2)';
+          ctx.beginPath();
+          ctx.arc(0, 0, r + 6, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Outer diamond
+          ctx.fillStyle = '#1e293b';
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(0, -r);
+          ctx.lineTo(r, 0);
+          ctx.lineTo(0, r);
+          ctx.lineTo(-r, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // Inner pulsing core
+          const coreR = 4 + Math.sin(gameTime * 8) * 2;
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath();
+          ctx.arc(0, 0, coreR, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.restore();
         }
       }
     }
 
-    function renderPlayerFigure(x, y, rotation, animPhase, isGrounded, alpha = 1.0) {
+    function renderPlayerFigure(x, y, rotation, animPhase, isGrounded, alpha = 1.0, squashTimer = 0, surface = 'floor') {
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(rotation);
-      ctx.globalAlpha = alpha;
 
+      // Juice: Squash & stretch animation on landing
+      if (squashTimer > 0) {
+        const p = 1.0 - (squashTimer / 0.16);
+        const wave = Math.sin(p * Math.PI * 2) * Math.exp(-p * 3.5) * 0.35;
+        // Anchor to ground surface
+        ctx.scale(1.0 + wave, 1.0 - wave);
+      }
+
+      ctx.globalAlpha = alpha;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
       const darkColor = '#0f172a';
-      const accentColor = '#0284c7';
+      const accentColor = (SPEED_TIERS[currentTierIndex] || SPEED_TIERS[0]).accent;
 
-      // 1. Scarf / Headband fluttering
+      // 1. Scarf fluttering
       if (alpha > 0.8) {
         ctx.strokeStyle = accentColor;
         ctx.lineWidth = 3.2;
@@ -1249,21 +1847,20 @@
 
       const arrowX = player.x + 28;
       const arrowY = player.y;
+      const accent = (SPEED_TIERS[currentTierIndex] || SPEED_TIERS[0]).accent;
 
       if (player.isGrounded) {
-        // Glowing ready indicator arrow pointing to destination
         const pointsUp = (player.groundedSurface === 'floor');
         const pulse = Math.sin(Date.now() * 0.008) * 2;
 
         ctx.save();
         ctx.translate(arrowX, arrowY + (pointsUp ? -pulse : pulse));
-        ctx.strokeStyle = '#0284c7';
-        ctx.fillStyle = '#0284c7';
+        ctx.strokeStyle = accent;
+        ctx.fillStyle = accent;
         ctx.lineWidth = 2.2;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
-        // Draw vertical directional arrow with stem
         ctx.beginPath();
         if (pointsUp) {
           ctx.moveTo(-4, 2);
@@ -1280,14 +1877,12 @@
         }
         ctx.stroke();
 
-        // Energy dot
         ctx.beginPath();
         ctx.arc(0, pointsUp ? -10 : 10, 2, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
       } else {
-        // Dimmed cooldown indicator in air
         ctx.save();
         ctx.translate(arrowX, arrowY);
         ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
@@ -1300,6 +1895,8 @@
     }
 
     function renderParticles() {
+      const accent = (SPEED_TIERS[currentTierIndex] || SPEED_TIERS[0]).accent;
+
       for (const pt of particles) {
         if (pt.type === 'shockwave') {
           ctx.save();
@@ -1308,6 +1905,14 @@
           ctx.beginPath();
           ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
           ctx.stroke();
+          ctx.restore();
+        } else if (pt.type === 'sparkle') {
+          ctx.save();
+          ctx.fillStyle = pt.color;
+          ctx.globalAlpha = pt.alpha;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+          ctx.fill();
           ctx.restore();
         } else {
           ctx.save();
@@ -1334,7 +1939,7 @@
             ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
             ctx.fill();
           } else if (d.type === 'scarf') {
-            ctx.strokeStyle = '#0284c7';
+            ctx.strokeStyle = accent;
             ctx.beginPath();
             ctx.moveTo(d.x1, d.y1);
             ctx.lineTo(d.x2, d.y2);
@@ -1349,94 +1954,227 @@
           ctx.restore();
         }
       }
+
+      // Floating popup texts
+      for (const pt of popupTexts) {
+        ctx.save();
+        ctx.globalAlpha = pt.alpha;
+        ctx.fillStyle = pt.color;
+        ctx.textAlign = 'center';
+        ctx.font = `${pt.isBold ? '800' : '600'} ${pt.fontSize}px system-ui, sans-serif`;
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+        ctx.shadowBlur = 4;
+        ctx.fillText(pt.text, pt.x, pt.y);
+        ctx.restore();
+      }
     }
 
-    // --- UI Overlays (HUD, Title, Game Over) ---
-    function renderHUD() {
-      const dist = Math.floor(scoreMeters);
-
-      // Distance
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#0f172a';
-      ctx.font = '800 28px system-ui, sans-serif';
-      ctx.fillText(`${dist} m`, 24, ceilingY - 32);
-
-      // Best Score
-      ctx.font = '600 13px system-ui, sans-serif';
-      ctx.fillStyle = '#64748b';
-      ctx.fillText(`BEST ${Math.max(dist, bestScore)} m`, 26, ceilingY - 14);
-
-      // Flip Availability HUD Pill (Center)
-      const pillW = 120;
-      const pillH = 28;
-      const pillX = (virtualW - pillW) / 2;
-      const pillY = ceilingY - 44;
+    // --- Speed Up Banner Notification ---
+    function renderSpeedUpBanner() {
+      if (!speedUpBanner.active) return;
+      const progress = speedUpBanner.timer / 1.6;
+      const alpha = Math.min(1, progress * 2.5);
+      const scale = 1.0 + Math.max(0, (1 - progress) * 0.2);
 
       ctx.save();
+      ctx.translate(virtualW / 2, trackCenterY);
+      ctx.scale(scale, scale);
+      ctx.globalAlpha = alpha;
+
+      const tier = SPEED_TIERS[currentTierIndex] || SPEED_TIERS[0];
+      const bannerW = 280;
+      const bannerH = 64;
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.strokeStyle = tier.accent;
+      ctx.lineWidth = 2.5;
+      roundRect(ctx, -bannerW / 2, -bannerH / 2, bannerW, bannerH, 16);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = tier.accent;
+      ctx.font = '900 13px system-ui, sans-serif';
+      ctx.letterSpacing = '2px';
+      ctx.fillText('SPEED UP!', 0, -10);
+      ctx.letterSpacing = '0px';
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '800 20px system-ui, sans-serif';
+      ctx.fillText(`${tier.name} TIER`, 0, 15);
+
+      ctx.restore();
+    }
+
+    // --- Portrait Mode Hint ---
+    function renderPortraitHint() {
+      if (!isPortrait) return;
+
+      const hintW = 210;
+      const hintH = 26;
+      const hintX = (canvasWidth - hintW) / 2;
+      const hintY = 14;
+
+      ctx.save();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+      roundRect(ctx, hintX, hintY, hintW, hintH, 13);
+      ctx.fill();
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '600 11px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('📱 横持ち推奨 (Rotate for best view)', hintX + hintW / 2, hintY + hintH / 2);
+      ctx.restore();
+    }
+
+    // --- HUD Overlays ---
+    function renderHUD() {
+      const dist = Math.floor(scoreMeters);
+      const score = Math.floor(gameScore);
+      const tier = SPEED_TIERS[currentTierIndex] || SPEED_TIERS[0];
+
+      // Screen-space vertical bounds of the track
+      const scaleFactor = renderScale / dpr;
+      const trackScreenY = canvasHeight / 2;
+      const ceilingScreenY = trackScreenY - (TRACK_HEIGHT / 2) * scaleFactor;
+      const floorScreenY = trackScreenY + (TRACK_HEIGHT / 2) * scaleFactor;
+
+      ctx.save();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Baseline for top HUD elements: comfortable margin above track ceiling line
+      const ceilingClearance = Math.min(26, Math.max(18, ceilingScreenY * 0.22));
+      const hudBottomY = ceilingScreenY - ceilingClearance;
+
+      // 1. Prominent Score (Large)
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '900 28px system-ui, sans-serif';
+      ctx.fillText(score.toLocaleString(), 16, hudBottomY - 35);
+
+      // Distance (Small, secondary)
+      ctx.font = '700 13px system-ui, sans-serif';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText(`${dist} m`, 16, hudBottomY - 17);
+
+      // Best Score (Cleared comfortably from track ceiling line)
+      ctx.font = '600 12px system-ui, sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(`BEST ${Math.max(score, bestScore).toLocaleString()}`, 16, hudBottomY);
+
+      // 2. Flip Availability HUD Pill (Center)
+      const pillW = 114;
+      const pillH = 26;
+      const pillX = (canvasWidth - pillW) / 2;
+      const pillY = hudBottomY - 26;
+
       if (player.isGrounded) {
         ctx.fillStyle = 'rgba(2, 132, 199, 0.12)';
-        ctx.strokeStyle = '#0284c7';
+        ctx.strokeStyle = tier.accent;
         ctx.lineWidth = 1.5;
-        roundRect(ctx, pillX, pillY, pillW, pillH, 14);
+        roundRect(ctx, pillX, pillY, pillW, pillH, 13);
         ctx.fill();
         ctx.stroke();
 
-        // Pulsing dot
-        ctx.fillStyle = '#0284c7';
+        ctx.fillStyle = tier.accent;
         ctx.beginPath();
-        ctx.arc(pillX + 16, pillY + 14, 4, 0, Math.PI * 2);
+        ctx.arc(pillX + 15, pillY + 13, 3.5, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = '#0284c7';
+        ctx.fillStyle = tier.accent;
         ctx.font = '700 12px system-ui, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('反転可能 ⇅', pillX + 68, pillY + 19);
+        ctx.textBaseline = 'middle';
+        ctx.fillText('反転可能 ⇅', pillX + 63, pillY + 13);
       } else {
         ctx.fillStyle = 'rgba(148, 163, 184, 0.08)';
         ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
         ctx.lineWidth = 1.2;
-        roundRect(ctx, pillX, pillY, pillW, pillH, 14);
+        roundRect(ctx, pillX, pillY, pillW, pillH, 13);
         ctx.fill();
         ctx.stroke();
 
         ctx.fillStyle = '#94a3b8';
         ctx.beginPath();
-        ctx.arc(pillX + 16, pillY + 14, 3.5, 0, Math.PI * 2);
+        ctx.arc(pillX + 15, pillY + 13, 3.5, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.fillStyle = '#94a3b8';
         ctx.font = '600 12px system-ui, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('浮遊中...', pillX + 68, pillY + 19);
+        ctx.textBaseline = 'middle';
+        ctx.fillText('浮遊中...', pillX + 63, pillY + 13);
       }
-      ctx.restore();
 
-      // Speed gauge line (bottom of screen)
+      // 3. Multiplier & Combo Badge (Top Right of play area)
+      const comboW = 96;
+      const comboH = 26;
+      const comboX = canvasWidth - comboW - 16;
+      const comboY = hudBottomY - 26;
+
+      const multColors = { 1: '#64748b', 2: '#0284c7', 3: '#8b5cf6', 5: '#f59e0b' };
+      const currentMultColor = multColors[comboMultiplier] || '#64748b';
+
+      ctx.fillStyle = comboMultiplier > 1 ? 'rgba(255, 255, 255, 0.9)' : 'rgba(241, 245, 249, 0.8)';
+      ctx.strokeStyle = currentMultColor;
+      ctx.lineWidth = comboMultiplier > 1 ? 2.0 : 1.2;
+      roundRect(ctx, comboX, comboY, comboW, comboH, 13);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = currentMultColor;
+      ctx.font = comboMultiplier > 1 ? '900 13px system-ui, sans-serif' : '700 12px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const comboLabel = comboMultiplier > 1 ? `x${comboMultiplier} COMBO` : 'x1 MULTI';
+      ctx.fillText(comboLabel, comboX + comboW / 2, comboY + 13);
+
+      // Remaining combo timer gauge when grounded
+      if (player.isGrounded && comboCount > 0 && comboTimer > 0) {
+        const timerPct = Math.max(0, comboTimer / 2.0);
+        ctx.fillStyle = currentMultColor;
+        ctx.fillRect(comboX + 10, comboY + comboH - 3, (comboW - 20) * timerPct, 2);
+      }
+
+      // 4. Coins Collected and Speed Gauge (Bottom Bar)
+      const bottomY = floorScreenY + 14;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#d97706';
+      ctx.font = '700 13px system-ui, sans-serif';
+      ctx.fillText(`🪙 ${coinsCollected}`, 16, bottomY + 12);
+
       const speedPct = Math.min(1, (currentSpeed - SPEED_INITIAL) / (SPEED_MAX - SPEED_INITIAL));
       ctx.fillStyle = 'rgba(203, 213, 225, 0.4)';
-      ctx.fillRect(24, floorY + 36, 100, 3);
-      ctx.fillStyle = '#0284c7';
-      ctx.fillRect(24, floorY + 36, 100 * speedPct, 3);
+      ctx.fillRect(16, bottomY + 20, 100, 3);
+      ctx.fillStyle = tier.accent;
+      ctx.fillRect(16, bottomY + 20, 100 * speedPct, 3);
       ctx.fillStyle = '#94a3b8';
-      ctx.font = '600 10px system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(`SPEED ${Math.round(currentSpeed / 10)}`, 24, floorY + 52);
+      ctx.font = '600 12px system-ui, sans-serif';
+      ctx.fillText(`SPEED ${Math.round(currentSpeed / 10)} (${tier.name})`, 16, bottomY + 36);
+
+      ctx.restore();
     }
 
     function renderTitleScreen() {
       const centerX = virtualW / 2;
-      // Position card slightly higher so stick figure runs completely unobstructed below it
-      const cardW = Math.min(virtualW - 40, 480);
-      const cardH = 220;
+      const cardW = Math.min(virtualW - 40, 500);
+      const cardH = 230;
       const cardX = centerX - cardW / 2;
       const cardY = trackCenterY - cardH / 2 - 25;
 
       ctx.save();
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+      ctx.fillStyle = '#ffffff';
       ctx.strokeStyle = '#0f172a';
       ctx.lineWidth = 2.5;
+      ctx.shadowColor = 'rgba(15, 23, 42, 0.12)';
+      ctx.shadowBlur = 18;
+      ctx.shadowOffsetY = 6;
       roundRect(ctx, cardX, cardY, cardW, cardH, 16);
       ctx.fill();
+      ctx.shadowColor = 'transparent';
       ctx.stroke();
 
       // Title
@@ -1463,15 +2201,15 @@
       // Brief Instructions
       ctx.font = '500 13px system-ui, sans-serif';
       ctx.fillStyle = '#334155';
-      ctx.fillText('・タップ / スペースキー で重力を上下反転', centerX, cardY + 108);
-      ctx.fillText('・着地するまで空中での連続反転はできません', centerX, cardY + 130);
+      ctx.fillText('・タップ / スペースキー でふんわり重力反転', centerX, cardY + 106);
+      ctx.fillText('・反転中のコイン取得とニアミスでコンボ倍率UP！(最大x5)', centerX, cardY + 128);
 
       // Tap to start pulsing button
       const pulse = (Math.sin(Date.now() * 0.006) + 1) / 2;
-      const btnW = 200;
+      const btnW = 210;
       const btnH = 40;
       const btnX = centerX - btnW / 2;
-      const btnY = cardY + cardH - 54;
+      const btnY = cardY + cardH - 52;
 
       ctx.fillStyle = `rgba(2, 132, 199, ${0.1 + pulse * 0.12})`;
       ctx.strokeStyle = '#0284c7';
@@ -1484,11 +2222,10 @@
       ctx.font = '700 14px system-ui, sans-serif';
       ctx.fillText('タップでスタート', centerX, btnY + 25);
 
-      // Best score if exists
       if (bestScore > 0) {
         ctx.fillStyle = '#64748b';
         ctx.font = '600 12px system-ui, sans-serif';
-        ctx.fillText(`最高記録: ${bestScore} m`, centerX, cardY - 14);
+        ctx.fillText(`最高スコア: ${bestScore.toLocaleString()} pts`, centerX, cardY - 14);
       }
 
       ctx.restore();
@@ -1496,87 +2233,124 @@
 
     function renderGameOverScreen() {
       const centerX = virtualW / 2;
-      const alpha = Math.min(1, gameOverTimer / 0.3);
+      const alpha = Math.min(1, gameOverTimer / 0.25);
 
       ctx.save();
       ctx.globalAlpha = alpha;
 
-      const cardW = Math.min(virtualW - 40, 420);
-      const cardH = 240;
+      // Perfectly fitted card within play track bounds
+      const cardW = Math.min(virtualW - 40, 440);
+      const cardH = 260;
       const cardX = centerX - cardW / 2;
-      const cardY = trackCenterY - cardH / 2 - 15;
+      const cardY = trackCenterY - cardH / 2;
 
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+      ctx.fillStyle = '#ffffff';
       ctx.strokeStyle = '#0f172a';
       ctx.lineWidth = 2.5;
+      ctx.shadowColor = 'rgba(15, 23, 42, 0.16)';
+      ctx.shadowBlur = 20;
+      ctx.shadowOffsetY = 8;
       roundRect(ctx, cardX, cardY, cardW, cardH, 16);
       ctx.fill();
+      ctx.shadowColor = 'transparent';
       ctx.stroke();
 
-      // Title
+      // Title & Best Badge
       ctx.textAlign = 'center';
       ctx.fillStyle = '#0f172a';
-      ctx.font = '900 30px system-ui, sans-serif';
-      ctx.fillText('GAME OVER', centerX, cardY + 46);
+      ctx.font = '900 24px system-ui, sans-serif';
+      ctx.fillText('GAME OVER', centerX, cardY + 34);
 
-      // New record badge
       if (isNewBest) {
-        ctx.fillStyle = '#0284c7';
-        ctx.font = '800 12px system-ui, sans-serif';
-        ctx.fillText('★ NEW RECORD! ★', centerX, cardY + 68);
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = '800 11px system-ui, sans-serif';
+        ctx.fillText('★ NEW BEST! ★', centerX, cardY + 49);
       }
 
       // Divider
       ctx.strokeStyle = '#e2e8f0';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
-      ctx.moveTo(cardX + 36, cardY + 78);
-      ctx.lineTo(cardX + cardW - 36, cardY + 78);
+      ctx.moveTo(cardX + 28, cardY + 56);
+      ctx.lineTo(cardX + cardW - 28, cardY + 56);
       ctx.stroke();
 
-      // Score
-      const finalDist = Math.floor(scoreMeters);
+      // Large Score display
+      const finalScore = Math.floor(gameScore);
       ctx.fillStyle = '#64748b';
-      ctx.font = '600 13px system-ui, sans-serif';
-      ctx.fillText('走破距離', centerX, cardY + 104);
+      ctx.font = '600 10px system-ui, sans-serif';
+      ctx.fillText('FINAL SCORE', centerX, cardY + 72);
 
       ctx.fillStyle = '#0f172a';
-      ctx.font = '800 34px system-ui, sans-serif';
-      ctx.fillText(`${finalDist} m`, centerX, cardY + 140);
+      ctx.font = '900 32px system-ui, sans-serif';
+      ctx.fillText(finalScore.toLocaleString(), centerX, cardY + 104);
 
-      // Best Score
+      // Stats 2-column layout
+      const statsY = cardY + 124;
+      const col1X = cardX + 44;
+      const col2X = cardX + cardW - 44;
+      const lineGap = 19;
+
+      ctx.font = '600 11px system-ui, sans-serif';
       ctx.fillStyle = '#64748b';
-      ctx.font = '600 13px system-ui, sans-serif';
-      ctx.fillText(`自己ベスト: ${bestScore} m`, centerX, cardY + 165);
+      ctx.textAlign = 'left';
+      ctx.fillText('走破距離', col1X, statsY);
+      ctx.fillText('取得コイン', col1X, statsY + lineGap);
+      ctx.fillText('最大コンボ', col1X, statsY + lineGap * 2);
+      ctx.fillText('ニアミス回数', col1X, statsY + lineGap * 3);
 
-      // Retry Prompt
-      if (gameOverTimer >= GAME_OVER_INPUT_LOCK) {
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '700 12px system-ui, sans-serif';
+      ctx.fillText(`${Math.floor(scoreMeters)} m`, col2X, statsY);
+      ctx.fillText(`${coinsCollected} 枚`, col2X, statsY + lineGap);
+      ctx.fillText(`x${getComboMultiplier(maxCombo)} (${maxCombo} 連鎖)`, col2X, statsY + lineGap * 2);
+      ctx.fillText(`${nearMissCount} 回`, col2X, statsY + lineGap * 3);
+
+      // Self Best Note
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 10px system-ui, sans-serif';
+      ctx.fillText(`自己ベスト: ${bestScore.toLocaleString()} pts`, centerX, cardY + 208);
+
+      // Retry Prompt Button
+      const btnW = 180;
+      const btnH = 34;
+      const btnX = centerX - btnW / 2;
+      const btnY = cardY + cardH - 44;
+      const isInputLocked = (gameOverTimer < GAME_OVER_INPUT_LOCK);
+
+      if (isInputLocked) {
+        ctx.fillStyle = 'rgba(241, 245, 249, 0.9)';
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 1.5;
+        roundRect(ctx, btnX, btnY, btnW, btnH, 17);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '600 12px system-ui, sans-serif';
+        ctx.fillText('...', centerX, btnY + 21);
+      } else {
         const pulse = (Math.sin(Date.now() * 0.007) + 1) / 2;
-        const btnW = 180;
-        const btnH = 40;
-        const btnX = centerX - btnW / 2;
-        const btnY = cardY + cardH - 52;
-
         ctx.fillStyle = `rgba(2, 132, 199, ${0.1 + pulse * 0.12})`;
         ctx.strokeStyle = '#0284c7';
         ctx.lineWidth = 2;
-        roundRect(ctx, btnX, btnY, btnW, btnH, 20);
+        roundRect(ctx, btnX, btnY, btnW, btnH, 17);
         ctx.fill();
         ctx.stroke();
 
         ctx.fillStyle = '#0284c7';
-        ctx.font = '700 14px system-ui, sans-serif';
-        ctx.fillText('タップでリトライ', centerX, btnY + 25);
+        ctx.font = '700 13px system-ui, sans-serif';
+        ctx.fillText('タップでリトライ', centerX, btnY + 22);
       }
 
       ctx.restore();
     }
 
     function renderMuteButton() {
-      const btnSize = 36;
-      const margin = 16;
-      const x = canvasWidth - margin - btnSize;
-      const y = margin;
+      const x = canvasWidth - MUTE_BTN_MARGIN - MUTE_BTN_SIZE;
+      const y = MUTE_BTN_MARGIN;
 
       ctx.save();
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1584,15 +2358,15 @@
       ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
       ctx.strokeStyle = '#cbd5e1';
       ctx.lineWidth = 1.5;
-      roundRect(ctx, x, y, btnSize, btnSize, 10);
+      roundRect(ctx, x, y, MUTE_BTN_SIZE, MUTE_BTN_SIZE, 8);
       ctx.fill();
       ctx.stroke();
 
       ctx.fillStyle = sound.muted ? '#94a3b8' : '#0284c7';
-      ctx.font = '16px system-ui, sans-serif';
+      ctx.font = '13px system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(sound.muted ? '🔇' : '🔊', x + btnSize / 2, y + btnSize / 2);
+      ctx.fillText(sound.muted ? '🔇' : '🔊', x + MUTE_BTN_SIZE / 2, y + MUTE_BTN_SIZE / 2);
 
       ctx.restore();
     }
@@ -1610,32 +2384,51 @@
       c.closePath();
     }
 
-    // --- Testing API Hook (window.__game) ---
+    // --- Testing API Hook (window.__game - Preserved & Extended) ---
     function syncGameTestingObj() {
       if (!window.__game) {
         window.__game = {};
         Object.defineProperty(window.__game, 'state', { get: () => state, set: v => { state = v; }, configurable: true, enumerable: true });
-        Object.defineProperty(window.__game, 'score', { get: () => Math.floor(scoreMeters), configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'score', { get: () => Math.floor(gameScore), configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'distance', { get: () => Math.floor(scoreMeters), configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'bestScore', { get: () => bestScore, configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'isGrounded', { get: () => player.isGrounded, configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'speed', { get: () => currentSpeed, configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'player', { get: () => player, configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'obstacles', { get: () => obstacles, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'coins', { get: () => coins, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'coinsCollected', { get: () => coinsCollected, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'nearMisses', { get: () => nearMissCount, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'combo', { get: () => comboCount, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'comboMultiplier', { get: () => comboMultiplier, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'maxCombo', { get: () => maxCombo, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'tier', { get: () => currentTierIndex, configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'virtualW', { get: () => virtualW, configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'virtualH', { get: () => virtualH, configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'gameOverTimer', { get: () => gameOverTimer, configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'gameTime', { get: () => gameTime, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'sound', { get: () => sound, configurable: true, enumerable: true });
+
         window.__game.start = startGame;
         window.__game.flip = () => {
-          const res = player.flip();
-          return res;
+          return player.flip();
         };
         window.__game.reset = () => {
           state = 'title';
           gameTime = 0;
+          gameScore = 0;
+          scoreMeters = 0;
+          coinsCollected = 0;
+          nearMissCount = 0;
+          comboCount = 0;
+          comboMultiplier = 1;
+          comboTimer = 0;
+          maxCombo = 0;
+          currentTierIndex = 0;
+          hitStopTimer = 0;
           player.reset();
           resetObstacles();
-          scoreMeters = 0;
+          sound.stopBgm();
           syncGameTestingObj();
         };
       }
@@ -1649,42 +2442,70 @@
       let dt = (time - lastTime) / 1000;
       lastTime = time;
 
-      // Delta time clamp to avoid tunneling on lag spikes
+      // Delta time clamp to avoid tunnelling on lag spikes
       dt = Math.min(dt, 0.05);
 
       update(dt);
 
-      // Render in virtual coordinate space
+      // Render in virtual coordinate space with Screen Shake
       ctx.save();
       ctx.scale(renderScale, renderScale);
+
+      // Screen Shake offset
+      if (screenShake.timer > 0) {
+        const progress = screenShake.timer / screenShake.duration;
+        const mag = screenShake.intensity * progress;
+        const offsetX = (Math.random() - 0.5) * 2 * mag;
+        const offsetY = (Math.random() - 0.5) * 2 * mag;
+        ctx.translate(offsetX, offsetY);
+      }
 
       renderBackground();
       renderObstacles();
 
+      // Render coins
+      for (const coin of coins) {
+        coin.render(ctx);
+      }
+
       // Ghost silhouettes during transit
       if (player.ghostTrails.length > 0) {
         for (const g of player.ghostTrails) {
-          renderPlayerFigure(g.x, g.y, g.rotation, g.phase, false, g.alpha * 0.45);
+          renderPlayerFigure(g.x, g.y, g.rotation, g.phase, false, g.alpha * 0.45, 0);
         }
       }
 
-      // Stick figure runner
-      if (state !== 'gameover') {
-        renderPlayerFigure(player.x, player.y, player.rotation, player.animPhase, player.isGrounded, 1.0);
+      // Stick figure runner with landing squash & stretch
+      if (state !== 'gameover' || hitStopTimer > 0) {
+        renderPlayerFigure(
+          player.x,
+          player.y,
+          player.rotation,
+          player.animPhase,
+          player.isGrounded,
+          1.0,
+          player.squashTimer,
+          player.groundedSurface
+        );
         renderFlipIndicatorNearPlayer();
       }
 
       renderParticles();
+      renderSpeedUpBanner();
 
-      if (state === 'playing') {
-        renderHUD();
-      } else if (state === 'title') {
+      if (state === 'title') {
         renderTitleScreen();
       } else if (state === 'gameover') {
         renderGameOverScreen();
       }
 
       ctx.restore();
+
+      renderPortraitHint();
+
+      if (state === 'playing') {
+        renderHUD();
+      }
 
       // Screen-space UI (mute button)
       renderMuteButton();
