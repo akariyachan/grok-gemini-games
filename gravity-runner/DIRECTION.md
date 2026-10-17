@@ -192,3 +192,39 @@ gravity-runner/index.html のバグ修正をしてください（新機能は追
 - **遊びやすさ:** 一時停止（Esc/P・タブ切替で自動停止、3-2-1で再開）、画面の揺れON/OFF、prefers-reduced-motion対応、ミュート保存、縦持ちでも広いプレイ領域。
 - **仕上げ:** タイトル画面のデモ走行、出来事ごとに区別できる効果音、OGP/メタ情報、「← ゲーム一覧」リンク、結果コピー。
 - **最終確認（ヘッドレスChrome）:** デスクトップ960x540・横持ち844x390・縦持ち390x844でコンソールエラー0件。`?bot=1` の自動プレイはデスクトップ60秒で約1060m・コイン174枚、横持ち40秒で約660m・122枚、縦持ち40秒で約665m・30枚、いずれもゲームオーバーにならず走り続けた。
+
+## バージョン選択ページ（完成後・2026-10-17）
+
+**狙い:** 5回のブラッシュアップの効果を遊び比べられるように、初回版から完成版までの6バージョンを `v0/`〜`v5/` に残し、`gravity-runner/` をバージョン選択ページにする。各版は「その回のバグ修正のあと」のコミットのコードをそのまま使い、後で見つかったバグも直さずに残す（`versions.json` の `knownIssues` に記載）。ページのUIはGeminiに実装させ、各版のデータ（`versions.json`）はGrokが `DIRECTION.md` から用意した。
+
+```
+あなたは実装担当です。Grok（ディレクター）からの指示で、このリポジトリの gravity-runner/index.html を「バージョン選択ページ」に作り替えてください（現在の中身のゲームはすでに gravity-runner/v5/index.html にコピー済みなので、gravity-runner/index.html は丸ごと置き換えてOK）。gravity-runner/v0〜v5/ のゲーム本体、versions.json、DIRECTION.md、thumbnail.png は一切変更しないでください。
+
+データ: gravity-runner/versions.json を fetch('versions.json') で読み込んで描画する。構造: { game, gameId, latest, versions: [ { id, label, commit, tags[], summary, grokInstructions[] (要点の箇条書き), grokInstructionsFull[] ({title, aim, text} 指示の原文), bugfixes[] ({symptom, fix}), bugfixFull[] ({title, aim, text} バグ修正指示の原文), bugfixNote (空文字なら非表示), knownIssues[] (この版に残っているバグ), thumb, path } ] }。中身を必ず読んで構造を確認すること。
+
+UI要件（日本語、外部依存なし、1ファイルのHTML/CSS/JS、レスポンシブ）:
+1. デザインはトップページ（リポジトリ直下の index.html）と同じダークテーマ（同じCSS変数・フォント・グラデーション・カードの質感）に揃える。トップページの index.html を読んで参考にすること。
+2. ヘッダー: 「← ゲーム一覧」リンク（href="../"）、タイトル「重力反転ランナー」、サブタイトル「初回版から完成版まで、全6バージョンを遊び比べ」、DIRECTION.md（href="https://github.com/akariyachan/grok-gemini-games/blob/main/gravity-runner/DIRECTION.md"）へのリンク。
+3. 上部に v0→v5 の横並びタイムライン（線でつながったクリックできる点＋各ラベル、例: 「初回版」「第1回」…「第5回 完成版」）。選択中の点は強調。スマホ幅（390px）でも6点がはみ出さず収まる（ラベルは短縮表示や改行で可、横スクロールが出てもよいが選択中が見えること）。キーボード操作（Tab/Enter、左右矢印で前後の版）対応、aria-current/aria-selected など適切に。
+4. 選択中の版パネル: 版のラベル＋コミットハッシュ（https://github.com/akariyachan/grok-gemini-games/commit/<commit> へのリンク）、スクリーンショット（thumb、16:9、クリックでも遊べる）、大きな「この版で遊ぶ」ボタン（path へ遷移、v5 では「完成版で遊ぶ」でもよい）、tags をピル型バッジで、summary、
+   - 「Grokの改善指示」: grokInstructions を箇条書き。その下に <details> の折りたたみ「原文を見る」で grokInstructionsFull の各要素を title／狙い(aim)／原文(text を <pre> で、折り返しあり、等幅)で表示。
+   - 「バグ修正」: bugfixes を「症状 → 修正」のペアとして見やすく（症状は赤系、修正は緑系のラベルなど）。bugfixNote があれば注記として表示。その下に <details>「修正指示の原文を見る」で bugfixFull を同様に表示。
+   - 「この版に残っているバグ」: knownIssues を警告色（黄/橙系）で表示。空なら「既知のバグはありません」と表示。注記として「当時のコードをそのまま残しているため、後の版で直したバグもこの版では再現します」と小さく入れる。
+   デスクトップ幅ではスクリーンショットと説明を2カラム、スマホでは1カラム。
+5. 前後の版へ移動する「← 前の版」「次の版 →」ボタン（パネル下部）。
+6. 既定の選択は versions.json の latest（v5）。URLの ?v=3 または ?v=v3 で該当版を選択（不正値は latest）。版を切り替えたら history.replaceState で ?v=N を更新（ページ遷移なし）。
+7. テキストはすべて textContent か適切なエスケープで挿入（XSS対策）。fetch失敗時はエラーメッセージを表示。
+8. <title> は「重力反転ランナー - バージョン選択 | Grok × Gemini Games」。meta description と、OGP（og:title, og:description, og:image=https://akariyachan.github.io/grok-gemini-games/gravity-runner/thumbnail.png, og:url=https://akariyachan.github.io/grok-gemini-games/gravity-runner/）、theme-color、インラインSVGのfavicon（404を出さないため）。
+9. フッターはトップページと同様（企画・監修: Grok Bot / 実装: Gemini Flash (Antigravity CLI)）。
+コンソールエラー0件、404も0件にすること。確認用にサーバーが必要なら既存の http://localhost:8766/（リポジトリ直下を配信中）を使い、ポート8765/8766のサーバーは止めないこと。自分で起動したバックグラウンドプロセスは必ず終了させてから作業を終えること。git commit/push はしないでください。最後に変更点を簡潔にまとめて。
+```
+
+### バグ修正（バージョン選択ページ）
+
+**狙い:** ヘッドレス確認で、完成版を選んだときにタイムラインの進捗線が v5 の点を越えて右端まで伸びていたため修正する。
+
+```
+gravity-runner/index.html（バージョン選択ページ）のバグ修正をしてください（新機能は追加しない）。
+1. タイムラインの進捗線（#timeline-track-fill）が、v5（完成版）選択時に v5 の点を越えて右端まで伸びています。updateTrackFill() が width を「コンテナ幅に対する%」で設定しているのに、線の始点は left: calc(100% / 12) で、本来の長さは全体の 10/12 です。選択中の点のちょうど中心で止まるように直してください（例: width を calc(pct% * 10 / 12) にする）。デスクトップ(1280px)とスマホ(390px)の両方で、v0〜v5 のどれを選んでも線の端が選択中の点の中心と一致することを確認してください。
+gravity-runner/v0〜v5/、versions.json、DIRECTION.md は変更しないこと。コンソールエラー0件。確認には既存の http://localhost:8766/ を使い、ポート8765/8766のサーバーは止めないこと。自分で起動したバックグラウンドプロセスは必ず終了させること。git commit/push はしないでください。最後に原因と修正を簡潔にまとめて。
+```

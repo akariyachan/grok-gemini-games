@@ -1,0 +1,1701 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>重力反転ランナー</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #f8fafc;
+      color: #0f172a;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+      touch-action: none;
+    }
+    #game-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <script>
+  (function() {
+    'use strict';
+
+    // --- Audio System (Pure Web Audio API, zero external assets) ---
+    class SoundFx {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+        try {
+          const saved = localStorage.getItem('gravity_runner_muted');
+          if (saved !== null) this.muted = (saved === 'true');
+        } catch(e) {}
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            this.ctx = new AudioContextClass();
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      toggleMute() {
+        this.muted = !this.muted;
+        try {
+          localStorage.setItem('gravity_runner_muted', String(this.muted));
+        } catch(e) {}
+        return this.muted;
+      }
+
+      playFlip(isToCeiling) {
+        if (this.muted || !this.ctx) return;
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          if (isToCeiling) {
+            osc.frequency.setValueAtTime(260, t);
+            osc.frequency.exponentialRampToValueAtTime(540, t + 0.18);
+          } else {
+            osc.frequency.setValueAtTime(500, t);
+            osc.frequency.exponentialRampToValueAtTime(240, t + 0.18);
+          }
+          gain.gain.setValueAtTime(0.12, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.24);
+        } catch(e) {}
+      }
+
+      playLand() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(140, t);
+          osc.frequency.exponentialRampToValueAtTime(45, t + 0.08);
+          gain.gain.setValueAtTime(0.14, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.12);
+        } catch(e) {}
+      }
+
+      playCrash() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(170, t);
+          osc.frequency.exponentialRampToValueAtTime(32, t + 0.35);
+          gain.gain.setValueAtTime(0.22, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.4);
+        } catch(e) {}
+      }
+
+      playStart() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, t);
+          osc.frequency.exponentialRampToValueAtTime(880, t + 0.14);
+          gain.gain.setValueAtTime(0.12, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.17);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.19);
+        } catch(e) {}
+      }
+    }
+
+    const sound = new SoundFx();
+
+    // --- Canvas & Responsive Scaling ---
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+
+    let canvasWidth = window.innerWidth;
+    let canvasHeight = window.innerHeight;
+    let dpr = 1;
+    let renderScale = 1;
+    const MIN_VIRTUAL_W = 800;
+    const MIN_VIRTUAL_H = 500;
+    let virtualW = MIN_VIRTUAL_W;
+    let virtualH = MIN_VIRTUAL_H;
+    let playerInitialized = false;
+
+    // Track vertical bounds (in virtual coordinates)
+    const TRACK_HEIGHT = 300;
+    let trackCenterY = 250;
+    let ceilingY = 100;
+    let floorY = 400;
+
+    function handleResize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      canvasWidth = w;
+      canvasHeight = h;
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+
+      // Ensure at least MIN_VIRTUAL_W virtual width (800px) and MIN_VIRTUAL_H virtual height (500px)
+      // Scales to fit screen in any orientation; letterboxes vertically on portrait
+      renderScale = Math.min((w * dpr) / MIN_VIRTUAL_W, (h * dpr) / MIN_VIRTUAL_H);
+      if (renderScale <= 0) renderScale = 1;
+
+      virtualW = (w * dpr) / renderScale;
+      virtualH = (h * dpr) / renderScale;
+
+      trackCenterY = virtualH / 2;
+      ceilingY = trackCenterY - (TRACK_HEIGHT / 2);
+      floorY = trackCenterY + (TRACK_HEIGHT / 2);
+
+      if (playerInitialized && player && player.isGrounded) {
+        player.y = (player.groundedSurface === 'floor') ? (floorY - FIGURE_HALF_HEIGHT) : (ceilingY + FIGURE_HALF_HEIGHT);
+      }
+    }
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    handleResize();
+
+    // --- High Score Persistence ---
+    const STORAGE_KEY = 'gravity_runner_best_score';
+    let bestScore = 0;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved !== null) {
+        bestScore = parseInt(saved, 10) || 0;
+      }
+    } catch(e) {}
+
+    // --- Game State ---
+    let state = 'title'; // 'title' | 'playing' | 'gameover'
+    let scoreMeters = 0;
+    let isNewBest = false;
+    let gameOverTimer = 0;
+    let gameTime = 0;
+    const GAME_OVER_INPUT_LOCK = 0.6; // 0.6s input lock after game over
+
+    // Speed configuration (gradual ramp up)
+    const SPEED_INITIAL = 270; // px/s
+    const SPEED_MAX = 530;     // px/s
+    const SPEED_RAMP_METERS = 1300; // reach ~90% max speed around 1300m (~2 mins)
+    let currentSpeed = SPEED_INITIAL;
+
+    // Physics parameters (soft floaty gravity)
+    // Distance between floor and ceiling center positions: 300 - 42 = 258 px
+    // Transit time: sqrt(2 * 258 / 1000) ≈ 0.72s
+    const GRAVITY_ACCEL = 1000; // px/s^2
+    const MAX_VERTICAL_SPEED = 680;
+    const FIGURE_HALF_HEIGHT = 21;
+    const PLAYER_X = 80;
+    const FLIP_BUFFER_WINDOW = 0.12; // 0.12s input buffer window before landing
+
+    // --- Player Object ---
+    const player = {
+      x: PLAYER_X,
+      y: 0,
+      vy: 0,
+      gravityDir: 1, // 1: towards floor, -1: towards ceiling
+      isGrounded: true,
+      rotation: 0,   // radians
+      animPhase: 0,
+      groundedSurface: 'floor', // 'floor' | 'ceiling'
+      ghostTrails: [],
+      flipBufferTimer: 0,
+
+      reset() {
+        this.x = PLAYER_X;
+        this.gravityDir = 1;
+        this.isGrounded = true;
+        this.groundedSurface = 'floor';
+        this.y = floorY - FIGURE_HALF_HEIGHT;
+        this.vy = 0;
+        this.rotation = 0;
+        this.animPhase = 0;
+        this.ghostTrails = [];
+        this.flipBufferTimer = 0;
+      },
+
+      flip() {
+        if (!this.isGrounded) {
+          // Responsive input buffer: tap arrives up to 0.12s before landing
+          this.flipBufferTimer = FLIP_BUFFER_WINDOW;
+          return false;
+        }
+        this.flipBufferTimer = 0;
+        this.isGrounded = false;
+        this.gravityDir = -this.gravityDir;
+        this.vy = 0;
+        sound.playFlip(this.gravityDir === -1);
+
+        // Spawn takeoff dust particles
+        spawnDustBurst(this.x, this.y + (this.gravityDir === -1 ? FIGURE_HALF_HEIGHT : -FIGURE_HALF_HEIGHT), 8, -this.gravityDir);
+        return true;
+      },
+
+      update(dt) {
+        this.x = PLAYER_X;
+
+        // Running gait animation speed tied to game speed
+        if (this.isGrounded) {
+          const runFrequency = (currentSpeed / 270) * 16;
+          this.animPhase += runFrequency * dt;
+        }
+
+        const floorCenterY = floorY - FIGURE_HALF_HEIGHT;
+        const ceilingCenterY = ceilingY + FIGURE_HALF_HEIGHT;
+        const totalTravel = floorCenterY - ceilingCenterY; // 258px
+
+        if (!this.isGrounded) {
+          // Accelerate gently toward target surface
+          this.vy += GRAVITY_ACCEL * this.gravityDir * dt;
+          if (Math.abs(this.vy) > MAX_VERTICAL_SPEED) {
+            this.vy = Math.sign(this.vy) * MAX_VERTICAL_SPEED;
+          }
+          this.y += this.vy * dt;
+
+          // Ghost trail record during transit
+          if (Math.random() < 0.45) {
+            this.ghostTrails.push({
+              x: this.x,
+              y: this.y,
+              rotation: this.rotation,
+              alpha: 0.35,
+              phase: this.animPhase
+            });
+          }
+
+          // Check landing on floor
+          if (this.gravityDir === 1 && this.y >= floorCenterY) {
+            this.y = floorCenterY;
+            this.vy = 0;
+            this.isGrounded = true;
+            this.groundedSurface = 'floor';
+            this.rotation = 0;
+            sound.playLand();
+            spawnDustBurst(this.x, floorY, 6, -1);
+
+            // Execute buffered flip if a tap arrived within 0.12s before landing
+            if (this.flipBufferTimer > 0) {
+              this.flipBufferTimer = 0;
+              this.flip();
+            }
+          }
+          // Check landing on ceiling
+          else if (this.gravityDir === -1 && this.y <= ceilingCenterY) {
+            this.y = ceilingCenterY;
+            this.vy = 0;
+            this.isGrounded = true;
+            this.groundedSurface = 'ceiling';
+            this.rotation = Math.PI;
+            sound.playLand();
+            spawnDustBurst(this.x, ceilingY, 6, 1);
+
+            // Execute buffered flip if a tap arrived within 0.12s before landing
+            if (this.flipBufferTimer > 0) {
+              this.flipBufferTimer = 0;
+              this.flip();
+            }
+          }
+
+          // In-flight countdown of input buffer window
+          if (!this.isGrounded && this.flipBufferTimer > 0) {
+            this.flipBufferTimer = Math.max(0, this.flipBufferTimer - dt);
+          }
+
+          // Smooth 180° rotation while in transit
+          if (!this.isGrounded) {
+            if (this.gravityDir === -1) {
+              // Floor -> Ceiling: rotates forward from 0 to PI
+              const p = Math.max(0, Math.min(1, (floorCenterY - this.y) / totalTravel));
+              const ease = p * p * (3 - 2 * p); // smoothstep
+              this.rotation = ease * Math.PI;
+            } else {
+              // Ceiling -> Floor: rotates forward from PI to 2*PI (equivalent to 0)
+              const p = Math.max(0, Math.min(1, (this.y - ceilingCenterY) / totalTravel));
+              const ease = p * p * (3 - 2 * p);
+              this.rotation = Math.PI + ease * Math.PI;
+            }
+          }
+        } else {
+          // Grounded
+          if (this.groundedSurface === 'floor') {
+            this.y = floorCenterY;
+            this.rotation = 0;
+          } else {
+            this.y = ceilingCenterY;
+            this.rotation = Math.PI;
+          }
+          this.vy = 0;
+        }
+
+        // Update ghost trails
+        for (let i = this.ghostTrails.length - 1; i >= 0; i--) {
+          this.ghostTrails[i].alpha -= dt * 2.2;
+          this.ghostTrails[i].x -= currentSpeed * dt * 0.4;
+          if (this.ghostTrails[i].alpha <= 0) {
+            this.ghostTrails.splice(i, 1);
+          }
+        }
+      },
+
+      getHitbox() {
+        // Forgiving AABB (inset from visual boundary)
+        return {
+          x: this.x - 7,
+          y: this.y - 17,
+          w: 14,
+          h: 34
+        };
+      }
+    };
+    playerInitialized = true;
+
+    // --- Particle System ---
+    let particles = [];
+    let deathDebris = [];
+
+    function spawnDustBurst(x, y, count, normalY) {
+      for (let i = 0; i < count; i++) {
+        const angle = normalY > 0 ? (Math.PI * 0.2 + Math.random() * Math.PI * 0.6) : (-Math.PI * 0.2 - Math.random() * Math.PI * 0.6);
+        const spd = 40 + Math.random() * 80;
+        particles.push({
+          x: x + (Math.random() - 0.5) * 10,
+          y: y,
+          vx: Math.cos(angle) * spd - currentSpeed * 0.3,
+          vy: Math.sin(angle) * spd,
+          size: 2 + Math.random() * 2.5,
+          alpha: 0.8,
+          life: 0.3 + Math.random() * 0.25
+        });
+      }
+    }
+
+    function createDeathExplosion(p) {
+      deathDebris = [];
+      const segments = [
+        { type: 'head', x: 0, y: -20, r: 6 },
+        { type: 'torso', x1: 0, y1: -14, x2: 0, y2: 2 },
+        { type: 'arm1', x1: 0, y1: -12, x2: -8, y2: -4 },
+        { type: 'arm2', x1: 0, y1: -12, x2: 8, y2: -4 },
+        { type: 'leg1', x1: 0, y1: 2, x2: -7, y2: 18 },
+        { type: 'leg2', x1: 0, y1: 2, x2: 7, y2: 18 },
+        { type: 'scarf', x1: -2, y1: -14, x2: -18, y2: -14 }
+      ];
+
+      for (const seg of segments) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = 80 + Math.random() * 180;
+        deathDebris.push({
+          ...seg,
+          originX: p.x,
+          originY: p.y,
+          rot: p.rotation,
+          rotSpeed: (Math.random() - 0.5) * 12,
+          vx: Math.cos(angle) * spd - 50,
+          vy: Math.sin(angle) * spd,
+          alpha: 1.0
+        });
+      }
+
+      particles.push({
+        type: 'shockwave',
+        x: p.x,
+        y: p.y,
+        r: 8,
+        maxR: 45,
+        alpha: 0.85,
+        life: 0.35
+      });
+    }
+
+    function updateParticles(dt) {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const pt = particles[i];
+        pt.life -= dt;
+        if (pt.type === 'shockwave') {
+          pt.r += (pt.maxR - pt.r) * 10 * dt;
+          pt.alpha = Math.max(0, pt.life / 0.35);
+        } else {
+          pt.x += pt.vx * dt;
+          pt.y += pt.vy * dt;
+          pt.alpha = Math.max(0, pt.life / 0.5);
+        }
+        if (pt.life <= 0 || pt.alpha <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+
+      for (let i = deathDebris.length - 1; i >= 0; i--) {
+        const d = deathDebris[i];
+        d.originX += d.vx * dt;
+        d.originY += d.vy * dt;
+        d.rot += d.rotSpeed * dt;
+        d.alpha -= dt * 0.6;
+        if (d.alpha <= 0) {
+          deathDebris.splice(i, 1);
+        }
+      }
+    }
+
+    // --- Obstacle Generation & Passable Patterns ---
+    let obstacles = [];
+    let nextSpawnX = 0;
+    let patternIndex = 0;
+
+    class Obstacle {
+      constructor(opts) {
+        this.surface = opts.surface; // 'floor' | 'ceiling'
+        this.type = opts.type;       // 'spike' | 'block'
+        this.x = opts.x;
+        this.w = opts.w || 36;
+        this.h = opts.h || 40;
+      }
+
+      getY() {
+        if (this.surface === 'floor') {
+          return floorY - this.h;
+        } else {
+          return ceilingY;
+        }
+      }
+
+      collidesWith(hitbox) {
+        const ox = this.x;
+        const oy = this.getY();
+        const ow = this.w;
+        const oh = this.h;
+
+        if (this.type === 'block') {
+          // Inset by 3px for fair hitbox
+          const hx = ox + 3;
+          const hy = oy + 3;
+          const hw = ow - 6;
+          const hh = oh - 6;
+          return (
+            hitbox.x < hx + hw &&
+            hitbox.x + hitbox.w > hx &&
+            hitbox.y < hy + hh &&
+            hitbox.y + hitbox.h > hy
+          );
+        } else if (this.type === 'spike') {
+          // Triangle approximation: base box + tip box for fair forgiving collision
+          const isFloor = (this.surface === 'floor');
+
+          // Base box (lower 40% height, width 60%)
+          const baseH = oh * 0.42;
+          const baseW = ow * 0.65;
+          const baseX = ox + (ow - baseW) / 2;
+          const baseY = isFloor ? (oy + oh - baseH) : oy;
+          if (hitbox.x < baseX + baseW && hitbox.x + hitbox.w > baseX &&
+              hitbox.y < baseY + baseH && hitbox.y + hitbox.h > baseY) {
+            return true;
+          }
+
+          // Tip box (upper 58% height, narrow width 32%)
+          const tipH = oh * 0.58;
+          const tipW = ow * 0.32;
+          const tipX = ox + (ow - tipW) / 2;
+          const tipY = isFloor ? oy : (oy + oh - tipH);
+          if (hitbox.x < tipX + tipW && hitbox.x + hitbox.w > tipX &&
+              hitbox.y < tipY + tipH && hitbox.y + hitbox.h > tipY) {
+            return true;
+          }
+
+          return false;
+        }
+        return false;
+      }
+    }
+
+    function resetObstacles() {
+      obstacles = [];
+      nextSpawnX = virtualW + 40;
+      patternIndex = 0;
+    }
+
+    function spawnNextPattern() {
+      // Dynamic transit distance based on current speed
+      const transitDist = currentSpeed * 0.73;
+      const minRunBuffer = Math.max(150, currentSpeed * 0.5);
+
+      if (patternIndex === 0) {
+        // First obstacle: easy single floor block with wide landing runway
+        obstacles.push(new Obstacle({
+          surface: 'floor',
+          type: 'block',
+          x: nextSpawnX,
+          w: 32,
+          h: 36
+        }));
+        nextSpawnX += transitDist + minRunBuffer + 180;
+      } else if (patternIndex === 1) {
+        // Second obstacle: easy single ceiling block with wide landing runway
+        obstacles.push(new Obstacle({
+          surface: 'ceiling',
+          type: 'block',
+          x: nextSpawnX,
+          w: 32,
+          h: 36
+        }));
+        nextSpawnX += transitDist + minRunBuffer + 180;
+      } else if (patternIndex === 2) {
+        // Third obstacle: easy single floor spike
+        obstacles.push(new Obstacle({
+          surface: 'floor',
+          type: 'spike',
+          x: nextSpawnX,
+          w: 28,
+          h: 36
+        }));
+        nextSpawnX += transitDist + minRunBuffer + 160;
+      } else if (patternIndex === 3) {
+        // Fourth obstacle: easy single ceiling spike
+        obstacles.push(new Obstacle({
+          surface: 'ceiling',
+          type: 'spike',
+          x: nextSpawnX,
+          w: 28,
+          h: 36
+        }));
+        nextSpawnX += transitDist + minRunBuffer + 160;
+      } else {
+        // Subsequent patterns: random passable patterns
+        const patternChoice = Math.floor(Math.random() * 8);
+
+        switch (patternChoice) {
+          case 0: {
+            // Single Floor Spike / Block
+            const isSpike = Math.random() < 0.6;
+            obstacles.push(new Obstacle({
+              surface: 'floor',
+              type: isSpike ? 'spike' : 'block',
+              x: nextSpawnX,
+              w: isSpike ? 30 : 38,
+              h: isSpike ? 38 : 45
+            }));
+            nextSpawnX += transitDist + minRunBuffer + 100;
+            break;
+          }
+
+          case 1: {
+            // Single Ceiling Spike / Block
+            const isSpike = Math.random() < 0.6;
+            obstacles.push(new Obstacle({
+              surface: 'ceiling',
+              type: isSpike ? 'spike' : 'block',
+              x: nextSpawnX,
+              w: isSpike ? 30 : 38,
+              h: isSpike ? 38 : 45
+            }));
+            nextSpawnX += transitDist + minRunBuffer + 100;
+            break;
+          }
+
+          case 2: {
+            // COMBO: Floor block followed shortly by ceiling block
+            // Requires player to flip to ceiling, land, run briefly, and flip back down to floor!
+            const floorBlockWidth = 42;
+            obstacles.push(new Obstacle({
+              surface: 'floor',
+              type: 'block',
+              x: nextSpawnX,
+              w: floorBlockWidth,
+              h: 48
+            }));
+
+            const ceilingX = nextSpawnX + transitDist + minRunBuffer;
+            obstacles.push(new Obstacle({
+              surface: 'ceiling',
+              type: 'block',
+              x: ceilingX,
+              w: 42,
+              h: 48
+            }));
+
+            nextSpawnX = ceilingX + transitDist + minRunBuffer + 130;
+            break;
+          }
+
+          case 3: {
+            // COMBO: Ceiling block followed shortly by floor block
+            const ceilingBlockWidth = 42;
+            obstacles.push(new Obstacle({
+              surface: 'ceiling',
+              type: 'block',
+              x: nextSpawnX,
+              w: ceilingBlockWidth,
+              h: 48
+            }));
+
+            const floorX = nextSpawnX + transitDist + minRunBuffer;
+            obstacles.push(new Obstacle({
+              surface: 'floor',
+              type: 'block',
+              x: floorX,
+              w: 42,
+              h: 48
+            }));
+
+            nextSpawnX = floorX + transitDist + minRunBuffer + 130;
+            break;
+          }
+
+          case 4: {
+            // Double Spikes on Floor
+            obstacles.push(new Obstacle({
+              surface: 'floor',
+              type: 'spike',
+              x: nextSpawnX,
+              w: 28,
+              h: 38
+            }));
+            obstacles.push(new Obstacle({
+              surface: 'floor',
+              type: 'spike',
+              x: nextSpawnX + 34,
+              w: 28,
+              h: 38
+            }));
+            nextSpawnX += transitDist + minRunBuffer + 120;
+            break;
+          }
+
+          case 5: {
+            // Double Spikes on Ceiling
+            obstacles.push(new Obstacle({
+              surface: 'ceiling',
+              type: 'spike',
+              x: nextSpawnX,
+              w: 28,
+              h: 38
+            }));
+            obstacles.push(new Obstacle({
+              surface: 'ceiling',
+              type: 'spike',
+              x: nextSpawnX + 34,
+              w: 28,
+              h: 38
+            }));
+            nextSpawnX += transitDist + minRunBuffer + 120;
+            break;
+          }
+
+          case 6: {
+            // Tall Floor Pillar (height 88px)
+            obstacles.push(new Obstacle({
+              surface: 'floor',
+              type: 'block',
+              x: nextSpawnX,
+              w: 44,
+              h: 88
+            }));
+            nextSpawnX += transitDist + minRunBuffer + 120;
+            break;
+          }
+
+          case 7: {
+            // Tall Ceiling Pillar (height 88px)
+            obstacles.push(new Obstacle({
+              surface: 'ceiling',
+              type: 'block',
+              x: nextSpawnX,
+              w: 44,
+              h: 88
+            }));
+            nextSpawnX += transitDist + minRunBuffer + 120;
+            break;
+          }
+        }
+      }
+
+      patternIndex++;
+    }
+
+    function updateObstacles(dt) {
+      // 2-second obstacle-free start
+      if (gameTime >= 2.0) {
+        while (nextSpawnX < virtualW + 800) {
+          spawnNextPattern();
+        }
+      }
+
+      const hitbox = player.getHitbox();
+
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const obs = obstacles[i];
+        obs.x -= currentSpeed * dt;
+
+        if (state === 'playing' && obs.collidesWith(hitbox)) {
+          triggerGameOver();
+          return;
+        }
+
+        if (obs.x + obs.w < -120) {
+          obstacles.splice(i, 1);
+        }
+      }
+    }
+
+    // --- Background & Speed Lines ---
+    let bgScroll = 0;
+    const speedLines = [];
+    for (let i = 0; i < 22; i++) {
+      speedLines.push({
+        x: Math.random() * 800,
+        y: 100 + Math.random() * 300,
+        len: 30 + Math.random() * 70,
+        speedFactor: 0.6 + Math.random() * 0.7,
+        alpha: 0.08 + Math.random() * 0.12
+      });
+    }
+
+    function updateBackground(dt) {
+      bgScroll = (bgScroll + currentSpeed * dt) % 60;
+      for (const line of speedLines) {
+        line.x -= currentSpeed * line.speedFactor * dt;
+        if (line.x < -line.len) {
+          line.x = virtualW + Math.random() * 150;
+          line.y = ceilingY + 20 + Math.random() * (TRACK_HEIGHT - 40);
+        }
+      }
+    }
+
+    // --- Game Control Actions ---
+    function startGame() {
+      sound.init();
+      sound.playStart();
+      state = 'playing';
+      gameTime = 0;
+      scoreMeters = 0;
+      isNewBest = false;
+      currentSpeed = SPEED_INITIAL;
+      player.reset();
+      resetObstacles();
+      particles = [];
+      deathDebris = [];
+      syncGameTestingObj();
+    }
+
+    function triggerGameOver() {
+      state = 'gameover';
+      gameOverTimer = 0;
+      player.flipBufferTimer = 0;
+      sound.playCrash();
+      createDeathExplosion(player);
+
+      const finalScore = Math.floor(scoreMeters);
+      if (finalScore > bestScore) {
+        bestScore = finalScore;
+        isNewBest = true;
+        try {
+          localStorage.setItem(STORAGE_KEY, String(bestScore));
+        } catch(e) {}
+      }
+      syncGameTestingObj();
+    }
+
+    function handleUserInput() {
+      sound.init();
+      if (state === 'title') {
+        startGame();
+      } else if (state === 'playing') {
+        player.flip();
+      } else if (state === 'gameover') {
+        // 0.6s input lock after game over prevents in-flight taps from accidentally restarting immediately
+        if (gameOverTimer >= GAME_OVER_INPUT_LOCK) {
+          startGame();
+        }
+      }
+    }
+
+    // --- Input Listeners ---
+    function isMuteButtonClicked(clientX, clientY) {
+      const btnSize = 44;
+      const margin = 16;
+      const x = canvasWidth - margin - btnSize;
+      const y = margin;
+      return (clientX >= x && clientX <= x + btnSize && clientY >= y && clientY <= y + btnSize);
+    }
+
+    let lastInputTime = 0;
+    function handlePointer(e, clientX, clientY) {
+      const now = performance.now();
+      if (now - lastInputTime < 35) return; // Prevent duplicate pointerdown + touchstart in same gesture
+      lastInputTime = now;
+
+      if (isMuteButtonClicked(clientX, clientY)) {
+        if (e && e.cancelable) e.preventDefault();
+        sound.init();
+        sound.toggleMute();
+        return;
+      }
+      if (e && e.cancelable) e.preventDefault();
+      handleUserInput();
+    }
+
+    // Pointer / Touch
+    window.addEventListener('pointerdown', (e) => {
+      handlePointer(e, e.clientX, e.clientY);
+    }, { passive: false });
+
+    window.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches.length > 0) {
+        handlePointer(e, e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: false });
+
+    // Keyboard (Space, Enter, ArrowUp, ArrowDown, W, S)
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'KeyW' || e.code === 'KeyS') {
+        e.preventDefault();
+        handleUserInput();
+      } else if (e.code === 'KeyM') {
+        sound.toggleMute();
+      }
+    });
+
+    // --- Main Update Loop ---
+    function update(dt) {
+      if (state === 'playing') {
+        gameTime += dt;
+
+        // Speed ramp with distance
+        const progress = Math.min(1, scoreMeters / SPEED_RAMP_METERS);
+        currentSpeed = SPEED_INITIAL + (SPEED_MAX - SPEED_INITIAL) * (1 - Math.exp(-progress * 2.8));
+
+        // Distance in meters
+        scoreMeters += (currentSpeed * dt) / 24;
+
+        player.update(dt);
+        updateObstacles(dt);
+        updateBackground(dt);
+      } else if (state === 'title') {
+        // Stick figure runs on floor during title
+        player.animPhase += 14 * dt;
+        player.y = floorY - FIGURE_HALF_HEIGHT;
+        player.rotation = 0;
+        player.isGrounded = true;
+        player.groundedSurface = 'floor';
+        updateBackground(dt * 0.8);
+      } else if (state === 'gameover') {
+        gameOverTimer += dt;
+        updateBackground(dt * 0.2);
+      }
+
+      updateParticles(dt);
+      syncGameTestingObj();
+    }
+
+    // --- Render Functions ---
+    function renderBackground() {
+      // Clean background fill
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, virtualW, virtualH);
+
+      // Subtle horizontal speed streaks
+      ctx.lineWidth = 1.2;
+      for (const line of speedLines) {
+        ctx.strokeStyle = `rgba(148, 163, 184, ${line.alpha})`;
+        ctx.beginPath();
+        ctx.moveTo(line.x, line.y);
+        ctx.lineTo(line.x + line.len, line.y);
+        ctx.stroke();
+      }
+
+      // Scrolling track pattern outside play zone with clipped architectural hatch
+      // Above ceiling
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, virtualW, ceilingY);
+      ctx.clip();
+      ctx.fillStyle = '#f1f5f9';
+      ctx.fillRect(0, 0, virtualW, ceilingY);
+
+      ctx.strokeStyle = 'rgba(203, 213, 225, 0.45)';
+      ctx.lineWidth = 1;
+      const step = 24;
+      const startX = -(bgScroll % step);
+      ctx.beginPath();
+      for (let x = startX - ceilingY; x < virtualW + step + ceilingY; x += step) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x + ceilingY, ceilingY);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // Below floor
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, floorY, virtualW, virtualH - floorY);
+      ctx.clip();
+      ctx.fillStyle = '#f1f5f9';
+      ctx.fillRect(0, floorY, virtualW, virtualH - floorY);
+
+      ctx.strokeStyle = 'rgba(203, 213, 225, 0.45)';
+      ctx.lineWidth = 1;
+      const floorH = virtualH - floorY;
+      ctx.beginPath();
+      for (let x = startX - floorH; x < virtualW + step + floorH; x += step) {
+        ctx.moveTo(x, floorY);
+        ctx.lineTo(x + floorH, virtualH);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // Distance markers every 100m during gameplay
+      if (state === 'playing') {
+        const markerStep = 100;
+        const currentDist = scoreMeters;
+        const speedPixelsPerMeter = 24;
+        const nextMarkerM = Math.ceil((currentDist - 10) / markerStep) * markerStep;
+        for (let m = nextMarkerM; m <= nextMarkerM + 300; m += markerStep) {
+          const markerX = player.x + (m - currentDist) * speedPixelsPerMeter;
+          if (markerX > -50 && markerX < virtualW + 50) {
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(markerX, ceilingY + 5);
+            ctx.lineTo(markerX, floorY - 5);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '600 11px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${m}m`, markerX, trackCenterY);
+          }
+        }
+      }
+
+      // Solid Track Boundary Lines
+      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = '#0f172a';
+      // Ceiling line
+      ctx.beginPath();
+      ctx.moveTo(0, ceilingY);
+      ctx.lineTo(virtualW, ceilingY);
+      ctx.stroke();
+      // Floor line
+      ctx.beginPath();
+      ctx.moveTo(0, floorY);
+      ctx.lineTo(virtualW, floorY);
+      ctx.stroke();
+
+      // Subtle accent edge stripes
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#0284c7';
+      ctx.beginPath();
+      ctx.moveTo(0, ceilingY - 3.5);
+      ctx.lineTo(virtualW, ceilingY - 3.5);
+      ctx.moveTo(0, floorY + 3.5);
+      ctx.lineTo(virtualW, floorY + 3.5);
+      ctx.stroke();
+    }
+
+    function renderObstacles() {
+      for (const obs of obstacles) {
+        const oy = obs.getY();
+
+        if (obs.type === 'block') {
+          // Block body
+          ctx.fillStyle = '#1e293b';
+          ctx.fillRect(obs.x, oy, obs.w, obs.h);
+
+          // Dark slate border
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = '#0f172a';
+          ctx.strokeRect(obs.x, oy, obs.w, obs.h);
+
+          // Accent pinstripe
+          ctx.fillStyle = '#0284c7';
+          if (obs.surface === 'floor') {
+            ctx.fillRect(obs.x + 3, oy + 2, obs.w - 6, 3);
+          } else {
+            ctx.fillRect(obs.x + 3, oy + obs.h - 5, obs.w - 6, 3);
+          }
+
+          // Subtle internal geometric line
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(obs.x + 6, oy + 6);
+          ctx.lineTo(obs.x + obs.w - 6, oy + obs.h - 6);
+          ctx.stroke();
+        } else if (obs.type === 'spike') {
+          const isFloor = (obs.surface === 'floor');
+          const tipY = isFloor ? oy : (oy + obs.h);
+          const baseY = isFloor ? (oy + obs.h) : oy;
+          const leftX = obs.x;
+          const rightX = obs.x + obs.w;
+          const midX = obs.x + (obs.w / 2);
+
+          // Spike triangle
+          ctx.fillStyle = '#0f172a';
+          ctx.beginPath();
+          ctx.moveTo(leftX, baseY);
+          ctx.lineTo(midX, tipY);
+          ctx.lineTo(rightX, baseY);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#0284c7';
+          ctx.stroke();
+
+          // Accent tip highlight
+          ctx.fillStyle = '#0284c7';
+          ctx.beginPath();
+          ctx.arc(midX, tipY + (isFloor ? 3 : -3), 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function renderPlayerFigure(x, y, rotation, animPhase, isGrounded, alpha = 1.0) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rotation);
+      ctx.globalAlpha = alpha;
+
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      const darkColor = '#0f172a';
+      const accentColor = '#0284c7';
+
+      // 1. Scarf / Headband fluttering
+      if (alpha > 0.8) {
+        ctx.strokeStyle = accentColor;
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.moveTo(-2, -14);
+        ctx.quadraticCurveTo(-11, -14 + Math.sin(animPhase * 0.8) * 4, -20, -12 + Math.sin(animPhase * 0.8 - 0.8) * 6);
+        ctx.stroke();
+
+        ctx.lineWidth = 2.0;
+        ctx.beginPath();
+        ctx.moveTo(-2, -13);
+        ctx.quadraticCurveTo(-9, -17 + Math.cos(animPhase * 0.8) * 3, -16, -18 + Math.cos(animPhase * 0.8 - 0.6) * 4);
+        ctx.stroke();
+      }
+
+      // 2. Limb angles
+      let leftThighAngle = 0;
+      let leftShinAngle = 0;
+      let rightThighAngle = 0;
+      let rightShinAngle = 0;
+      let leftArmAngle = 0;
+      let rightArmAngle = 0;
+
+      if (isGrounded) {
+        const sinP = Math.sin(animPhase);
+        const cosP = Math.cos(animPhase);
+
+        leftThighAngle = sinP * 0.65;
+        leftShinAngle = Math.max(0, -cosP) * 0.85;
+
+        rightThighAngle = -sinP * 0.65;
+        rightShinAngle = Math.max(0, cosP) * 0.85;
+
+        leftArmAngle = -sinP * 0.6;
+        rightArmAngle = sinP * 0.6;
+      } else {
+        leftThighAngle = -0.4;
+        leftShinAngle = 0.6;
+        rightThighAngle = 0.5;
+        rightShinAngle = 0.3;
+        leftArmAngle = -0.5;
+        rightArmAngle = 0.5;
+      }
+
+      ctx.strokeStyle = darkColor;
+      ctx.lineWidth = 2.8;
+
+      // 3. Back Arm
+      const shoulderX = 0;
+      const shoulderY = -12;
+      const armLen = 11;
+      const leftElbowX = shoulderX + Math.sin(leftArmAngle) * armLen;
+      const leftElbowY = shoulderY + Math.cos(leftArmAngle) * armLen;
+      const leftHandX = leftElbowX + Math.sin(leftArmAngle + 0.4) * armLen;
+      const leftHandY = leftElbowY + Math.cos(leftArmAngle + 0.4) * armLen;
+
+      ctx.beginPath();
+      ctx.moveTo(shoulderX, shoulderY);
+      ctx.lineTo(leftElbowX, leftElbowY);
+      ctx.lineTo(leftHandX, leftHandY);
+      ctx.stroke();
+
+      // 4. Back Leg
+      const hipX = 0;
+      const hipY = 2;
+      const thighLen = 10;
+      const shinLen = 10;
+      const leftKneeX = hipX + Math.sin(leftThighAngle) * thighLen;
+      const leftKneeY = hipY + Math.cos(leftThighAngle) * thighLen;
+      const leftFootX = leftKneeX + Math.sin(leftThighAngle - leftShinAngle) * shinLen;
+      const leftFootY = leftKneeY + Math.cos(leftThighAngle - leftShinAngle) * shinLen;
+
+      ctx.beginPath();
+      ctx.moveTo(hipX, hipY);
+      ctx.lineTo(leftKneeX, leftKneeY);
+      ctx.lineTo(leftFootX, leftFootY);
+      ctx.lineTo(leftFootX + 3, leftFootY);
+      ctx.stroke();
+
+      // 5. Torso
+      ctx.beginPath();
+      ctx.moveTo(hipX, hipY);
+      ctx.lineTo(shoulderX, shoulderY);
+      ctx.lineTo(0, -15);
+      ctx.stroke();
+
+      // 6. Front Leg
+      const rightKneeX = hipX + Math.sin(rightThighAngle) * thighLen;
+      const rightKneeY = hipY + Math.cos(rightThighAngle) * thighLen;
+      const rightFootX = rightKneeX + Math.sin(rightThighAngle - rightShinAngle) * shinLen;
+      const rightFootY = rightKneeY + Math.cos(rightThighAngle - rightShinAngle) * shinLen;
+
+      ctx.beginPath();
+      ctx.moveTo(hipX, hipY);
+      ctx.lineTo(rightKneeX, rightKneeY);
+      ctx.lineTo(rightFootX, rightFootY);
+      ctx.lineTo(rightFootX + 3, rightFootY);
+      ctx.stroke();
+
+      // 7. Front Arm
+      const rightElbowX = shoulderX + Math.sin(rightArmAngle) * armLen;
+      const rightElbowY = shoulderY + Math.cos(rightArmAngle) * armLen;
+      const rightHandX = rightElbowX + Math.sin(rightArmAngle + 0.4) * armLen;
+      const rightHandY = rightElbowY + Math.cos(rightArmAngle + 0.4) * armLen;
+
+      ctx.beginPath();
+      ctx.moveTo(shoulderX, shoulderY);
+      ctx.lineTo(rightElbowX, rightElbowY);
+      ctx.lineTo(rightHandX, rightHandY);
+      ctx.stroke();
+
+      // 8. Head
+      const headCenterY = -20;
+      ctx.fillStyle = '#f8fafc';
+      ctx.beginPath();
+      ctx.arc(0, headCenterY, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Headband
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.moveTo(-5, headCenterY - 1.5);
+      ctx.lineTo(5, headCenterY - 1.5);
+      ctx.stroke();
+
+      // Eye
+      ctx.fillStyle = darkColor;
+      ctx.beginPath();
+      ctx.arc(2.5, headCenterY + 1.0, 1.1, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function renderFlipIndicatorNearPlayer() {
+      if (state !== 'playing') return;
+
+      const arrowX = player.x + 28;
+      const arrowY = player.y;
+
+      if (player.isGrounded) {
+        // Glowing ready indicator arrow pointing to destination
+        const pointsUp = (player.groundedSurface === 'floor');
+        const pulse = Math.sin(Date.now() * 0.008) * 2;
+
+        ctx.save();
+        ctx.translate(arrowX, arrowY + (pointsUp ? -pulse : pulse));
+        ctx.strokeStyle = '#0284c7';
+        ctx.fillStyle = '#0284c7';
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Draw vertical directional arrow with stem
+        ctx.beginPath();
+        if (pointsUp) {
+          ctx.moveTo(-4, 2);
+          ctx.lineTo(0, -6);
+          ctx.lineTo(4, 2);
+          ctx.moveTo(0, -6);
+          ctx.lineTo(0, 6);
+        } else {
+          ctx.moveTo(-4, -2);
+          ctx.lineTo(0, 6);
+          ctx.lineTo(4, -2);
+          ctx.moveTo(0, 6);
+          ctx.lineTo(0, -6);
+        }
+        ctx.stroke();
+
+        // Energy dot
+        ctx.beginPath();
+        ctx.arc(0, pointsUp ? -10 : 10, 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      } else {
+        // Dimmed cooldown indicator in air
+        ctx.save();
+        ctx.translate(arrowX, arrowY);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function renderParticles() {
+      for (const pt of particles) {
+        if (pt.type === 'shockwave') {
+          ctx.save();
+          ctx.strokeStyle = `rgba(2, 132, 199, ${pt.alpha})`;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        } else {
+          ctx.save();
+          ctx.fillStyle = `rgba(15, 23, 42, ${pt.alpha})`;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      if (deathDebris.length > 0) {
+        for (const d of deathDebris) {
+          ctx.save();
+          ctx.translate(d.originX, d.originY);
+          ctx.rotate(d.rot);
+          ctx.globalAlpha = Math.max(0, d.alpha);
+          ctx.lineWidth = 2.8;
+          ctx.lineCap = 'round';
+
+          if (d.type === 'head') {
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (d.type === 'scarf') {
+            ctx.strokeStyle = '#0284c7';
+            ctx.beginPath();
+            ctx.moveTo(d.x1, d.y1);
+            ctx.lineTo(d.x2, d.y2);
+            ctx.stroke();
+          } else {
+            ctx.strokeStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.moveTo(d.x1, d.y1);
+            ctx.lineTo(d.x2, d.y2);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+    }
+
+    // --- UI Overlays (HUD, Title, Game Over) ---
+    function renderHUD() {
+      const dist = Math.floor(scoreMeters);
+
+      // Distance
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '800 28px system-ui, sans-serif';
+      ctx.fillText(`${dist} m`, 24, ceilingY - 32);
+
+      // Best Score
+      ctx.font = '600 13px system-ui, sans-serif';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText(`BEST ${Math.max(dist, bestScore)} m`, 26, ceilingY - 14);
+
+      // Flip Availability HUD Pill (Center)
+      const pillW = 120;
+      const pillH = 28;
+      const pillX = (virtualW - pillW) / 2;
+      const pillY = ceilingY - 44;
+
+      ctx.save();
+      if (player.isGrounded) {
+        ctx.fillStyle = 'rgba(2, 132, 199, 0.12)';
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 1.5;
+        roundRect(ctx, pillX, pillY, pillW, pillH, 14);
+        ctx.fill();
+        ctx.stroke();
+
+        // Pulsing dot
+        ctx.fillStyle = '#0284c7';
+        ctx.beginPath();
+        ctx.arc(pillX + 16, pillY + 14, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#0284c7';
+        ctx.font = '700 12px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('反転可能 ⇅', pillX + 68, pillY + 19);
+      } else {
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.08)';
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+        ctx.lineWidth = 1.2;
+        roundRect(ctx, pillX, pillY, pillW, pillH, 14);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.beginPath();
+        ctx.arc(pillX + 16, pillY + 14, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '600 12px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('浮遊中...', pillX + 68, pillY + 19);
+      }
+      ctx.restore();
+
+      // Speed gauge line (bottom of screen)
+      const speedPct = Math.min(1, (currentSpeed - SPEED_INITIAL) / (SPEED_MAX - SPEED_INITIAL));
+      ctx.fillStyle = 'rgba(203, 213, 225, 0.4)';
+      ctx.fillRect(24, floorY + 36, 100, 3);
+      ctx.fillStyle = '#0284c7';
+      ctx.fillRect(24, floorY + 36, 100 * speedPct, 3);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 10px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`SPEED ${Math.round(currentSpeed / 10)}`, 24, floorY + 52);
+    }
+
+    function renderTitleScreen() {
+      const centerX = virtualW / 2;
+      // Position card slightly higher so stick figure runs completely unobstructed below it
+      const cardW = Math.min(virtualW - 40, 480);
+      const cardH = 220;
+      const cardX = centerX - cardW / 2;
+      const cardY = trackCenterY - cardH / 2 - 25;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2.5;
+      roundRect(ctx, cardX, cardY, cardW, cardH, 16);
+      ctx.fill();
+      ctx.stroke();
+
+      // Title
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '900 34px system-ui, sans-serif';
+      ctx.fillText('重力反転ランナー', centerX, cardY + 48);
+
+      // Subtitle
+      ctx.font = '700 11px system-ui, sans-serif';
+      ctx.fillStyle = '#0284c7';
+      ctx.letterSpacing = '3px';
+      ctx.fillText('GRAVITY FLIP RUNNER', centerX, cardY + 68);
+      ctx.letterSpacing = '0px';
+
+      // Divider
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cardX + 36, cardY + 82);
+      ctx.lineTo(cardX + cardW - 36, cardY + 82);
+      ctx.stroke();
+
+      // Brief Instructions
+      ctx.font = '500 13px system-ui, sans-serif';
+      ctx.fillStyle = '#334155';
+      ctx.fillText('・タップ / スペースキー で重力を上下反転', centerX, cardY + 108);
+      ctx.fillText('・着地するまで空中での連続反転はできません', centerX, cardY + 130);
+
+      // Tap to start pulsing button
+      const pulse = (Math.sin(Date.now() * 0.006) + 1) / 2;
+      const btnW = 200;
+      const btnH = 40;
+      const btnX = centerX - btnW / 2;
+      const btnY = cardY + cardH - 54;
+
+      ctx.fillStyle = `rgba(2, 132, 199, ${0.1 + pulse * 0.12})`;
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 2;
+      roundRect(ctx, btnX, btnY, btnW, btnH, 20);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#0284c7';
+      ctx.font = '700 14px system-ui, sans-serif';
+      ctx.fillText('タップでスタート', centerX, btnY + 25);
+
+      // Best score if exists
+      if (bestScore > 0) {
+        ctx.fillStyle = '#64748b';
+        ctx.font = '600 12px system-ui, sans-serif';
+        ctx.fillText(`最高記録: ${bestScore} m`, centerX, cardY - 14);
+      }
+
+      ctx.restore();
+    }
+
+    function renderGameOverScreen() {
+      const centerX = virtualW / 2;
+      const alpha = Math.min(1, gameOverTimer / 0.3);
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      const cardW = Math.min(virtualW - 40, 420);
+      const cardH = 240;
+      const cardX = centerX - cardW / 2;
+      const cardY = trackCenterY - cardH / 2 - 15;
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2.5;
+      roundRect(ctx, cardX, cardY, cardW, cardH, 16);
+      ctx.fill();
+      ctx.stroke();
+
+      // Title
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '900 30px system-ui, sans-serif';
+      ctx.fillText('GAME OVER', centerX, cardY + 46);
+
+      // New record badge
+      if (isNewBest) {
+        ctx.fillStyle = '#0284c7';
+        ctx.font = '800 12px system-ui, sans-serif';
+        ctx.fillText('★ NEW RECORD! ★', centerX, cardY + 68);
+      }
+
+      // Divider
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cardX + 36, cardY + 78);
+      ctx.lineTo(cardX + cardW - 36, cardY + 78);
+      ctx.stroke();
+
+      // Score
+      const finalDist = Math.floor(scoreMeters);
+      ctx.fillStyle = '#64748b';
+      ctx.font = '600 13px system-ui, sans-serif';
+      ctx.fillText('走破距離', centerX, cardY + 104);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '800 34px system-ui, sans-serif';
+      ctx.fillText(`${finalDist} m`, centerX, cardY + 140);
+
+      // Best Score
+      ctx.fillStyle = '#64748b';
+      ctx.font = '600 13px system-ui, sans-serif';
+      ctx.fillText(`自己ベスト: ${bestScore} m`, centerX, cardY + 165);
+
+      // Retry Prompt
+      if (gameOverTimer >= GAME_OVER_INPUT_LOCK) {
+        const pulse = (Math.sin(Date.now() * 0.007) + 1) / 2;
+        const btnW = 180;
+        const btnH = 40;
+        const btnX = centerX - btnW / 2;
+        const btnY = cardY + cardH - 52;
+
+        ctx.fillStyle = `rgba(2, 132, 199, ${0.1 + pulse * 0.12})`;
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 2;
+        roundRect(ctx, btnX, btnY, btnW, btnH, 20);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#0284c7';
+        ctx.font = '700 14px system-ui, sans-serif';
+        ctx.fillText('タップでリトライ', centerX, btnY + 25);
+      }
+
+      ctx.restore();
+    }
+
+    function renderMuteButton() {
+      const btnSize = 36;
+      const margin = 16;
+      const x = canvasWidth - margin - btnSize;
+      const y = margin;
+
+      ctx.save();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, x, y, btnSize, btnSize, 10);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = sound.muted ? '#94a3b8' : '#0284c7';
+      ctx.font = '16px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(sound.muted ? '🔇' : '🔊', x + btnSize / 2, y + btnSize / 2);
+
+      ctx.restore();
+    }
+
+    // --- Helper Utility Functions ---
+    function roundRect(c, x, y, w, h, r) {
+      if (w < 2 * r) r = w / 2;
+      if (h < 2 * r) r = h / 2;
+      c.beginPath();
+      c.moveTo(x + r, y);
+      c.arcTo(x + w, y, x + w, y + h, r);
+      c.arcTo(x + w, y + h, x, y + h, r);
+      c.arcTo(x, y + h, x, y, r);
+      c.arcTo(x, y, x + w, y, r);
+      c.closePath();
+    }
+
+    // --- Testing API Hook (window.__game) ---
+    function syncGameTestingObj() {
+      if (!window.__game) {
+        window.__game = {};
+        Object.defineProperty(window.__game, 'state', { get: () => state, set: v => { state = v; }, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'score', { get: () => Math.floor(scoreMeters), configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'bestScore', { get: () => bestScore, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'isGrounded', { get: () => player.isGrounded, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'speed', { get: () => currentSpeed, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'player', { get: () => player, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'obstacles', { get: () => obstacles, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'virtualW', { get: () => virtualW, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'virtualH', { get: () => virtualH, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'gameOverTimer', { get: () => gameOverTimer, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'gameTime', { get: () => gameTime, configurable: true, enumerable: true });
+        window.__game.start = startGame;
+        window.__game.flip = () => {
+          const res = player.flip();
+          return res;
+        };
+        window.__game.reset = () => {
+          state = 'title';
+          gameTime = 0;
+          player.reset();
+          resetObstacles();
+          scoreMeters = 0;
+          syncGameTestingObj();
+        };
+      }
+    }
+    syncGameTestingObj();
+
+    // --- Main Game Loop (requestAnimationFrame with clamped dt) ---
+    let lastTime = 0;
+    function gameLoop(time) {
+      if (!lastTime) lastTime = time;
+      let dt = (time - lastTime) / 1000;
+      lastTime = time;
+
+      // Delta time clamp to avoid tunneling on lag spikes
+      dt = Math.min(dt, 0.05);
+
+      update(dt);
+
+      // Render in virtual coordinate space
+      ctx.save();
+      ctx.scale(renderScale, renderScale);
+
+      renderBackground();
+      renderObstacles();
+
+      // Ghost silhouettes during transit
+      if (player.ghostTrails.length > 0) {
+        for (const g of player.ghostTrails) {
+          renderPlayerFigure(g.x, g.y, g.rotation, g.phase, false, g.alpha * 0.45);
+        }
+      }
+
+      // Stick figure runner
+      if (state !== 'gameover') {
+        renderPlayerFigure(player.x, player.y, player.rotation, player.animPhase, player.isGrounded, 1.0);
+        renderFlipIndicatorNearPlayer();
+      }
+
+      renderParticles();
+
+      if (state === 'playing') {
+        renderHUD();
+      } else if (state === 'title') {
+        renderTitleScreen();
+      } else if (state === 'gameover') {
+        renderGameOverScreen();
+      }
+
+      ctx.restore();
+
+      // Screen-space UI (mute button)
+      renderMuteButton();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    player.reset();
+    requestAnimationFrame(gameLoop);
+
+  })();
+  </script>
+</body>
+</html>
