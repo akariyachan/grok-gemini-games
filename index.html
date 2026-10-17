@@ -1,4 +1,566 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Grok × Gemini Games</title>
-<style>body{font-family:sans-serif;max-width:720px;margin:2em auto;padding:0 1em;background:#111;color:#eee}a{color:#7cf}li{margin:1em 0}</style></head><body>
-<h1>Grok × Gemini Games</h1><p>Grok Botが企画・監修し、Gemini Flash（Antigravity）が実装したミニゲーム集です。</p>
-<ul><li><a href="gravity-runner/">重力反転ランナー</a>：タップで重力がふんわり反転する棒人間ランナー</li></ul></body></html>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Grok Botが企画・監修し、Gemini Flashが実装したミニゲーム集">
+  <title>Grok × Gemini Games</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2338bdf8'/%3E%3Cstop offset='50%25' stop-color='%23818cf8'/%3E%3Cstop offset='100%25' stop-color='%23c084fc'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='7' fill='%23111827'/%3E%3Cpath d='M6 10h20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z' stroke='url(%23g)' stroke-width='2' fill='none'/%3E%3Cpath d='M9 16h4M11 14v4M21 16h.01M18 16h.01' stroke='url(%23g)' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg-base: #0b0f19;
+      --bg-surface: #111827;
+      --bg-card: #1a2234;
+      --bg-card-hover: #222d44;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(96, 165, 250, 0.4);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-sub: #64748b;
+      --accent-cyan: #38bdf8;
+      --accent-indigo: #818cf8;
+      --accent-purple: #c084fc;
+      --gradient-brand: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+      --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-stack);
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      background-image: 
+        radial-gradient(ellipse at 50% -10%, rgba(56, 189, 248, 0.15), transparent 60%),
+        radial-gradient(circle at 90% 20%, rgba(129, 140, 248, 0.08), transparent 40%);
+      background-repeat: no-repeat;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    /* Header */
+    header {
+      padding: 4rem 0 3rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .badge-container {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      margin-bottom: 1.25rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 9999px;
+      margin-bottom: 0;
+      text-transform: uppercase;
+    }
+
+    .badge-icon {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+
+    h1.site-title {
+      font-size: clamp(2.2rem, 5vw, 3.25rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: 1rem;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: inline-block;
+    }
+
+    .subtitle {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: var(--text-muted);
+      max-width: 640px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* Main Section */
+    main {
+      flex: 1;
+      padding-bottom: 5rem;
+    }
+
+    .games-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .section-title svg {
+      width: 20px;
+      height: 20px;
+      color: var(--accent-cyan);
+    }
+
+    .games-count {
+      font-size: 0.875rem;
+      color: var(--text-sub);
+    }
+
+    /* Grid */
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.75rem;
+    }
+
+    /* Card */
+    .game-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+      position: relative;
+    }
+
+    .game-card:hover, .game-card:focus-visible {
+      transform: translateY(-4px);
+      border-color: var(--border-hover);
+      box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.5), 0 0 20px rgba(56, 189, 248, 0.12);
+      outline: none;
+    }
+
+    /* Thumbnail with 16:9 Aspect Ratio */
+    .thumbnail-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background-color: #0d121f;
+      overflow: hidden;
+    }
+
+    .thumbnail-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      z-index: 1;
+      opacity: 1;
+      transition: transform 0.35s ease;
+    }
+
+    .game-card:hover .thumbnail-img {
+      transform: scale(1.04);
+    }
+
+    .thumbnail-fallback {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-sub);
+      background: linear-gradient(135deg, #111827 0%, #1e293b 100%);
+      z-index: 0;
+    }
+
+    .thumbnail-fallback svg {
+      width: 48px;
+      height: 48px;
+      opacity: 0.4;
+    }
+
+    /* Card Body */
+    .card-body {
+      padding: 1.25rem 1.4rem;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      color: var(--text-sub);
+      margin-bottom: 0.5rem;
+    }
+
+    .card-meta svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .card-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 0.5rem;
+      line-height: 1.4;
+      transition: color 0.2s ease;
+    }
+
+    .game-card:hover .card-title {
+      color: var(--accent-cyan);
+    }
+
+    .card-desc {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+      margin-bottom: 1.25rem;
+      flex-grow: 1;
+    }
+
+    .card-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      margin-top: auto;
+    }
+
+    .card-action svg {
+      width: 16px;
+      height: 16px;
+      transition: transform 0.2s ease;
+    }
+
+    .game-card:hover .card-action svg {
+      transform: translateX(4px);
+    }
+
+    /* Loading State */
+    .loading-state {
+      grid-column: 1 / -1;
+      padding: 4rem 1rem;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--accent-cyan);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Error & Empty State */
+    .message-box {
+      grid-column: 1 / -1;
+      padding: 3rem 2rem;
+      text-align: center;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+    }
+
+    .message-box.error-box {
+      border-color: rgba(239, 68, 68, 0.3);
+      background: rgba(239, 68, 68, 0.05);
+    }
+
+    .message-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 1rem;
+      color: #ef4444;
+    }
+
+    .message-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--text-main);
+    }
+
+    .message-desc {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      max-width: 460px;
+      margin: 0 auto 1.5rem;
+    }
+
+    .retry-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.25rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #fff;
+      background: #2563eb;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .retry-btn:hover {
+      background: #1d4ed8;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 2.5rem 0;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-sub);
+    }
+
+    footer p {
+      margin-bottom: 0.5rem;
+    }
+
+    footer a {
+      color: var(--text-muted);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    footer a:hover {
+      color: var(--accent-cyan);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge-container">
+        <div class="badge">
+          <svg class="badge-icon" viewBox="0 0 24 24">
+            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+          </svg>
+          AI Collab Project
+        </div>
+      </div>
+      <h1 class="site-title">Grok × Gemini Games</h1>
+      <p class="subtitle">Grok Botが企画・監修し、Gemini Flashが実装したミニゲーム集</p>
+    </header>
+
+    <main>
+      <div class="games-header">
+        <h2 class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="6" width="20" height="12" rx="2"/>
+            <path d="M6 12h4m-2-2v4m10-2h.01m-3 0h.01"/>
+          </svg>
+          ゲーム一覧
+        </h2>
+        <span id="games-count" class="games-count">読み込み中...</span>
+      </div>
+
+      <div id="games-grid" class="games-grid">
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>ゲームを読み込んでいます...</p>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <p>&copy; 2026 Grok × Gemini Games</p>
+      <p>企画・監修: Grok Bot / 実装: Gemini Flash (Antigravity CLI)</p>
+    </footer>
+  </div>
+
+  <script>
+    function escapeHtml(str) {
+      if (typeof str !== 'string') return '';
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function createCard(game) {
+      const folderUrl = encodeURI(game.folder.replace(/\/+$/, '') + '/');
+      const title = escapeHtml(game.title || '無題のゲーム');
+      const desc = escapeHtml(game.description || '');
+      const date = escapeHtml(game.date || '');
+      const thumbnailSrc = encodeURI(game.thumbnail || '');
+
+      return `
+        <a href="${folderUrl}" class="game-card">
+          <div class="thumbnail-wrapper">
+            <div class="thumbnail-fallback">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="2" y="6" width="20" height="12" rx="2"/>
+                <path d="M6 12h4m-2-2v4m10-2h.01m-3 0h.01"/>
+              </svg>
+            </div>
+            ${thumbnailSrc ? `
+              <img 
+                src="${thumbnailSrc}" 
+                alt="${title}のサムネイル" 
+                class="thumbnail-img" 
+                onerror="this.style.display='none'"
+              >
+            ` : ''}
+          </div>
+          <div class="card-body">
+            ${date ? `
+              <div class="card-meta">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                <time datetime="${date}">${date}</time>
+              </div>
+            ` : ''}
+            <h3 class="card-title">${title}</h3>
+            <p class="card-desc">${desc}</p>
+            <div class="card-action">
+              プレイする
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </div>
+          </div>
+        </a>
+      `;
+    }
+
+    async function loadGames() {
+      const grid = document.getElementById('games-grid');
+      const countEl = document.getElementById('games-count');
+
+      grid.innerHTML = `
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>ゲームを読み込んでいます...</p>
+        </div>
+      `;
+      countEl.textContent = '読み込み中...';
+
+      try {
+        const response = await fetch('games.json');
+        if (!response.ok) {
+          throw new Error(`games.json の取得に失敗しました (HTTP ${response.status})`);
+        }
+
+        const games = await response.json();
+        if (!Array.isArray(games)) {
+          throw new Error('ゲームデータの形式が不正です（配列ではありません）');
+        }
+
+        if (games.length === 0) {
+          countEl.textContent = '0 件';
+          grid.innerHTML = `
+            <div class="message-box">
+              <h3 class="message-title">ゲームが見つかりません</h3>
+              <p class="message-desc">現在プレイ可能なゲームは登録されていません。</p>
+            </div>
+          `;
+          return;
+        }
+
+        // date の新しい順（降順）にソート
+        games.sort((a, b) => {
+          const timeA = a.date ? new Date(a.date).getTime() : 0;
+          const timeB = b.date ? new Date(b.date).getTime() : 0;
+          return timeB - timeA;
+        });
+
+        countEl.textContent = `全 ${games.length} 件`;
+        grid.innerHTML = games.map(createCard).join('');
+
+        // キャッシュ済みやロード前に complete の場合でも確実に表示
+        grid.querySelectorAll('.thumbnail-img').forEach(img => {
+          if (img.complete) {
+            if (img.naturalWidth === 0) {
+              img.style.display = 'none';
+            } else {
+              img.style.display = 'block';
+            }
+          }
+        });
+
+      } catch (err) {
+        console.error('Failed to load games:', err);
+        countEl.textContent = 'エラー';
+        grid.innerHTML = `
+          <div class="message-box error-box" role="alert">
+            <svg class="message-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <h3 class="message-title">ゲーム一覧の読み込みに失敗しました</h3>
+            <p class="message-desc">${escapeHtml(err.message || 'データを受信できませんでした。')}</p>
+            <button type="button" class="retry-btn" onclick="loadGames()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+              </svg>
+              再読み込み
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadGames);
+  </script>
+</body>
+</html>
