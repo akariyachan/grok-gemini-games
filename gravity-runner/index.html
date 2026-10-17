@@ -705,8 +705,8 @@
       ceilingY = trackCenterY - (trackHeight / 2);
       floorY = trackCenterY + (trackHeight / 2);
 
-      // Travel ratio for vertical physics scaling (keeps flip duration exactly 0.7194s across all screens)
-      const baseTravel = 300 - 2 * FIGURE_HALF_HEIGHT; // 256
+      // Travel ratio for vertical distance scaling
+      const baseTravel = 300 - 2 * FIGURE_HALF_HEIGHT; // 258 (approx 256)
       travelScale = (trackHeight - 2 * FIGURE_HALF_HEIGHT) / baseTravel;
 
       if (playerInitialized && player && player.isGrounded) {
@@ -990,6 +990,17 @@
     const PLAYER_X = 84;
     const FLIP_BUFFER_WINDOW = 0.12; // 0.12s input buffer window before landing
 
+    // True physical flip transit time derived from actual trackHeight
+    function getTransitTime() {
+      const totalTravel = Math.max(1, trackHeight - 2 * FIGURE_HALF_HEIGHT);
+      const tAcc = MAX_VERTICAL_SPEED / GRAVITY_ACCEL; // 0.68s
+      const dAcc = 0.5 * GRAVITY_ACCEL * tAcc * tAcc;  // 231.2px
+      if (totalTravel <= dAcc) {
+        return Math.sqrt(2 * totalTravel / GRAVITY_ACCEL);
+      }
+      return tAcc + (totalTravel - dAcc) / MAX_VERTICAL_SPEED;
+    }
+
     // --- Autopilot AI Player (?bot=1 or window.__game.autopilot) ---
     const urlParams = new URLSearchParams(window.location.search);
     let autopilot = (urlParams.get('bot') === '1');
@@ -1020,7 +1031,7 @@
 
       const surf = player.groundedSurface; // 'floor' | 'ceiling'
       const otherSurf = (surf === 'floor') ? 'ceiling' : 'floor';
-      const transitTime = 0.7194;
+      const transitTime = getTransitTime();
       const transitDist = currentSpeed * transitTime;
 
       // 1. Tutorial automated progression
@@ -1044,7 +1055,8 @@
           const obs = obstacles.find(o => o.x + o.w > player.x);
           if (obs) {
             const dist = obs.x - player.x;
-            if (dist <= currentSpeed * 0.36 && autopilotActionCooldown <= 0) {
+            const flipDist = currentSpeed * Math.max(0.44, transitTime * 0.45);
+            if (dist <= flipDist && autopilotActionCooldown <= 0) {
               autopilotActionCooldown = 0.5;
               player.flip();
             }
@@ -1054,10 +1066,10 @@
       }
 
       // 2. Comprehensive Trajectory Safety Simulation:
-      // Checks if flipping NOW would cause collision during transit, on landing, or for 0.85s after landing.
+      // Checks if flipping NOW would cause collision during transit or immediately on landing.
       function isSafeToFlip() {
-        const totalSimTime = transitTime + 0.85;
-        const steps = 18;
+        const totalSimTime = transitTime + 0.35; // Transit duration across actual trackHeight + landing reaction buffer
+        const steps = Math.max(20, Math.round(totalSimTime * 28));
 
         for (let i = 1; i <= steps; i++) {
           const t = (i / steps) * totalSimTime;
@@ -1067,15 +1079,15 @@
             : ((otherSurf === 'floor') ? (floorY - FIGURE_HALF_HEIGHT) : (ceilingY + FIGURE_HALF_HEIGHT));
 
           const simHitbox = {
-            x: player.x - 12,
+            x: player.x - 10,
             y: simY - FIGURE_HALF_HEIGHT + 2,
-            w: 24,
+            w: 20,
             h: FIGURE_HALF_HEIGHT * 2 - 4
           };
 
           for (const obs of obstacles) {
             const simObsX = obs.x - currentSpeed * t;
-            if (simObsX + obs.w < simHitbox.x - 25 || simObsX > simHitbox.x + simHitbox.w + 25) {
+            if (simObsX + obs.w < simHitbox.x - 20 || simObsX > simHitbox.x + simHitbox.w + 20) {
               continue;
             }
 
@@ -1088,7 +1100,7 @@
               simObsY = obs.baseY + Math.sin((gameTime + t) * obs.speedFactor + obs.phase) * obs.amplitude - (obs.h / 2);
             }
 
-            const margin = 10;
+            const margin = 8;
             if (
               simHitbox.x < simObsX + obs.w + margin &&
               simHitbox.x + simHitbox.w > simObsX - margin &&
@@ -1117,10 +1129,15 @@
       if (threat) {
         const timeToHit = (threat.x - (player.x + 13)) / currentSpeed;
 
-        // Approaching danger on current surface: react with ample safety margin (0.62s)
-        if (timeToHit <= 0.62 && autopilotActionCooldown <= 0) {
-          if (isSafeToFlip() || timeToHit <= 0.28) {
-            autopilotActionCooldown = 0.35;
+        // Escape time calculation based on obstacle height and gravity acceleration
+        const obsH = threat.h || 40;
+        const minEscapeTime = Math.max(0.44, Math.sqrt((obsH + 10) * 2 / GRAVITY_ACCEL) + 0.08);
+        const lookaheadTime = Math.max(0.72, transitTime * 0.65);
+
+        // React when within lookahead window
+        if (timeToHit <= lookaheadTime && autopilotActionCooldown <= 0) {
+          if (isSafeToFlip() || timeToHit <= minEscapeTime) {
+            autopilotActionCooldown = Math.min(0.35, transitTime * 0.4);
             player.flip();
             return;
           }
@@ -1128,9 +1145,8 @@
       }
 
       // 4. Safe Opportunistic Flip for Power-ups, Gold Stars, and Aerial Coins
-      // Only flip when current surface is completely clear of threats for at least 1.4s,
-      // AND landing surface has no incoming threats for at least (transitTime + 0.9s)!
-      const isCurrentSurfaceClear = !threat || ((threat.x - player.x) / currentSpeed > 1.4);
+      const safeClearWindow = transitTime + 0.75;
+      const isCurrentSurfaceClear = !threat || ((threat.x - player.x) / currentSpeed > safeClearWindow);
 
       const destThreat = obstacles.find(o => {
         if (o.x + o.w <= player.x - 5) return false;
@@ -1142,7 +1158,7 @@
         }
         return false;
       });
-      const isDestinationClear = !destThreat || ((destThreat.x - player.x) / currentSpeed > transitTime + 0.9);
+      const isDestinationClear = !destThreat || ((destThreat.x - player.x) / currentSpeed > safeClearWindow);
 
       if (isCurrentSurfaceClear && isDestinationClear && autopilotActionCooldown <= 0) {
         // (a) Target aerial Power-ups (Shield, Magnet)
@@ -1263,10 +1279,10 @@
         const totalTravel = floorCenterY - ceilingCenterY;
 
         if (!this.isGrounded) {
-          // Accelerate gently toward target surface (scaled by travelScale in portrait to maintain identical transit timing)
-          this.vy += GRAVITY_ACCEL * travelScale * this.gravityDir * dt;
-          if (Math.abs(this.vy) > MAX_VERTICAL_SPEED * travelScale) {
-            this.vy = Math.sign(this.vy) * MAX_VERTICAL_SPEED * travelScale;
+          // Accelerate gently toward target surface using true physical acceleration
+          this.vy += GRAVITY_ACCEL * this.gravityDir * dt;
+          if (Math.abs(this.vy) > MAX_VERTICAL_SPEED) {
+            this.vy = Math.sign(this.vy) * MAX_VERTICAL_SPEED;
           }
           this.y += this.vy * dt;
 
@@ -1810,25 +1826,27 @@
       }
     }
 
-    // Trajectory calculation using true physical acceleration & max vertical speed
+    // Trajectory calculation using true physical acceleration & max vertical speed derived from actual trackHeight
     function getFlipTrajectoryY(fromSurface, tRatio) {
       const isFromFloor = (fromSurface === 'floor');
       const startY = isFromFloor ? (floorY - FIGURE_HALF_HEIGHT) : (ceilingY + FIGURE_HALF_HEIGHT);
       const totalTravel = (floorY - FIGURE_HALF_HEIGHT) - (ceilingY + FIGURE_HALF_HEIGHT);
       const dir = isFromFloor ? -1 : 1;
-      const totalT = 0.7194; // Total transit duration (0.68s accel + 0.0394s at max speed)
+      const totalT = getTransitTime();
       const t = Math.max(0, Math.min(totalT, tRatio * totalT));
+      const tAcc = MAX_VERTICAL_SPEED / GRAVITY_ACCEL; // 0.68s
+      const dAcc = 0.5 * GRAVITY_ACCEL * tAcc * tAcc;  // 231.2px
       let dy = 0;
-      if (t <= 0.68) {
-        dy = 0.5 * (GRAVITY_ACCEL * travelScale) * t * t;
+      if (t <= tAcc) {
+        dy = 0.5 * GRAVITY_ACCEL * t * t;
       } else {
-        dy = (231.2 * travelScale) + (MAX_VERTICAL_SPEED * travelScale) * (t - 0.68);
+        dy = dAcc + MAX_VERTICAL_SPEED * (t - tAcc);
       }
       return startY + dir * Math.min(totalTravel, dy);
     }
 
     function spawnCoinArc(startX, fromSurface, toSurface, count = 5) {
-      const transitDist = currentSpeed * 0.7194;
+      const transitDist = currentSpeed * getTransitTime();
       for (let i = 0; i < count; i++) {
         const tRatio = (i + 1) / (count + 1);
         const cx = startX + tRatio * transitDist;
@@ -2082,7 +2100,7 @@
     function spawnNextPattern() {
       if (isTutorialActive) return; // Completely obstacle-free during tutorial guided zone
 
-      const transitDist = currentSpeed * 0.7194;
+      const transitDist = currentSpeed * getTransitTime();
       const isFirst60s = (gameTime < 60 || scoreMeters < 300);
       const isTier3Plus = (currentTierIndex >= 2 || scoreMeters >= 700);
       const isTier4 = (currentTierIndex >= 3 || scoreMeters >= 1200);
@@ -2298,7 +2316,7 @@
           obstacles.push(new Obstacle({ surface: 'floor', type: 'block', x: nextSpawnX, w: 46, h: 48 }));
           spawnCoinArc(nextSpawnX - currentSpeed * 0.28, 'floor', 'ceiling', 4);
 
-          const tunnelCeilingX = nextSpawnX + transitDist + 60;
+          const tunnelCeilingX = nextSpawnX + transitDist + Math.max(90, currentSpeed * 0.28);
           obstacles.push(new Obstacle({ surface: 'ceiling', type: 'block', x: tunnelCeilingX, w: 46, h: 48 }));
           spawnGoldStar((nextSpawnX + tunnelCeilingX) / 2, trackCenterY);
           spawnCoinArc(tunnelCeilingX - currentSpeed * 0.28, 'ceiling', 'floor', 4);
@@ -2310,7 +2328,7 @@
         case 11: {
           // Triple Alternating Gates (Tier 4 Peak Challenge)
           // 3 consecutive short tunnels alternating Floor -> Ceiling -> Floor
-          const gateGap = transitDist + Math.max(68, currentSpeed * 0.16);
+          const gateGap = transitDist + Math.max(80, currentSpeed * 0.22);
 
           // Gate 1: Floor short tunnel (Floor block)
           obstacles.push(new Obstacle({ surface: 'floor', type: 'block', x: nextSpawnX, w: 38, h: 48 }));
@@ -3307,7 +3325,7 @@
     }
 
     function renderMilestoneBanner() {
-      if (!milestoneBanner || state !== 'playing') return;
+      if (!milestoneBanner || state !== 'playing' || isPaused) return;
 
       const p = milestoneBanner.timer / milestoneBanner.maxTimer;
       const alpha = Math.min(1.0, Math.sin(p * Math.PI) * 1.5);
@@ -3654,23 +3672,25 @@
         }
       }
 
-      // Floating popup texts
-      for (const pt of popupTexts) {
-        ctx.save();
-        ctx.globalAlpha = pt.alpha;
-        ctx.fillStyle = pt.color;
-        ctx.textAlign = 'center';
-        ctx.font = `${pt.isBold ? '800' : '600'} ${pt.fontSize}px system-ui, sans-serif`;
-        ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
-        ctx.shadowBlur = 4;
-        ctx.fillText(pt.text, pt.x, pt.y);
-        ctx.restore();
+      // Floating popup texts (hide during pause to prevent overlap with countdown numbers and pause card)
+      if (!isPaused) {
+        for (const pt of popupTexts) {
+          ctx.save();
+          ctx.globalAlpha = pt.alpha;
+          ctx.fillStyle = pt.color;
+          ctx.textAlign = 'center';
+          ctx.font = `${pt.isBold ? '800' : '600'} ${pt.fontSize}px system-ui, sans-serif`;
+          ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+          ctx.shadowBlur = 4;
+          ctx.fillText(pt.text, pt.x, pt.y);
+          ctx.restore();
+        }
       }
     }
 
     // --- Big Speed Up Banner Notification in Screen Center ---
     function renderSpeedUpBanner() {
-      if (!speedUpBanner.active) return;
+      if (!speedUpBanner.active || isPaused) return;
       const progress = speedUpBanner.timer / 2.0;
       const alpha = Math.min(1, progress * 3.0);
       const scale = 0.9 + Math.sin((1 - progress) * Math.PI * 0.5) * 0.15;
@@ -3711,7 +3731,7 @@
 
     // --- Tutorial Guide Banner in Playfield (Positioned prominently at Track Center) ---
     function renderTutorialBanner() {
-      if (!isTutorialActive || state !== 'playing') return;
+      if (!isTutorialActive || state !== 'playing' || isPaused) return;
 
       const bannerW = Math.min(virtualW - 40, 480);
       const bannerH = 76;
@@ -4269,8 +4289,8 @@
       ctx.save();
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      // Dark translucent backdrop
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+      // Dark translucent backdrop (darker during countdown to ensure high contrast against background elements)
+      ctx.fillStyle = (pauseCountdown > 0) ? 'rgba(15, 23, 42, 0.78)' : 'rgba(15, 23, 42, 0.65)';
       ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
       const centerX = canvasWidth / 2;
@@ -4452,6 +4472,12 @@
           configurable: true,
           enumerable: true
         });
+        Object.defineProperty(window.__game, 'transitTime', {
+          get: () => getTransitTime(),
+          configurable: true,
+          enumerable: true
+        });
+        window.__game.getTransitTime = getTransitTime;
         Object.defineProperty(window.__game, 'popupTexts', {
           get: () => popupTexts,
           configurable: true,
