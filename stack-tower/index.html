@@ -436,6 +436,54 @@
             osc.start(t);
             osc.stop(t + 0.75);
           });
+        } else if (type === 'mission_clear') {
+          // Playful ascending arpeggio for mission completion
+          const notes = [587.33, 739.99, 880.00, 1174.66];
+          notes.forEach((freq, idx) => {
+            const t = now + idx * 0.06;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.setValueAtTime(0.18, t + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.28);
+          });
+        } else if (type === 'rank_up') {
+          // Majestic triumphant fanfare for title rank advancement
+          const notes = [440, 554.37, 659.25, 880, 1108.73];
+          notes.forEach((freq, idx) => {
+            const t = now + idx * 0.08;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.setValueAtTime(0.14, t + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.45);
+          });
+          [554.37, 880, 1108.73].forEach(freq => {
+            const t = now + 0.42;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.setValueAtTime(0.15, t + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.9);
+          });
         }
       }
 
@@ -466,10 +514,24 @@
       }
 
       // --- Game State Variables ---
+      function getLatestBest() {
+        try {
+          const val = parseInt(localStorage.getItem('stackTowerBest'), 10);
+          return isNaN(val) ? 0 : val;
+        } catch (_) {
+          return 0;
+        }
+      }
+      function saveBest(val) {
+        try {
+          localStorage.setItem('stackTowerBest', val);
+        } catch (_) {}
+      }
+
       let gameState = 'title'; // 'title' | 'play' | 'over'
       let score = 0;           // Layer count (段数)
       let points = 0;          // Accumulated points (ポイント)
-      let best = parseInt(localStorage.getItem('stackTowerBest'), 10) || 0;
+      let best = getLatestBest();
       let prevBest = best;
       let combo = 0;
       let gameOverTime = 0;
@@ -498,6 +560,137 @@
       let screenWhiteFlash = 0;
       let comboBadgePulse = 1.0;
 
+      // --- Title (Rank) & Mission System ---
+      const RANKS = [
+        { name: '見習い大工', stars: '★☆☆☆☆', req: 0, color: '#94a3b8' },
+        { name: 'とび職',     stars: '★★☆☆☆', req: 3, color: '#38bdf8' },
+        { name: '棟梁',       stars: '★★★☆☆', req: 6, color: '#4ade80' },
+        { name: '名工',       stars: '★★★★☆', req: 10, color: '#f59e0b' },
+        { name: '天空の建築家', stars: '★★★★★', req: 15, color: '#ec4899' }
+      ];
+
+      function getPlayerRank(clearedCount) {
+        for (let i = RANKS.length - 1; i >= 0; i--) {
+          if (clearedCount >= RANKS[i].req) {
+            return { index: i, ...RANKS[i] };
+          }
+        }
+        return { index: 0, ...RANKS[0] };
+      }
+
+      const MISSION_LIST = [
+        { id: 'reach_5',         title: '5段に到達しよう',         desc: '5段まで積み上げる',         target: 5,    type: 'score' },
+        { id: 'perfect_3',       title: 'PERFECTを3回達成',        desc: '1プレイでPERFECTを3回',     target: 3,    type: 'perfect' },
+        { id: 'combo_2',         title: 'PERFECTを2連続',          desc: '2回連続でPERFECT',          target: 2,    type: 'combo' },
+        { id: 'reach_10',        title: '10段に到達しよう',        desc: '雲の上のエリア（10段）到達', target: 10,   type: 'score' },
+        { id: 'great_streak_5',  title: 'GREAT以上を5回連続',      desc: '5回連続GREAT以上',          target: 5,    type: 'great_streak' },
+        { id: 'points_300',      title: '1プレイで300pt獲得',      desc: 'スコア300ptを達成',         target: 300,  type: 'points' },
+        { id: 'reach_20',        title: '20段に到達しよう',        desc: '夕焼けエリア（20段）到達',   target: 20,   type: 'score' },
+        { id: 'combo_5',         title: 'PERFECTを5連続',          desc: '5連続でPERFECTを達成',      target: 5,    type: 'combo' },
+        { id: 'gold_1',          title: 'ゴールドブロックを置く',   desc: '金色ブロックを1個置く',      target: 1,    type: 'gold' },
+        { id: 'points_800',      title: '1プレイで800pt獲得',      desc: 'スコア800ptを達成',         target: 800,  type: 'points' },
+        { id: 'reach_30',        title: '30段に到達しよう',        desc: '夜空エリア（30段）到達',     target: 30,   type: 'score' },
+        { id: 'great_streak_10', title: 'GREAT以上を10回連続',     desc: '10回連続GREAT以上',         target: 10,   type: 'great_streak' },
+        { id: 'gold_2',          title: 'ゴールドブロックを2個置く',desc: '金色ブロックを2個置く',     target: 2,    type: 'gold' },
+        { id: 'points_1500',     title: '1プレイで1500pt獲得',     desc: 'スコア1500ptを達成',        target: 1500, type: 'points' },
+        { id: 'combo_7',         title: 'PERFECTを7連続',          desc: '7連続でPERFECTを達成',      target: 7,    type: 'combo' },
+        { id: 'reach_40',        title: '40段に到達（宇宙へ！）',  desc: '宇宙空間（40段）へ到達',     target: 40,   type: 'score' },
+        { id: 'gold_perfect',    title: 'GOLD PERFECT達成',        desc: 'ゴールドでPERFECT',         target: 1,    type: 'gold_perfect' },
+        { id: 'combo_10',        title: 'PERFECTを10連続',         desc: '奇跡の10連続PERFECT！',     target: 10,   type: 'combo' },
+        { id: 'points_3000',     title: '1プレイで3000pt獲得',     desc: 'ハイスコア3000pt達成',      target: 3000, type: 'points' },
+        { id: 'reach_50',        title: '天空の極み（50段到達）',  desc: 'タワーを50段まで積み上げる', target: 50,   type: 'score' }
+      ];
+
+      let clearedMissionIds = [];
+      try {
+        const savedMissions = localStorage.getItem('stackTowerClearedMissions');
+        if (savedMissions) {
+          clearedMissionIds = JSON.parse(savedMissions);
+        }
+      } catch (_) {
+        clearedMissionIds = [];
+      }
+
+      function getActiveMissions() {
+        const list = [];
+        for (let m of MISSION_LIST) {
+          if (!clearedMissionIds.includes(m.id)) {
+            list.push(m);
+            if (list.length === 3) break;
+          }
+        }
+        return list;
+      }
+
+      // Mission Progress in Current Run
+      let streakGreat = 0;
+      let maxGreatStreak = 0;
+      let goldPlacedCount = 0;
+      let goldPerfectCount = 0;
+      let startRunRankIndex = getPlayerRank(clearedMissionIds.length).index;
+      let rankedUpThisRun = null;
+      let missionClearBanner = null;
+
+      function getMissionCurrentValue(m) {
+        switch (m.type) {
+          case 'score': return score;
+          case 'perfect': return perfectCount;
+          case 'combo': return maxCombo;
+          case 'great_streak': return maxGreatStreak;
+          case 'points': return points;
+          case 'gold': return goldCount;
+          case 'gold_perfect': return goldPerfectCount;
+          default: return 0;
+        }
+      }
+
+      function checkMissions() {
+        const active = getActiveMissions();
+        for (let m of active) {
+          const val = getMissionCurrentValue(m);
+          if (val >= m.target) {
+            clearedMissionIds.push(m.id);
+            localStorage.setItem('stackTowerClearedMissions', JSON.stringify(clearedMissionIds));
+
+            const oldRank = getPlayerRank(clearedMissionIds.length - 1);
+            const newRank = getPlayerRank(clearedMissionIds.length);
+            if (newRank.index > oldRank.index) {
+              rankedUpThisRun = newRank;
+            }
+
+            playSound('mission_clear');
+            missionClearBanner = {
+              title: m.title,
+              timer: 2.2,
+              duration: 2.2
+            };
+
+            for (let i = 0; i < 20; i++) {
+              const angle = Math.random() * Math.PI * 2;
+              const spd = Math.random() * 180 + 70;
+              particles.push({
+                x: V_WIDTH / 2,
+                y: 175,
+                vx: Math.cos(angle) * spd,
+                vy: Math.sin(angle) * spd,
+                size: Math.random() * 3 + 2,
+                color: (i % 2 === 0) ? '#4ade80' : '#ffd700',
+                alpha: 1.0,
+                life: 0.55
+              });
+            }
+
+            checkMissions();
+            break;
+          }
+        }
+      }
+
+      // --- Tutorial & Help Modal State ---
+      let hasSeenTutorial = (localStorage.getItem('stackTowerTutorialSeen') === 'true') || (best > 0);
+      let showHelpModal = false;
+      let gameStartCooldown = 0;
+
       // Testing Hook Object
       window.__game = {
         state: 'title',
@@ -509,6 +702,8 @@
         perfectCount: 0,
         maxCombo: 0,
         goldCount: 0,
+        get rank() { return getPlayerRank(clearedMissionIds.length).name; },
+        get missions() { return getActiveMissions(); },
         drop: function() { handleAction(); },
         reset: function() { initTower(); }
       };
@@ -611,8 +806,13 @@
         perfectCount = 0;
         maxCombo = 0;
         goldCount = 0;
+        streakGreat = 0;
+        maxGreatStreak = 0;
+        goldPlacedCount = 0;
+        goldPerfectCount = 0;
         hasCelebratedBest = false;
         nextSpecialLevel = 11 + Math.floor(Math.random() * 5); // 11〜15段で初登場
+        best = Math.max(best, getLatestBest());
         prevBest = best;
         isNewBest = false;
         cameraY = 0;
@@ -621,11 +821,14 @@
         towerBounceY = 0;
         towerBounceVy = 0;
         milestoneBanner = null;
+        missionClearBanner = null;
         screenWhiteFlash = 0;
         comboBadgePulse = 1.0;
         gameOverTime = 0;
+        rankedUpThisRun = null;
+        startRunRankIndex = getPlayerRank(clearedMissionIds.length).index;
 
-        // Base foundation block
+        // Base foundation block (土台: 段数には数えない)
         const floorY = vHeight * 0.70;
         const baseWidth = INITIAL_WIDTH;
         const baseX = (V_WIDTH - baseWidth) / 2;
@@ -637,7 +840,8 @@
           hue: getBlockHue(0),
           flash: 0,
           dangerPulse: 0,
-          regrow: null
+          regrow: null,
+          isBase: true
         });
 
         spawnMovingBlock(1);
@@ -930,11 +1134,30 @@
       }
 
       // --- Core Action Handling (Tap / Click / Space) ---
-      function handleAction() {
+      function handleAction(vx, vy) {
         initAudio();
 
+        // もし「あそびかた」モーダルが開いている場合
+        if (showHelpModal) {
+          showHelpModal = false;
+          return;
+        }
+
         if (gameState === 'title') {
+          // タイトル画面で「あそびかた」ボタンがタップされたか判定
+          if (vx !== undefined && vy !== undefined) {
+            const btnW = 135;
+            const btnH = 30;
+            const btnX = 52;
+            const btnY = vHeight * 0.245 - 15;
+            if (vx >= btnX && vx <= btnX + btnW && vy >= btnY && vy <= btnY + btnH) {
+              showHelpModal = true;
+              return;
+            }
+          }
+
           gameState = 'play';
+          gameStartCooldown = 0.28; // スタート直後の誤ドロップ防止 (280ms)
           initTower();
           return;
         }
@@ -943,11 +1166,15 @@
           // パネル表示遅延(0.75s) + 入力無効(0.6s) = 1.35s (1350ms)
           if (performance.now() - gameOverTime < 1350) return;
           gameState = 'play';
+          gameStartCooldown = 0.28;
           initTower();
           return;
         }
 
         if (gameState === 'play' && movingBlock) {
+          // スタート直後の誤ドロップクールダウン中は操作を受け付けない
+          if (gameStartCooldown > 0 && !isBotAction) return;
+
           const topBlock = tower[tower.length - 1];
           const diff = movingBlock.x - topBlock.x;
           const absDiff = Math.abs(diff);
@@ -961,6 +1188,10 @@
             if (combo > maxCombo) {
               maxCombo = combo;
             }
+            streakGreat++;
+            if (streakGreat > maxGreatStreak) {
+              maxGreatStreak = streakGreat;
+            }
             movingBlock.x = topBlock.x;
 
             const isGold = (movingBlock.specialType === 'gold');
@@ -971,6 +1202,8 @@
             if (isGold) {
               earnedPts += 100;
               goldCount++;
+              goldPlacedCount++;
+              goldPerfectCount++;
             }
             if (isFast) {
               earnedPts += 30;
@@ -1002,6 +1235,7 @@
               flash: 1.0,
               dangerPulse: 0,
               specialType: movingBlock.specialType,
+              isBase: false,
               regrow: willRegrow ? {
                 fromW: prevW,
                 targetW: targetW,
@@ -1038,6 +1272,7 @@
             // COMPLETE MISS -> GAME OVER
             // ==========================================
             combo = 0;
+            streakGreat = 0;
             // The whole block falls and tumbles away
             spawnDebris(
               movingBlock.x,
@@ -1070,7 +1305,6 @@
             let debrisVRot = 0;
 
             if (diff < 0) {
-              // Overhang on left: debris falls off to left, rotating counter-clockwise
               overhangWidth = topBlock.x - movingBlock.x;
               newWidth = movingBlock.width - overhangWidth;
               newX = topBlock.x;
@@ -1079,7 +1313,6 @@
               debrisVx = -80 - Math.random() * 25;
               debrisVRot = -4.8 - Math.random() * 2.0;
             } else {
-              // Overhang on right: debris falls off to right, rotating clockwise
               overhangWidth = (movingBlock.x + movingBlock.width) - (topBlock.x + topBlock.width);
               newWidth = movingBlock.width - overhangWidth;
               newX = movingBlock.x;
@@ -1131,6 +1364,7 @@
 
             if (newWidth <= DANGER_WIDTH) {
               // ギリギリ! (Remaining width is narrow)
+              streakGreat = 0;
               tierName = 'ギリギリ!';
               tierColor = '#ff3355';
               tierPts = 10;
@@ -1142,6 +1376,10 @@
               screenShake = 4.5;
             } else if (absDiff <= GREAT_TOLERANCE) {
               // GREAT! (Small offset)
+              streakGreat++;
+              if (streakGreat > maxGreatStreak) {
+                maxGreatStreak = streakGreat;
+              }
               tierName = 'GREAT!';
               tierColor = '#4ade80';
               tierPts = 10 + 15; // 25pt
@@ -1152,6 +1390,7 @@
               screenShake = 2.2;
             } else {
               // GOOD
+              streakGreat = 0;
               tierName = 'GOOD';
               tierColor = '#38bdf8';
               tierPts = 10;
@@ -1164,6 +1403,11 @@
 
             // 速いブロックは置けたらボーナス +30pt
             const isFast = (movingBlock.specialType === 'fast');
+            const isGold = (movingBlock.specialType === 'gold');
+            if (isGold) {
+              goldCount++;
+              goldPlacedCount++;
+            }
             let bonusPts = isFast ? 30 : 0;
             if (isFast) {
               playSound('speed_bonus');
@@ -1193,6 +1437,7 @@
               flash: flashVal,
               dangerPulse: dangerPulse,
               specialType: movingBlock.specialType,
+              isBase: false,
               regrow: null
             };
             tower.push(placed);
@@ -1207,8 +1452,18 @@
           score = tower.length - 1;
           if (score > best) {
             best = score;
-            localStorage.setItem('stackTowerBest', best);
+            saveBest(best);
+            syncGameHook();
           }
+
+          // チュートリアル3段目完了判定
+          if (score >= 3 && !hasSeenTutorial) {
+            hasSeenTutorial = true;
+            localStorage.setItem('stackTowerTutorialSeen', 'true');
+          }
+
+          // ミッション進捗チェック
+          checkMissions();
 
           // 4. ベスト目標: 超えたら「ベスト更新!」の演出とファンファーレ
           if (prevBest > 0 && score > prevBest && !hasCelebratedBest) {
@@ -1250,14 +1505,51 @@
         gameOverTime = performance.now();
         playSound('gameover');
 
+        if (score > best) {
+          best = score;
+          saveBest(best);
+        }
+        best = Math.max(best, getLatestBest());
+
         if (score > prevBest && score > 0) {
           isNewBest = true;
+        }
+
+        // 1プレイ遊んだらチュートリアル完了扱い
+        if (!hasSeenTutorial) {
+          hasSeenTutorial = true;
+          localStorage.setItem('stackTowerTutorialSeen', 'true');
+        }
+
+        // 称号アップ判定
+        const currentRank = getPlayerRank(clearedMissionIds.length);
+        if (currentRank.index > startRunRankIndex) {
+          rankedUpThisRun = currentRank;
+          setTimeout(() => {
+            if (gameState === 'over') {
+              playSound('rank_up');
+              for (let i = 0; i < 40; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const spd = Math.random() * 240 + 80;
+                particles.push({
+                  x: V_WIDTH / 2,
+                  y: vHeight * 0.45,
+                  vx: Math.cos(angle) * spd,
+                  vy: Math.sin(angle) * spd,
+                  size: Math.random() * 4 + 2,
+                  color: ['#ffd700', '#ec4899', '#38bdf8', '#4ade80'][i % 4],
+                  alpha: 1.0,
+                  life: 0.9
+                });
+              }
+            }
+          }, 850);
         }
 
         syncGameHook();
       }
 
-      // --- Input Event Listeners (No double fire, no scroll/zoom) ---
+      // --- Input Event Listeners (No double fire, robust coordinate tracking) ---
       let lastInputTime = 0;
       function onUserInput(e) {
         hasUserInteracted = true;
@@ -1266,14 +1558,25 @@
           e.preventDefault();
         }
         const now = performance.now();
-        if (now - lastInputTime < 40) return; // Debounce rapid multi-events
+        if (now - lastInputTime < 220) return; // Debounce rapid multi-events
         lastInputTime = now;
-        handleAction();
+
+        let vx = undefined;
+        let vy = undefined;
+        if (e && (e.clientX !== undefined || (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]))) {
+          const rect = canvas.getBoundingClientRect();
+          const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : 0));
+          const clientY = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : 0));
+          const canvasX = clientX - rect.left;
+          const canvasY = clientY - rect.top;
+          vx = (canvasX - colLeft) / colScale;
+          vy = canvasY / colScale;
+        }
+
+        handleAction(vx, vy);
       }
 
       window.addEventListener('pointerdown', onUserInput, { passive: false });
-      window.addEventListener('touchstart', onUserInput, { passive: false });
-      window.addEventListener('click', onUserInput);
       window.addEventListener('keydown', (e) => {
         if (e.code === 'Space') {
           e.preventDefault();
@@ -1356,6 +1659,15 @@
         }
         if (comboBadgePulse > 1.0) {
           comboBadgePulse = Math.max(1.0, comboBadgePulse - dt * 2.8);
+        }
+        if (gameStartCooldown > 0) {
+          gameStartCooldown = Math.max(0, gameStartCooldown - dt);
+        }
+        if (missionClearBanner) {
+          missionClearBanner.timer -= dt;
+          if (missionClearBanner.timer <= 0) {
+            missionClearBanner = null;
+          }
         }
 
         // Camera scroll
@@ -1589,10 +1901,43 @@
       }
 
       // --- Rendering Functions ---
-      function draw2DBlock(context, x, y, w, h, hue, flash = 0, dangerPulse = 0, regrowAnim = null, specialType = null) {
+      function draw2DBlock(context, x, y, w, h, hue, flash = 0, dangerPulse = 0, regrowAnim = null, specialType = null, isBase = false) {
         if (w <= 0) return;
 
         context.save();
+
+        if (isBase) {
+          // 土台専用の重厚な台座メタルブロックデザイン
+          const baseGrad = context.createLinearGradient(x, y, x, y + h);
+          baseGrad.addColorStop(0, '#334155');
+          baseGrad.addColorStop(0.4, '#1e293b');
+          baseGrad.addColorStop(1, '#0f172a');
+          context.fillStyle = baseGrad;
+          context.beginPath();
+          context.roundRect(x, y, w, h, 3);
+          context.fill();
+
+          // 金属ハイライト線
+          context.fillStyle = 'rgba(255, 255, 255, 0.35)';
+          context.fillRect(x + 1, y + 1, w - 2, 2);
+
+          // 境界線
+          context.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+          context.lineWidth = 1;
+          context.beginPath();
+          context.roundRect(x, y, w, h, 3);
+          context.stroke();
+
+          // 中央に控えめな「BASE (土台)」刻印
+          context.fillStyle = 'rgba(255, 255, 255, 0.55)';
+          context.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+          context.textAlign = 'center';
+          context.textBaseline = 'middle';
+          context.fillText('BASE (土台)', x + w / 2, y + h / 2);
+          context.textBaseline = 'alphabetic';
+          context.restore();
+          return;
+        }
 
         // Base block gradient (2.5D bevel effect, specialized for Gold or Fast blocks)
         const grad = context.createLinearGradient(x, y, x, y + h);
@@ -1718,7 +2063,297 @@
         context.rotate(d.rot);
         context.globalAlpha = Math.max(0, d.alpha);
 
-        draw2DBlock(context, -d.width / 2, -d.height / 2, d.width, d.height, d.hue, 0, 0, null);
+        draw2DBlock(context, -d.width / 2, -d.height / 2, d.width, d.height, d.hue, 0, 0, null, null, false);
+
+        context.restore();
+      }
+
+      // --- Height Meter (画面右端の細い高度メーター) ---
+      function drawHeightMeter(context) {
+        const meterW = 5;
+        const meterX = V_WIDTH - 12;
+        const meterTop = 90;
+        const meterBottom = vHeight - 110;
+        const meterH = meterBottom - meterTop;
+
+        context.save();
+        // トラック背景
+        context.fillStyle = 'rgba(15, 23, 42, 0.55)';
+        context.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+        context.lineWidth = 1;
+        context.beginPath();
+        context.roundRect(meterX, meterTop, meterW, meterH, 2.5);
+        context.fill();
+        context.stroke();
+
+        const nextMilestone = Math.floor(score / 10 + 1) * 10;
+        const maxDisplayLevel = Math.max(30, (best || 0) + 5, nextMilestone + 5);
+
+        // 10段マイルストーン目盛り
+        for (let lvl = 10; lvl <= maxDisplayLevel; lvl += 10) {
+          const ratio = lvl / maxDisplayLevel;
+          const my = meterBottom - ratio * meterH;
+          if (my >= meterTop && my <= meterBottom) {
+            const isTarget = (lvl === nextMilestone);
+            context.fillStyle = isTarget ? '#38bdf8' : 'rgba(255, 255, 255, 0.35)';
+            context.fillRect(meterX - (isTarget ? 3 : 2), my - 1, meterW + (isTarget ? 6 : 4), 2);
+            if (isTarget) {
+              context.font = 'bold 9px -apple-system, sans-serif';
+              context.fillStyle = '#38bdf8';
+              context.textAlign = 'right';
+              context.fillText(`${lvl}`, meterX - 5, my + 3);
+            }
+          }
+        }
+
+        // 自己ベストマーカー
+        if (best > 0) {
+          const bRatio = Math.min(1.0, best / maxDisplayLevel);
+          const by = meterBottom - bRatio * meterH;
+          context.fillStyle = '#ffd700';
+          context.fillRect(meterX - 3, by - 1.5, meterW + 6, 3);
+          context.font = 'bold 8px -apple-system, sans-serif';
+          context.fillStyle = '#ffd700';
+          context.textAlign = 'right';
+          context.fillText(`👑${best}`, meterX - 5, by + 3);
+        }
+
+        // 現在の高さインジケーター（下からのフィル）
+        const curRatio = Math.min(1.0, score / maxDisplayLevel);
+        const fillH = curRatio * meterH;
+        if (fillH > 0) {
+          const barGrad = context.createLinearGradient(0, meterBottom, 0, meterBottom - fillH);
+          barGrad.addColorStop(0, '#00f2fe');
+          barGrad.addColorStop(1, '#38bdf8');
+          context.fillStyle = barGrad;
+          context.beginPath();
+          context.roundRect(meterX, meterBottom - fillH, meterW, fillH, 2.5);
+          context.fill();
+
+          const curY = meterBottom - fillH;
+          context.shadowColor = '#00f2fe';
+          context.shadowBlur = 6;
+          context.fillStyle = '#ffffff';
+          context.beginPath();
+          context.arc(meterX + meterW / 2, curY, 3, 0, Math.PI * 2);
+          context.fill();
+          context.shadowBlur = 0;
+        }
+
+        context.restore();
+      }
+
+      // --- First-time Tutorial Prompt (ブロックの直上、親指で隠れない位置) ---
+      function drawTutorialPrompt(context) {
+        if (isBotActive || hasSeenTutorial || score >= 3 || !movingBlock) return;
+
+        let msg = '';
+        if (score === 0) {
+          msg = 'ブロックが塔の真上に来たらタップ!';
+        } else if (score === 1) {
+          msg = 'はみ出た部分は切れて細くなる';
+        } else if (score === 2) {
+          msg = 'ピッタリ重ねると PERFECT!';
+        }
+        if (!msg) return;
+
+        context.save();
+        const midX = movingBlock.x + movingBlock.width / 2;
+        const bubbleY = movingBlock.y - 36;
+        const bubbleW = 236;
+        const bubbleH = 26;
+        let bubbleX = midX - bubbleW / 2;
+        bubbleX = Math.max(12, Math.min(V_WIDTH - bubbleW - 12, bubbleX));
+
+        context.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        context.strokeStyle = score === 2 ? '#ffe600' : '#38bdf8';
+        context.lineWidth = 1.4;
+        context.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        context.shadowBlur = 6;
+        context.beginPath();
+        context.roundRect(bubbleX, bubbleY, bubbleW, bubbleH, 13);
+        context.fill();
+        context.stroke();
+
+        context.beginPath();
+        context.moveTo(midX - 5, bubbleY + bubbleH);
+        context.lineTo(midX + 5, bubbleY + bubbleH);
+        context.lineTo(midX, bubbleY + bubbleH + 6);
+        context.closePath();
+        context.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        context.fill();
+        context.stroke();
+
+        context.shadowBlur = 0;
+        context.fillStyle = '#ffffff';
+        context.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(msg, bubbleX + bubbleW / 2, bubbleY + bubbleH / 2);
+        context.textBaseline = 'alphabetic';
+        context.restore();
+      }
+
+      // --- Mission Card Drawing Helper (タイトル画面 & 結果画面で共通利用) ---
+      function drawMissionCard(context, m, x, y, w, h) {
+        context.save();
+        context.fillStyle = 'rgba(15, 23, 42, 0.65)';
+        context.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+        context.lineWidth = 1;
+        context.beginPath();
+        context.roundRect(x, y, w, h, 8);
+        context.fill();
+        context.stroke();
+
+        const curVal = getMissionCurrentValue(m);
+        const targetVal = m.target;
+        const isDone = clearedMissionIds.includes(m.id) || curVal >= targetVal;
+
+        context.fillStyle = '#ffffff';
+        context.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+        context.textAlign = 'left';
+        context.fillText(`🎯 ${m.title}`, x + 10, y + 15);
+
+        context.textAlign = 'right';
+        context.font = 'bold 11px -apple-system, sans-serif';
+        context.fillStyle = isDone ? '#4ade80' : '#38bdf8';
+        context.fillText(isDone ? 'CLEAR!' : `${curVal} / ${targetVal}`, x + w - 10, y + 15);
+
+        // プログレスバー
+        const barX = x + 10;
+        const barY = y + 22;
+        const barW = w - 20;
+        const barH = 4;
+        context.fillStyle = 'rgba(255, 255, 255, 0.12)';
+        context.beginPath();
+        context.roundRect(barX, barY, barW, barH, 2);
+        context.fill();
+
+        const progress = isDone ? 1.0 : Math.min(1.0, curVal / targetVal);
+        if (progress > 0) {
+          context.fillStyle = isDone ? '#4ade80' : '#38bdf8';
+          context.beginPath();
+          context.roundRect(barX, barY, barW * progress, barH, 2);
+          context.fill();
+        }
+
+        context.restore();
+      }
+
+      // --- In-Game Mission Banner ---
+      function drawMissionBanner(context) {
+        if (!missionClearBanner || missionClearBanner.timer <= 0) return;
+        const t = missionClearBanner.timer / missionClearBanner.duration;
+        const bannerAlpha = Math.min(1.0, t < 0.2 ? t / 0.2 : (missionClearBanner.duration - missionClearBanner.timer < 0.25 ? (missionClearBanner.duration - missionClearBanner.timer) / 0.25 : 1.0));
+
+        context.save();
+        context.globalAlpha = bannerAlpha;
+        const bw = 240;
+        const bh = 50;
+        const bx = (V_WIDTH - bw) / 2;
+        const by = 160;
+
+        context.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        context.strokeStyle = '#4ade80';
+        context.lineWidth = 1.8;
+        context.shadowColor = 'rgba(74, 222, 128, 0.6)';
+        context.shadowBlur = 12;
+        context.beginPath();
+        context.roundRect(bx, by, bw, bh, 25);
+        context.fill();
+        context.stroke();
+
+        context.shadowBlur = 0;
+        context.fillStyle = '#4ade80';
+        context.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+        context.textAlign = 'center';
+        context.fillText('🎯 ミッション達成!', V_WIDTH / 2, by + 21);
+
+        context.fillStyle = '#ffffff';
+        context.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+        context.fillText(missionClearBanner.title, V_WIDTH / 2, by + 39);
+
+        context.restore();
+      }
+
+      // --- Help Modal (あそびかた画面) ---
+      function drawHelpModal(context) {
+        if (!showHelpModal) return;
+
+        context.save();
+        // 背景暗転
+        context.fillStyle = 'rgba(10, 15, 26, 0.85)';
+        context.fillRect(0, 0, V_WIDTH, vHeight);
+
+        // モーダルボックス
+        const mw = 330;
+        const mh = 440;
+        const mx = (V_WIDTH - mw) / 2;
+        const my = (vHeight - mh) / 2;
+
+        context.fillStyle = 'rgba(23, 32, 51, 0.96)';
+        context.strokeStyle = 'rgba(78, 237, 255, 0.45)';
+        context.lineWidth = 1.5;
+        context.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        context.shadowBlur = 16;
+        context.beginPath();
+        context.roundRect(mx, my, mw, mh, 16);
+        context.fill();
+        context.stroke();
+
+        context.shadowBlur = 0;
+        context.textAlign = 'center';
+        context.fillStyle = '#ffffff';
+        context.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+        context.fillText('🏗️ あそびかた', V_WIDTH / 2, my + 34);
+
+        const rules = [
+          { icon: '🎯', title: 'タイミングよくタップ', desc: 'ブロックが塔の真上に来た瞬間に画面をタップ！' },
+          { icon: '✂️', title: 'はみ出た部分はカット', desc: '土台からはみ出た部分は切り落とされ細くなります。' },
+          { icon: '✨', title: 'ピッタリで PERFECT!', desc: 'ピッタリ重ねるとPERFECT！3回以上連続で幅回復！' },
+          { icon: '⭐', title: '特殊ブロック', desc: '金色ブロックは高得点＆大幅回復、水色は高速ボーナス！' },
+          { icon: '🏆', title: 'ミッション＆称号', desc: 'ミッションを達成して「天空の建築家」を目指そう！' }
+        ];
+
+        let ry = my + 54;
+        context.textAlign = 'left';
+        for (let r of rules) {
+          context.fillStyle = 'rgba(15, 23, 42, 0.6)';
+          context.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+          context.lineWidth = 1;
+          context.beginPath();
+          context.roundRect(mx + 14, ry, mw - 28, 54, 8);
+          context.fill();
+          context.stroke();
+
+          context.fillStyle = '#ffd700';
+          context.font = 'bold 13px -apple-system, sans-serif';
+          context.fillText(`${r.icon} ${r.title}`, mx + 24, ry + 20);
+
+          context.fillStyle = 'rgba(255, 255, 255, 0.82)';
+          context.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          context.fillText(r.desc, mx + 24, ry + 39);
+
+          ry += 60;
+        }
+
+        // 閉じるボタン
+        const closeBtnW = 160;
+        const closeBtnH = 38;
+        const closeBtnX = (V_WIDTH - closeBtnW) / 2;
+        const closeBtnY = my + mh - 48;
+        context.fillStyle = 'rgba(56, 189, 248, 0.2)';
+        context.strokeStyle = '#38bdf8';
+        context.lineWidth = 1.4;
+        context.beginPath();
+        context.roundRect(closeBtnX, closeBtnY, closeBtnW, closeBtnH, 19);
+        context.fill();
+        context.stroke();
+
+        context.textAlign = 'center';
+        context.fillStyle = '#38bdf8';
+        context.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+        context.fillText('とじる', V_WIDTH / 2, closeBtnY + 24);
 
         context.restore();
       }
@@ -1809,14 +2444,14 @@
             ctx.shadowBlur = 6;
             ctx.beginPath();
             ctx.moveTo(10, bestY);
-            ctx.lineTo(V_WIDTH - 10, bestY);
+            ctx.lineTo(V_WIDTH - 18, bestY);
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // BEST フラグラベル
-            const labelW = 84;
+            // BEST フラグラベル（画面右端の高度メーターより内側に収め、重ならないように配置）
+            const labelW = 80;
             const labelH = 20;
-            const labelX = V_WIDTH - 12 - labelW;
+            const labelX = V_WIDTH - 52 - labelW;
             const labelY = bestY - 10;
             ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
             ctx.strokeStyle = '#ffd700';
@@ -1839,7 +2474,7 @@
         for (let b of tower) {
           // Viewport culling
           if (b.y - cameraY > vHeight + 50 || b.y + b.height - cameraY < -50) continue;
-          draw2DBlock(ctx, b.x, b.y, b.width, b.height, b.hue, b.flash, b.dangerPulse, b.regrow, b.specialType);
+          draw2DBlock(ctx, b.x, b.y, b.width, b.height, b.hue, b.flash, b.dangerPulse, b.regrow, b.specialType, b.isBase);
         }
 
         ctx.restore(); // Restore towerBounceY
@@ -1851,13 +2486,13 @@
             for (let img of movingBlock.afterimages) {
               ctx.save();
               ctx.globalAlpha = Math.max(0, img.alpha * 0.55);
-              draw2DBlock(ctx, img.x, img.y, img.width, img.height, movingBlock.hue, 0, 0, null, 'fast');
+              draw2DBlock(ctx, img.x, img.y, img.width, img.height, movingBlock.hue, 0, 0, null, 'fast', false);
               ctx.restore();
             }
           }
 
           // 移動ブロック本体
-          draw2DBlock(ctx, movingBlock.x, movingBlock.y, movingBlock.width, movingBlock.height, movingBlock.hue, 0, 0, null, movingBlock.specialType);
+          draw2DBlock(ctx, movingBlock.x, movingBlock.y, movingBlock.width, movingBlock.height, movingBlock.hue, 0, 0, null, movingBlock.specialType, false);
 
           // 特殊ブロックのヘッドバッジ (見た目ですぐ分かるように)
           if (movingBlock.specialType === 'gold') {
@@ -1943,7 +2578,6 @@
           ctx.font = `bold ${Math.round((ft.fontSize || 18) * currentScale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", sans-serif`;
           ctx.textAlign = 'center';
           ctx.globalAlpha = Math.max(0, ft.alpha);
-          // 濃い縁取りと影をしっかり付けてどの空の色でもくっきり読めるようにする
           ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
           ctx.shadowBlur = 5;
           ctx.shadowOffsetX = 0;
@@ -1981,7 +2615,7 @@
           ctx.shadowOffsetY = 2;
           ctx.fillText(`${score}段`, V_WIDTH / 2, 78);
 
-          // Points (ポイント) - 濃い縁取り/影で水色や紫の空でも溶けないようにする
+          // Points (ポイント)
           ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           ctx.strokeStyle = '#070d19';
           ctx.lineWidth = 3.5;
@@ -2030,7 +2664,6 @@
             const bx = (V_WIDTH - bw) / 2;
             const by = 168;
 
-            // Glowing banner pill
             ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
             ctx.strokeStyle = '#ffd700';
             ctx.lineWidth = 2;
@@ -2053,36 +2686,47 @@
             ctx.restore();
           }
 
+          // 高さの見える化（画面右端の細い高度メーター）
+          drawHeightMeter(ctx);
+
+          // 初回チュートリアル（親指で隠れないブロック直上）
+          drawTutorialPrompt(ctx);
+
+          // プレイ中ミッション達成バナー
+          drawMissionBanner(ctx);
+
           ctx.restore();
         }
 
         // --- Title Screen Screen Space ---
         if (gameState === 'title') {
+          best = Math.max(best, getLatestBest());
+          syncGameHook();
           ctx.save();
           ctx.textAlign = 'center';
 
-          // Decorative Title with thick outline and deep shadow
-          ctx.font = 'bold 38px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          // 1. タイトルロゴ
+          ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
           ctx.strokeStyle = 'rgba(15, 23, 42, 0.7)';
           ctx.lineWidth = 4;
-          ctx.strokeText('積み上げタワー', V_WIDTH / 2, vHeight * 0.22);
+          ctx.strokeText('積み上げタワー', V_WIDTH / 2, vHeight * 0.115);
           ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
           ctx.shadowBlur = 10;
           ctx.shadowOffsetY = 2;
           ctx.fillStyle = '#ffffff';
-          ctx.fillText('積み上げタワー', V_WIDTH / 2, vHeight * 0.22);
+          ctx.fillText('積み上げタワー', V_WIDTH / 2, vHeight * 0.115);
 
-          // One-line instruction inside a dark translucent pill band
-          const descW = 316;
-          const descH = 32;
+          // 2. サブタイトル帯
+          const descW = 310;
+          const descH = 28;
           const descX = (V_WIDTH - descW) / 2;
-          const descY = vHeight * 0.27 - 21;
+          const descY = vHeight * 0.158 - 14;
           ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
           ctx.shadowBlur = 6;
           ctx.shadowOffsetY = 2;
           ctx.fillStyle = 'rgba(15, 23, 42, 0.58)';
           ctx.beginPath();
-          ctx.roundRect(descX, descY, descW, descH, 16);
+          ctx.roundRect(descX, descY, descW, descH, 14);
           ctx.fill();
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
           ctx.lineWidth = 1;
@@ -2091,70 +2735,114 @@
           ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
           ctx.shadowBlur = 4;
           ctx.shadowOffsetY = 1;
-          ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
           ctx.fillStyle = '#ffffff';
-          ctx.fillText('タイミングよくタップしてブロックを積もう！', V_WIDTH / 2, vHeight * 0.27);
+          ctx.fillText('タイミングよくタップしてブロックを積もう！', V_WIDTH / 2, vHeight * 0.158 + 4);
 
-          // High score on title if exists
-          if (best > 0) {
-            const bestW = 160;
-            const bestH = 26;
-            const bestX = (V_WIDTH - bestW) / 2;
-            const bestY = vHeight * 0.32 - 17;
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
-            ctx.shadowBlur = 5;
-            ctx.shadowOffsetY = 1;
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.52)';
-            ctx.beginPath();
-            ctx.roundRect(bestX, bestY, bestW, bestH, 13);
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(255, 215, 0, 0.35)';
-            ctx.lineWidth = 1;
-            ctx.stroke();
+          // 3. 称号表示バッジ
+          const playerRank = getPlayerRank(clearedMissionIds.length);
+          const rankW = 210;
+          const rankH = 26;
+          const rankX = (V_WIDTH - rankW) / 2;
+          const rankY = vHeight * 0.20 - 13;
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+          ctx.strokeStyle = playerRank.color;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.roundRect(rankX, rankY, rankW, rankH, 13);
+          ctx.fill();
+          ctx.stroke();
 
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-            ctx.shadowBlur = 3;
-            ctx.shadowOffsetY = 1;
-            ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillStyle = '#ffd152';
-            ctx.fillText(`自己ベスト: ${best}段`, V_WIDTH / 2, vHeight * 0.32);
+          ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          ctx.fillStyle = playerRank.color;
+          ctx.fillText(`称号: ${playerRank.name} ${playerRank.stars}`, V_WIDTH / 2, rankY + 17);
+
+          // 4. 「❓ あそびかた」ボタン & 「👑 自己ベスト」
+          const btnW = 135;
+          const btnH = 30;
+          const helpBtnX = 52;
+          const helpBtnY = vHeight * 0.245 - 15;
+
+          // あそびかたボタン（濃い背景＋白文字で青空の上でもはっきり読める）
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.roundRect(helpBtnX, helpBtnY, btnW, btnH, 15);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText('❓ あそびかた', helpBtnX + btnW / 2, helpBtnY + 19);
+
+          // 自己ベスト
+          const bestBtnX = 203;
+          const bestBtnY = helpBtnY;
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+          ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.roundRect(bestBtnX, bestBtnY, btnW, btnH, 15);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffd700';
+          ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillText(`👑 BEST: ${best}段`, bestBtnX + btnW / 2, bestBtnY + 19);
+
+          // 5. 常に3つのミッション表示
+          const missionHeaderY = vHeight * 0.29;
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText('🎯 現在のミッション (3つ)', 32, missionHeaderY);
+          ctx.textAlign = 'right';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+          ctx.font = '11px -apple-system, sans-serif';
+          ctx.fillText(`達成: ${clearedMissionIds.length} / ${MISSION_LIST.length}`, V_WIDTH - 32, missionHeaderY);
+
+          const activeMissions = getActiveMissions();
+          let cardY = missionHeaderY + 8;
+          for (let m of activeMissions) {
+            drawMissionCard(ctx, m, 30, cardY, V_WIDTH - 60, 36);
+            cardY += 41;
           }
 
-          // Pulsing Tap to Start prompt inside a dark translucent capsule band
+          // 6. スタートボタン
           const pulse = Math.sin(performance.now() * 0.005) * 0.2 + 0.8;
-          const btnW = 260;
-          const btnH = 68;
-          const btnX = (V_WIDTH - btnW) / 2;
-          const btnY = vHeight * 0.52 - 32;
+          const startBtnW = 260;
+          const startBtnH = 62;
+          const startBtnX = (V_WIDTH - startBtnW) / 2;
+          const startBtnY = vHeight * 0.46;
 
           ctx.save();
-          // Dark translucent button plate with subtle glow & pulsing border
-          ctx.fillStyle = `rgba(15, 23, 42, ${0.60 * pulse + 0.12})`;
-          ctx.strokeStyle = `rgba(78, 237, 255, ${0.45 * pulse + 0.22})`;
-          ctx.lineWidth = 1.5;
+          ctx.fillStyle = `rgba(15, 23, 42, ${0.60 * pulse + 0.15})`;
+          ctx.strokeStyle = `rgba(78, 237, 255, ${0.5 * pulse + 0.3})`;
+          ctx.lineWidth = 1.8;
           ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
           ctx.shadowBlur = 10;
           ctx.shadowOffsetY = 3;
           ctx.beginPath();
-          ctx.roundRect(btnX, btnY, btnW, btnH, 34);
+          ctx.roundRect(startBtnX, startBtnY, startBtnW, startBtnH, 31);
           ctx.fill();
           ctx.stroke();
 
-          // High-contrast text with dark shadow
+          ctx.textAlign = 'center';
           ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
           ctx.shadowBlur = 6;
           ctx.shadowOffsetY = 1;
-
           ctx.fillStyle = '#ffffff';
           ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
-          ctx.fillText('▶ タップでスタート', V_WIDTH / 2, btnY + 30);
+          ctx.fillText('▶ タップでスタート', V_WIDTH / 2, startBtnY + 28);
 
-          // Desktop Space hint
           ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
           ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
-          ctx.fillText('[Space] キーまたはクリック', V_WIDTH / 2, btnY + 52);
-
+          ctx.fillText('[Space] キーまたはクリック', V_WIDTH / 2, startBtnY + 48);
           ctx.restore();
+
+          // 7. あそびかたモーダル描画
+          drawHelpModal(ctx);
 
           ctx.restore();
         }
@@ -2166,120 +2854,178 @@
 
           if (timeSinceOver >= panelDelay) {
             ctx.save();
-            // パネルのスムーズなフェードイン
             const fade = Math.min(1.0, (timeSinceOver - panelDelay) / 0.25);
             ctx.globalAlpha = fade;
 
             // Dark frosted overlay
-            ctx.fillStyle = 'rgba(10, 15, 26, 0.74)';
+            ctx.fillStyle = 'rgba(10, 15, 26, 0.78)';
             ctx.fillRect(0, 0, V_WIDTH, vHeight);
 
-            // Modal Box
-            const boxW = 320;
-            const boxH = 352;
+            // Modal Box (330 x 438)
+            const boxW = 330;
+            const boxH = 438;
             const boxX = (V_WIDTH - boxW) / 2;
-            const boxY = vHeight * 0.21;
+            const boxY = Math.max(16, (vHeight - boxH) / 2);
 
-            ctx.fillStyle = 'rgba(23, 32, 51, 0.94)';
+            ctx.fillStyle = 'rgba(23, 32, 51, 0.95)';
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
             ctx.lineWidth = 1.5;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+            ctx.shadowBlur = 16;
             ctx.beginPath();
             ctx.roundRect(boxX, boxY, boxW, boxH, 18);
             ctx.fill();
             ctx.stroke();
 
+            ctx.shadowBlur = 0;
             ctx.textAlign = 'center';
             ctx.fillStyle = '#ff4d6d';
-            ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillText('GAME OVER', V_WIDTH / 2, boxY + 36);
+            ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText('GAME OVER', V_WIDTH / 2, boxY + 28);
 
-            // Score (段数)
+            // Score (段数) & Points (ポイント)
             ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
-            ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-            ctx.fillText('タワーの高さ', V_WIDTH / 2, boxY + 62);
+            ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText('タワーの高さ', V_WIDTH / 2, boxY + 47);
 
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 42px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillText(`${score}段`, V_WIDTH / 2, boxY + 104);
+            ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(`${score}段`, V_WIDTH / 2, boxY + 80);
 
-            // Points (ポイント)
             ctx.fillStyle = '#38bdf8';
-            ctx.font = '600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillText(`獲得ポイント: ${points.toLocaleString()} pt`, V_WIDTH / 2, boxY + 130);
+            ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(`獲得ポイント: ${points.toLocaleString()} pt`, V_WIDTH / 2, boxY + 100);
 
             // 統計プレート (PERFECT回数、最大コンボ、ゴールド取得数)
             const statsPlateX = boxX + 16;
-            const statsPlateY = boxY + 146;
+            const statsPlateY = boxY + 110;
             const statsPlateW = boxW - 32;
-            const statsPlateH = 64;
+            const statsPlateH = 50;
 
             ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.roundRect(statsPlateX, statsPlateY, statsPlateW, statsPlateH, 12);
+            ctx.roundRect(statsPlateX, statsPlateY, statsPlateW, statsPlateH, 10);
             ctx.fill();
             ctx.stroke();
 
-            // 3つのスタッツカラム
             const colW = statsPlateW / 3;
             // 1. PERFECT回数
             ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-            ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-            ctx.fillText('PERFECT', statsPlateX + colW * 0.5, statsPlateY + 22);
+            ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText('PERFECT', statsPlateX + colW * 0.5, statsPlateY + 17);
             ctx.fillStyle = '#00f2fe';
-            ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillText(`${perfectCount}回`, statsPlateX + colW * 0.5, statsPlateY + 46);
+            ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(`${perfectCount}回`, statsPlateX + colW * 0.5, statsPlateY + 36);
 
             // 区切り線1
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
             ctx.beginPath();
-            ctx.moveTo(statsPlateX + colW, statsPlateY + 12);
-            ctx.lineTo(statsPlateX + colW, statsPlateY + statsPlateH - 12);
+            ctx.moveTo(statsPlateX + colW, statsPlateY + 8);
+            ctx.lineTo(statsPlateX + colW, statsPlateY + statsPlateH - 8);
             ctx.stroke();
 
             // 2. 最大コンボ
             ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-            ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-            ctx.fillText('最大コンボ', statsPlateX + colW * 1.5, statsPlateY + 22);
+            ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText('最大コンボ', statsPlateX + colW * 1.5, statsPlateY + 17);
             ctx.fillStyle = '#ffe600';
-            ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillText(`x${maxCombo}`, statsPlateX + colW * 1.5, statsPlateY + 46);
+            ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(`x${maxCombo}`, statsPlateX + colW * 1.5, statsPlateY + 36);
 
             // 区切り線2
             ctx.beginPath();
-            ctx.moveTo(statsPlateX + colW * 2, statsPlateY + 12);
-            ctx.lineTo(statsPlateX + colW * 2, statsPlateY + statsPlateH - 12);
+            ctx.moveTo(statsPlateX + colW * 2, statsPlateY + 8);
+            ctx.lineTo(statsPlateX + colW * 2, statsPlateY + statsPlateH - 8);
             ctx.stroke();
 
             // 3. ゴールド取得数
             ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-            ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-            ctx.fillText('ゴールド', statsPlateX + colW * 2.5, statsPlateY + 22);
+            ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText('ゴールド', statsPlateX + colW * 2.5, statsPlateY + 17);
             ctx.fillStyle = '#ffd700';
-            ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillText(`${goldCount}個`, statsPlateX + colW * 2.5, statsPlateY + 46);
+            ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(`${goldCount}個`, statsPlateX + colW * 2.5, statsPlateY + 36);
+
+            // 称号表示 or 称号アップ演出バナー
+            const currentRank = getPlayerRank(clearedMissionIds.length);
+            const rankBannerY = boxY + 168;
+            const rankBannerH = 26;
+            if (rankedUpThisRun) {
+              // 称号アップ! 祝賀バナー
+              ctx.save();
+              const rPulse = Math.sin(performance.now() * 0.008) * 0.15 + 0.85;
+              ctx.fillStyle = 'rgba(236, 72, 153, 0.22)';
+              ctx.strokeStyle = '#ec4899';
+              ctx.lineWidth = 1.4;
+              ctx.shadowColor = '#ec4899';
+              ctx.shadowBlur = 8;
+              ctx.beginPath();
+              ctx.roundRect(boxX + 16, rankBannerY, boxW - 32, rankBannerH, 13);
+              ctx.fill();
+              ctx.stroke();
+
+              ctx.shadowBlur = 0;
+              ctx.fillStyle = '#ffd700';
+              ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+              ctx.fillText(`🎉 称号アップ! 【${rankedUpThisRun.name}】に昇格!`, V_WIDTH / 2, rankBannerY + 18);
+              ctx.restore();
+            } else {
+              // 通常の称号表示
+              ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+              ctx.strokeStyle = currentRank.color;
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.roundRect(boxX + 24, rankBannerY, boxW - 48, rankBannerH, 13);
+              ctx.fill();
+              ctx.stroke();
+
+              ctx.fillStyle = currentRank.color;
+              ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+              ctx.fillText(`現在の称号: ${currentRank.name} ${currentRank.stars}`, V_WIDTH / 2, rankBannerY + 17);
+            }
+
+            // ミッション進捗（常に3つのミッション表示）
+            const mSecY = boxY + 214;
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('🎯 ミッション進捗', boxX + 18, mSecY);
+            ctx.textAlign = 'right';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.font = '10px -apple-system, sans-serif';
+            ctx.fillText(`累計達成: ${clearedMissionIds.length}個`, boxX + boxW - 18, mSecY);
+
+            const activeMissions = getActiveMissions();
+            let mCardY = mSecY + 7;
+            for (let m of activeMissions) {
+              drawMissionCard(ctx, m, boxX + 16, mCardY, boxW - 32, 32);
+              mCardY += 37;
+            }
 
             // ベスト目標 / NEW BEST / あと◯段でベスト表示
+            const bestInfoY = boxY + 348;
+            ctx.textAlign = 'center';
             if (isNewBest && score > 0) {
               ctx.fillStyle = '#ffd700';
-              ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-              ctx.fillText('★ NEW BEST RECORD! ★', V_WIDTH / 2, boxY + 236);
+              ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              ctx.fillText('★ NEW BEST RECORD! ★', V_WIDTH / 2, bestInfoY);
             } else if (prevBest > 0) {
               const diff = prevBest - score;
               if (diff > 0) {
                 ctx.fillStyle = '#fbbf24';
-                ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
-                ctx.fillText(`あと ${diff}段 で自己ベスト更新 (${prevBest}段)`, V_WIDTH / 2, boxY + 236);
+                ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+                ctx.fillText(`あと ${diff}段 で自己ベスト更新 (${prevBest}段)`, V_WIDTH / 2, bestInfoY);
               } else {
                 ctx.fillStyle = '#fbbf24';
-                ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
-                ctx.fillText(`自己ベストタイ記録！ (${prevBest}段)`, V_WIDTH / 2, boxY + 236);
+                ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+                ctx.fillText(`自己ベストタイ記録！ (${prevBest}段)`, V_WIDTH / 2, bestInfoY);
               }
             } else {
               ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-              ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-              ctx.fillText(`自己ベスト: ${best}段`, V_WIDTH / 2, boxY + 236);
+              ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+              ctx.fillText(`自己ベスト: ${best}段`, V_WIDTH / 2, bestInfoY);
             }
 
             // Retry Prompt (パネル表示後 0.6s は入力無効維持、つまり timeSinceOver >= 1.35s で有効化)
@@ -2289,27 +3035,27 @@
               ctx.save();
               ctx.globalAlpha = fade * retryPulse;
 
-              const rBtnW = 200;
-              const rBtnH = 44;
+              const rBtnW = 210;
+              const rBtnH = 42;
               const rBtnX = (V_WIDTH - rBtnW) / 2;
-              const rBtnY = boxY + 272;
+              const rBtnY = boxY + 368;
 
-              ctx.fillStyle = 'rgba(78, 237, 255, 0.18)';
+              ctx.fillStyle = 'rgba(78, 237, 255, 0.2)';
               ctx.strokeStyle = '#4eedff';
               ctx.lineWidth = 1.5;
               ctx.beginPath();
-              ctx.roundRect(rBtnX, rBtnY, rBtnW, rBtnH, 22);
+              ctx.roundRect(rBtnX, rBtnY, rBtnW, rBtnH, 21);
               ctx.fill();
               ctx.stroke();
 
               ctx.fillStyle = '#4eedff';
-              ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
-              ctx.fillText('▶ タップでリトライ', V_WIDTH / 2, rBtnY + 28);
+              ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+              ctx.fillText('▶ タップでリトライ', V_WIDTH / 2, rBtnY + 26);
               ctx.restore();
             } else {
               ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
               ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-              ctx.fillText('少しお待ちください...', V_WIDTH / 2, boxY + 296);
+              ctx.fillText('少しお待ちください...', V_WIDTH / 2, boxY + 390);
             }
 
             ctx.restore();
