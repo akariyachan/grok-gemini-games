@@ -1,5 +1,13 @@
 [
   {
+    "id": "stack-tower",
+    "folder": "stack-tower",
+    "title": "積み上げタワー",
+    "description": "タップで落として積む、縦持ち片手のタワー積み。はみ出しは切れて細くなる。初回版から完成版まで全6バージョンを遊び比べ",
+    "thumbnail": "stack-tower/thumbnail.png",
+    "date": "2026-10-18"
+  },
+  {
     "id": "gravity-runner",
     "folder": "gravity-runner",
     "title": "重力反転ランナー",

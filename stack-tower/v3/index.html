@@ -1,0 +1,3116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>積み上げタワー</title>
+  <!-- Inline SVG favicon to prevent 404 requests -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='28' height='7' x='2' y='22' rx='2' fill='%234facfe'/%3E%3Crect width='22' height='7' x='5' y='13' rx='2' fill='%2300f2fe'/%3E%3Crect width='16' height='7' x='8' y='4' rx='2' fill='%23ff0844'/%3E%3C/svg%3E">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0d1117;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+      touch-action: none;
+    }
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    #mute-btn {
+      position: absolute;
+      top: max(16px, env(safe-area-inset-top));
+      right: max(16px, env(safe-area-inset-right));
+      z-index: 20;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(15, 23, 42, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      outline: none;
+      transition: transform 0.15s ease, background 0.2s ease;
+      touch-action: manipulation;
+    }
+    #mute-btn:active {
+      transform: scale(0.92);
+      background: rgba(15, 23, 42, 0.7);
+    }
+    #mute-btn svg {
+      width: 22px;
+      height: 22px;
+      fill: #ffffff;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+  <button id="mute-btn" aria-label="音声切替">
+    <svg id="mute-icon-on" viewBox="0 0 24 24">
+      <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+    </svg>
+    <svg id="mute-icon-off" viewBox="0 0 24 24" style="display:none;">
+      <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+    </svg>
+  </button>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // Polyfill Canvas roundRect for older browser compatibility
+      if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+        CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+          if (typeof r === 'number') r = [r, r, r, r];
+          else if (!Array.isArray(r)) r = [0, 0, 0, 0];
+          const [tl, tr, br, bl] = r.length === 1 ? [r[0], r[0], r[0], r[0]] : (r.length === 2 ? [r[0], r[1], r[0], r[1]] : [r[0]||0, r[1]||0, r[2]||0, r[3]||0]);
+          this.beginPath();
+          this.moveTo(x + tl, y);
+          this.lineTo(x + w - tr, y);
+          this.arcTo(x + w, y, x + w, y + tr, tr);
+          this.lineTo(x + w, y + h - br);
+          this.arcTo(x + w, y + h, x + w - br, y + h, br);
+          this.lineTo(x + bl, y + h);
+          this.arcTo(x, y + h, x, y + h - bl, bl);
+          this.lineTo(x, y + tl);
+          this.arcTo(x, y, x + tl, y, tl);
+          this.closePath();
+          return this;
+        };
+      }
+
+      // --- Constants & Configurations ---
+      const V_WIDTH = 390;            // Standard portrait virtual width
+      const BLOCK_HEIGHT = 26;        // Height of each block in virtual px
+      const INITIAL_WIDTH = 200;      // Starting block width
+      const PERFECT_TOLERANCE = 3.5;  // Tolerance in px for PERFECT snap
+      const GREAT_TOLERANCE = 14;     // Tolerance in px for GREAT judgment
+      const DANGER_WIDTH = 35;        // Remaining width threshold for ギリギリ!
+      const REGROW_AMOUNT = 8;        // Width regrowth when combo >= 3
+      const GRAVITY = 950;            // Falling debris gravity in virtual px/sec^2
+
+      // Difficulty speed curve (Smooth ramp: gentle 1-10, fast around 30)
+      function getBlockSpeed(level) {
+        if (level <= 10) {
+          return 190 + level * 4.0; // Level 1: 194, Level 10: 230
+        } else if (level <= 30) {
+          const t = (level - 10) / 20;
+          return 230 + (390 - 230) * Math.pow(t, 1.35); // Reaches 390 at level 30
+        } else {
+          const extra = Math.min(130, (level - 30) * 3.5);
+          return Math.min(520, 390 + extra); // Scales up to 520
+        }
+      }
+
+      // --- Canvas & Coordinate System Setup ---
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+      const muteBtn = document.getElementById('mute-btn');
+      const muteIconOn = document.getElementById('mute-icon-on');
+      const muteIconOff = document.getElementById('mute-icon-off');
+
+      let dpr = 1;
+      let screenWidth = 0;
+      let screenHeight = 0;
+      let colWidth = 390;
+      let colLeft = 0;
+      let colScale = 1;
+      let vHeight = 844;
+
+      function resize() {
+        dpr = window.devicePixelRatio || 1;
+        screenWidth = window.innerWidth;
+        screenHeight = window.innerHeight;
+
+        canvas.width = Math.round(screenWidth * dpr);
+        canvas.height = Math.round(screenHeight * dpr);
+
+        // Portrait column sizing
+        let maxCol = 420;
+        if (screenWidth > screenHeight) {
+          // Landscape: limit column width to preserve portrait aspect ratio
+          maxCol = Math.min(maxCol, screenHeight * 0.58);
+        }
+        colWidth = Math.min(screenWidth, maxCol);
+        colLeft = (screenWidth - colWidth) / 2;
+        colScale = colWidth / V_WIDTH;
+        vHeight = screenHeight / colScale;
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      // --- Audio System (Web Audio API) ---
+      let audioCtx = null;
+      let isMuted = localStorage.getItem('stackTowerMuted') === 'true';
+
+      function updateMuteUI() {
+        muteIconOn.style.display = isMuted ? 'none' : 'block';
+        muteIconOff.style.display = isMuted ? 'block' : 'none';
+      }
+      updateMuteUI();
+
+      function initAudio() {
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            audioCtx = new AudioContextClass();
+          }
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      }
+
+      let lastMuteTime = 0;
+      function toggleMute(e) {
+        hasUserInteracted = true;
+        if (e) {
+          if (e.preventDefault && e.cancelable) e.preventDefault();
+          if (e.stopPropagation) e.stopPropagation();
+        }
+        const now = performance.now();
+        if (now - lastMuteTime < 100) return;
+        lastMuteTime = now;
+        isMuted = !isMuted;
+        localStorage.setItem('stackTowerMuted', isMuted ? 'true' : 'false');
+        updateMuteUI();
+        initAudio();
+      }
+      muteBtn.addEventListener('pointerdown', toggleMute);
+      muteBtn.addEventListener('click', toggleMute);
+
+      // Pentatonic pitch scale for combos
+      const PENTATONIC = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51, 1567.98, 1760.00, 2093.00];
+
+      function playSound(type, combo = 1) {
+        if (isMuted) return;
+        initAudio();
+        if (!audioCtx) return;
+
+        const now = audioCtx.currentTime;
+
+        if (type === 'drop') {
+          // GOOD drop: tactile thud
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(240, now);
+          osc.frequency.exponentialRampToValueAtTime(140, now + 0.08);
+
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.08);
+        } else if (type === 'great') {
+          // GREAT drop: crisper higher buoyant thud
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(360, now);
+          osc.frequency.exponentialRampToValueAtTime(220, now + 0.1);
+
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.1);
+        } else if (type === 'danger') {
+          // ギリギリ! drop: low dramatic suspense thud
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(160, now);
+          osc.frequency.exponentialRampToValueAtTime(75, now + 0.18);
+
+          gain.gain.setValueAtTime(0.26, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.18);
+        } else if (type === 'perfect') {
+          // Bright crystalline chime with rising pitch based on combo
+          const noteIndex = Math.min(combo - 1, PENTATONIC.length - 1);
+          let freq = PENTATONIC[noteIndex];
+          if (combo > PENTATONIC.length) {
+            freq *= Math.pow(1.05, combo - PENTATONIC.length);
+          }
+
+          // Fundamental Sine
+          const osc1 = audioCtx.createOscillator();
+          const gain1 = audioCtx.createGain();
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(freq, now);
+
+          gain1.gain.setValueAtTime(0.22, now);
+          gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+
+          osc1.connect(gain1);
+          gain1.connect(audioCtx.destination);
+          osc1.start(now);
+          osc1.stop(now + 0.32);
+
+          // Harmonic Triangle
+          const osc2 = audioCtx.createOscillator();
+          const gain2 = audioCtx.createGain();
+          osc2.type = 'triangle';
+          osc2.frequency.setValueAtTime(freq * 2, now);
+
+          gain2.gain.setValueAtTime(0.09, now);
+          gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+          osc2.connect(gain2);
+          gain2.connect(audioCtx.destination);
+          osc2.start(now);
+          osc2.stop(now + 0.22);
+
+          // If combo >= 3, add sparkle third chime for regrowth
+          if (combo >= 3) {
+            const osc3 = audioCtx.createOscillator();
+            const gain3 = audioCtx.createGain();
+            osc3.type = 'sine';
+            osc3.frequency.setValueAtTime(freq * 1.5, now + 0.05);
+
+            gain3.gain.setValueAtTime(0, now);
+            gain3.gain.setValueAtTime(0.15, now + 0.05);
+            gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+            osc3.connect(gain3);
+            gain3.connect(audioCtx.destination);
+            osc3.start(now + 0.05);
+            osc3.stop(now + 0.35);
+          }
+        } else if (type === 'milestone') {
+          // Upward celebratory arpeggio for 10-tier milestone
+          const notes = [523.25, 659.25, 783.99, 1046.50];
+          notes.forEach((f, idx) => {
+            const t = now + idx * 0.07;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(f, t);
+
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.setValueAtTime(0.14, t + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.25);
+          });
+        } else if (type === 'gameover') {
+          // Melancholy descending glide
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(320, now);
+          osc.frequency.exponentialRampToValueAtTime(90, now + 0.45);
+
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.45);
+        } else if (type === 'gold_perfect') {
+          // Golden crystalline chime cascade
+          const notes = [659.25, 830.61, 987.77, 1318.51, 1661.22];
+          notes.forEach((freq, idx) => {
+            const t = now + idx * 0.05;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.setValueAtTime(0.18, t + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.35);
+          });
+        } else if (type === 'speed_bonus') {
+          // Electric zip and ping
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(450, now);
+          osc.frequency.exponentialRampToValueAtTime(1400, now + 0.09);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.14);
+
+          const osc2 = audioCtx.createOscillator();
+          const gain2 = audioCtx.createGain();
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(1760, now + 0.06);
+          gain2.gain.setValueAtTime(0.16, now + 0.06);
+          gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.30);
+          osc2.connect(gain2);
+          gain2.connect(audioCtx.destination);
+          osc2.start(now + 0.06);
+          osc2.stop(now + 0.30);
+        } else if (type === 'feint') {
+          // Subtle brake blip
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(180, now);
+          osc.frequency.exponentialRampToValueAtTime(60, now + 0.07);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.07);
+        } else if (type === 'fanfare') {
+          // Triumphal fanfare arpeggio & sustained victory chord for Best Record
+          const arpeggio = [523.25, 659.25, 783.99, 1046.50];
+          arpeggio.forEach((freq, idx) => {
+            const t = now + idx * 0.08;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.setValueAtTime(0.2, t + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.32);
+          });
+          const chordNotes = [523.25, 659.25, 783.99, 1046.50];
+          chordNotes.forEach((freq) => {
+            const t = now + 0.34;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.setValueAtTime(0.12, t + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.75);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.75);
+          });
+        } else if (type === 'mission_clear') {
+          // Playful ascending arpeggio for mission completion
+          const notes = [587.33, 739.99, 880.00, 1174.66];
+          notes.forEach((freq, idx) => {
+            const t = now + idx * 0.06;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.setValueAtTime(0.18, t + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.28);
+          });
+        } else if (type === 'rank_up') {
+          // Majestic triumphant fanfare for title rank advancement
+          const notes = [440, 554.37, 659.25, 880, 1108.73];
+          notes.forEach((freq, idx) => {
+            const t = now + idx * 0.08;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.setValueAtTime(0.14, t + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.45);
+          });
+          [554.37, 880, 1108.73].forEach(freq => {
+            const t = now + 0.42;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.setValueAtTime(0.15, t + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.9);
+          });
+        }
+      }
+
+      // Autopilot URL flag and user interaction tracking
+      const urlParams = new URLSearchParams(window.location.search);
+      const isBotActive = urlParams.get('bot') === '1';
+      let isBotAction = false;
+      let hasUserInteracted = false;
+
+      // Safe mobile vibration helper
+      function triggerVibrate(ms = 15) {
+        // bot による入力・プレイでは呼ばない
+        if (isBotActive || isBotAction) return;
+
+        // ユーザー入力がまだない状態でのコンソール警告を防ぐ
+        const userActive = (typeof navigator !== 'undefined' && navigator.userActivation)
+          ? navigator.userActivation.hasBeenActive
+          : hasUserInteracted;
+        if (!userActive && !hasUserInteracted) return;
+
+        if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+          try {
+            navigator.vibrate(ms);
+          } catch (_) {
+            // Ignore if disallowed by browser policy
+          }
+        }
+      }
+
+      // --- Game State Variables ---
+      function getLatestBest() {
+        try {
+          const val = parseInt(localStorage.getItem('stackTowerBest'), 10);
+          return isNaN(val) ? 0 : val;
+        } catch (_) {
+          return 0;
+        }
+      }
+      function saveBest(val) {
+        try {
+          localStorage.setItem('stackTowerBest', val);
+        } catch (_) {}
+      }
+
+      let gameState = 'title'; // 'title' | 'play' | 'over'
+      let score = 0;           // Layer count (段数)
+      let points = 0;          // Accumulated points (ポイント)
+      let best = getLatestBest();
+      let prevBest = best;
+      let combo = 0;
+      let gameOverTime = 0;
+      let isNewBest = false;
+      let perfectCount = 0;
+      let maxCombo = 0;
+      let goldCount = 0;
+      let hasCelebratedBest = false;
+      let nextSpecialLevel = 13;
+
+      // Tower & Block structures
+      let tower = [];
+      let movingBlock = null;
+      let debrisList = [];
+      let particles = [];
+      let floatingTexts = [];
+      let rings = [];
+
+      // Camera, bounce, shake, milestone & juice effects
+      let cameraY = 0;
+      let targetCameraY = 0;
+      let screenShake = 0;
+      let towerBounceY = 0;
+      let towerBounceVy = 0;
+      let milestoneBanner = null;
+      let screenWhiteFlash = 0;
+      let comboBadgePulse = 1.0;
+
+      // --- Title (Rank) & Mission System ---
+      const RANKS = [
+        { name: '見習い大工', stars: '★☆☆☆☆', req: 0, color: '#94a3b8' },
+        { name: 'とび職',     stars: '★★☆☆☆', req: 3, color: '#38bdf8' },
+        { name: '棟梁',       stars: '★★★☆☆', req: 6, color: '#4ade80' },
+        { name: '名工',       stars: '★★★★☆', req: 10, color: '#f59e0b' },
+        { name: '天空の建築家', stars: '★★★★★', req: 15, color: '#ec4899' }
+      ];
+
+      function getPlayerRank(clearedCount) {
+        for (let i = RANKS.length - 1; i >= 0; i--) {
+          if (clearedCount >= RANKS[i].req) {
+            return { index: i, ...RANKS[i] };
+          }
+        }
+        return { index: 0, ...RANKS[0] };
+      }
+
+      const MISSION_LIST = [
+        { id: 'reach_5',         title: '5段に到達しよう',         desc: '5段まで積み上げる',         target: 5,    type: 'score' },
+        { id: 'perfect_3',       title: 'PERFECTを3回達成',        desc: '1プレイでPERFECTを3回',     target: 3,    type: 'perfect' },
+        { id: 'combo_2',         title: 'PERFECTを2連続',          desc: '2回連続でPERFECT',          target: 2,    type: 'combo' },
+        { id: 'reach_10',        title: '10段に到達しよう',        desc: '雲の上のエリア（10段）到達', target: 10,   type: 'score' },
+        { id: 'great_streak_5',  title: 'GREAT以上を5回連続',      desc: '5回連続GREAT以上',          target: 5,    type: 'great_streak' },
+        { id: 'points_300',      title: '1プレイで300pt獲得',      desc: 'スコア300ptを達成',         target: 300,  type: 'points' },
+        { id: 'reach_20',        title: '20段に到達しよう',        desc: '夕焼けエリア（20段）到達',   target: 20,   type: 'score' },
+        { id: 'combo_5',         title: 'PERFECTを5連続',          desc: '5連続でPERFECTを達成',      target: 5,    type: 'combo' },
+        { id: 'gold_1',          title: 'ゴールドブロックを置く',   desc: '金色ブロックを1個置く',      target: 1,    type: 'gold' },
+        { id: 'points_800',      title: '1プレイで800pt獲得',      desc: 'スコア800ptを達成',         target: 800,  type: 'points' },
+        { id: 'reach_30',        title: '30段に到達しよう',        desc: '夜空エリア（30段）到達',     target: 30,   type: 'score' },
+        { id: 'great_streak_10', title: 'GREAT以上を10回連続',     desc: '10回連続GREAT以上',         target: 10,   type: 'great_streak' },
+        { id: 'gold_2',          title: 'ゴールドブロックを2個置く',desc: '金色ブロックを2個置く',     target: 2,    type: 'gold' },
+        { id: 'points_1500',     title: '1プレイで1500pt獲得',     desc: 'スコア1500ptを達成',        target: 1500, type: 'points' },
+        { id: 'combo_7',         title: 'PERFECTを7連続',          desc: '7連続でPERFECTを達成',      target: 7,    type: 'combo' },
+        { id: 'reach_40',        title: '40段に到達（宇宙へ！）',  desc: '宇宙空間（40段）へ到達',     target: 40,   type: 'score' },
+        { id: 'gold_perfect',    title: 'GOLD PERFECT達成',        desc: 'ゴールドでPERFECT',         target: 1,    type: 'gold_perfect' },
+        { id: 'combo_10',        title: 'PERFECTを10連続',         desc: '奇跡の10連続PERFECT！',     target: 10,   type: 'combo' },
+        { id: 'points_3000',     title: '1プレイで3000pt獲得',     desc: 'ハイスコア3000pt達成',      target: 3000, type: 'points' },
+        { id: 'reach_50',        title: '天空の極み（50段到達）',  desc: 'タワーを50段まで積み上げる', target: 50,   type: 'score' }
+      ];
+
+      let clearedMissionIds = [];
+      try {
+        const savedMissions = localStorage.getItem('stackTowerClearedMissions');
+        if (savedMissions) {
+          clearedMissionIds = JSON.parse(savedMissions);
+        }
+      } catch (_) {
+        clearedMissionIds = [];
+      }
+
+      function getActiveMissions() {
+        const list = [];
+        for (let m of MISSION_LIST) {
+          if (!clearedMissionIds.includes(m.id)) {
+            list.push(m);
+            if (list.length === 3) break;
+          }
+        }
+        return list;
+      }
+
+      // Mission Progress in Current Run
+      let streakGreat = 0;
+      let maxGreatStreak = 0;
+      let goldPlacedCount = 0;
+      let goldPerfectCount = 0;
+      let startRunRankIndex = getPlayerRank(clearedMissionIds.length).index;
+      let rankedUpThisRun = null;
+      let missionClearBanner = null;
+
+      function getMissionCurrentValue(m) {
+        switch (m.type) {
+          case 'score': return score;
+          case 'perfect': return perfectCount;
+          case 'combo': return maxCombo;
+          case 'great_streak': return maxGreatStreak;
+          case 'points': return points;
+          case 'gold': return goldCount;
+          case 'gold_perfect': return goldPerfectCount;
+          default: return 0;
+        }
+      }
+
+      function checkMissions() {
+        const active = getActiveMissions();
+        for (let m of active) {
+          const val = getMissionCurrentValue(m);
+          if (val >= m.target) {
+            clearedMissionIds.push(m.id);
+            localStorage.setItem('stackTowerClearedMissions', JSON.stringify(clearedMissionIds));
+
+            const oldRank = getPlayerRank(clearedMissionIds.length - 1);
+            const newRank = getPlayerRank(clearedMissionIds.length);
+            if (newRank.index > oldRank.index) {
+              rankedUpThisRun = newRank;
+            }
+
+            playSound('mission_clear');
+            missionClearBanner = {
+              title: m.title,
+              timer: 2.2,
+              duration: 2.2
+            };
+
+            for (let i = 0; i < 20; i++) {
+              const angle = Math.random() * Math.PI * 2;
+              const spd = Math.random() * 180 + 70;
+              particles.push({
+                x: V_WIDTH / 2,
+                y: 175,
+                vx: Math.cos(angle) * spd,
+                vy: Math.sin(angle) * spd,
+                size: Math.random() * 3 + 2,
+                color: (i % 2 === 0) ? '#4ade80' : '#ffd700',
+                alpha: 1.0,
+                life: 0.55
+              });
+            }
+
+            checkMissions();
+            break;
+          }
+        }
+      }
+
+      // --- Tutorial & Help Modal State ---
+      let hasSeenTutorial = (localStorage.getItem('stackTowerTutorialSeen') === 'true') || (best > 0);
+      let showHelpModal = false;
+      let gameStartCooldown = 0;
+
+      // Testing Hook Object
+      window.__game = {
+        state: 'title',
+        score: 0,
+        points: 0,
+        best: best,
+        combo: 0,
+        width: INITIAL_WIDTH,
+        perfectCount: 0,
+        maxCombo: 0,
+        goldCount: 0,
+        get rank() { return getPlayerRank(clearedMissionIds.length).name; },
+        get missions() { return getActiveMissions(); },
+        drop: function() { handleAction(); },
+        reset: function() { initTower(); }
+      };
+
+      function syncGameHook() {
+        window.__game.state = gameState;
+        window.__game.score = score;
+        window.__game.points = points;
+        window.__game.best = best;
+        window.__game.combo = combo;
+        window.__game.perfectCount = perfectCount;
+        window.__game.maxCombo = maxCombo;
+        window.__game.goldCount = goldCount;
+        const currentW = movingBlock ? movingBlock.width : (tower.length > 0 ? tower[tower.length - 1].width : INITIAL_WIDTH);
+        window.__game.width = Math.round(currentW * 10) / 10;
+      }
+
+      // --- Color & Atmosphere Helpers ---
+      function getBlockHue(level) {
+        return (210 + level * 8) % 360;
+      }
+
+      // Sky gradient color stops across altitudes:
+      // 0: 地上 -> 10: 雲の上 -> 20: 夕焼け -> 30: 夜 -> 40+: 宇宙
+      const SKY_STOPS = [
+        { level: 0,   top: [82, 172, 238],  bottom: [224, 242, 254], name: '地上' },
+        { level: 10,  top: [28, 126, 214],  bottom: [156, 222, 255], name: '雲の上' },
+        { level: 20,  top: [95, 30, 115],   bottom: [255, 128, 64],  name: '夕焼け' },
+        { level: 30,  top: [16, 20, 52],    bottom: [72, 46, 98],    name: '夜空' },
+        { level: 40,  top: [6, 8, 22],      bottom: [28, 16, 48],    name: '宇宙' }
+      ];
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function getSkyColors(currentLevel) {
+        if (currentLevel <= SKY_STOPS[0].level) {
+          return { top: SKY_STOPS[0].top, bottom: SKY_STOPS[0].bottom };
+        }
+        for (let i = 0; i < SKY_STOPS.length - 1; i++) {
+          const s1 = SKY_STOPS[i];
+          const s2 = SKY_STOPS[i + 1];
+          if (currentLevel >= s1.level && currentLevel <= s2.level) {
+            const t = (currentLevel - s1.level) / (s2.level - s1.level);
+            return {
+              top: [
+                Math.round(lerp(s1.top[0], s2.top[0], t)),
+                Math.round(lerp(s1.top[1], s2.top[1], t)),
+                Math.round(lerp(s1.top[2], s2.top[2], t))
+              ],
+              bottom: [
+                Math.round(lerp(s1.bottom[0], s2.bottom[0], t)),
+                Math.round(lerp(s1.bottom[1], s2.bottom[1], t)),
+                Math.round(lerp(s1.bottom[2], s2.bottom[2], t))
+              ]
+            };
+          }
+        }
+        const last = SKY_STOPS[SKY_STOPS.length - 1];
+        return { top: last.top, bottom: last.bottom };
+      }
+
+      function getAreaName(lvl) {
+        if (lvl >= 40) return '宇宙空間';
+        if (lvl >= 30) return '夜空';
+        if (lvl >= 20) return '夕焼け';
+        if (lvl >= 10) return '雲の上';
+        return '地上';
+      }
+
+      // Background stars & clouds
+      const stars = [];
+      for (let i = 0; i < 50; i++) {
+        stars.push({
+          x: Math.random(),
+          y: Math.random(),
+          size: Math.random() * 1.8 + 0.8,
+          alpha: Math.random() * 0.7 + 0.3,
+          twinkleSpeed: Math.random() * 2 + 1
+        });
+      }
+
+      const clouds = [
+        { x: -50, y: 0.25, width: 140, height: 40, speed: 12 },
+        { x: 180, y: 0.40, width: 180, height: 48, speed: 8 },
+        { x: 80,  y: 0.60, width: 120, height: 35, speed: 10 }
+      ];
+
+      // --- Initialization & Resets ---
+      function initTower() {
+        tower = [];
+        debrisList = [];
+        particles = [];
+        floatingTexts = [];
+        rings = [];
+        score = 0;
+        points = 0;
+        combo = 0;
+        perfectCount = 0;
+        maxCombo = 0;
+        goldCount = 0;
+        streakGreat = 0;
+        maxGreatStreak = 0;
+        goldPlacedCount = 0;
+        goldPerfectCount = 0;
+        hasCelebratedBest = false;
+        nextSpecialLevel = 11 + Math.floor(Math.random() * 5); // 11〜15段で初登場
+        best = Math.max(best, getLatestBest());
+        prevBest = best;
+        isNewBest = false;
+        cameraY = 0;
+        targetCameraY = 0;
+        screenShake = 0;
+        towerBounceY = 0;
+        towerBounceVy = 0;
+        milestoneBanner = null;
+        missionClearBanner = null;
+        screenWhiteFlash = 0;
+        comboBadgePulse = 1.0;
+        gameOverTime = 0;
+        rankedUpThisRun = null;
+        startRunRankIndex = getPlayerRank(clearedMissionIds.length).index;
+
+        // Base foundation block (土台: 段数には数えない)
+        const floorY = vHeight * 0.70;
+        const baseWidth = INITIAL_WIDTH;
+        const baseX = (V_WIDTH - baseWidth) / 2;
+        tower.push({
+          x: baseX,
+          y: floorY,
+          width: baseWidth,
+          height: BLOCK_HEIGHT,
+          hue: getBlockHue(0),
+          flash: 0,
+          dangerPulse: 0,
+          regrow: null,
+          isBase: true
+        });
+
+        spawnMovingBlock(1);
+        syncGameHook();
+      }
+
+      function spawnMovingBlock(level) {
+        const topBlock = tower[tower.length - 1];
+        const width = topBlock.regrow ? topBlock.regrow.targetW : topBlock.width;
+        const y = topBlock.y - BLOCK_HEIGHT;
+        let hue = getBlockHue(level);
+
+        // 1. 序盤の理不尽をなくす (最初の3段は塔の真上付近から開始、移動範囲も狭めて早押し即死を防止)
+        let minX, maxX, startX, dir;
+        const baseSpeed = getBlockSpeed(level);
+
+        if (level <= 3) {
+          dir = (level % 2 === 1) ? 1 : -1;
+          const offset = 30; // 塔の真上から30pxだけずらした位置から発進 (即押しでも170px残る)
+          startX = topBlock.x + (dir > 0 ? -offset : offset);
+          const travel = 85; // 塔の真上付近(左右85px)の狭い範囲をゆっくり往復
+          minX = topBlock.x - travel;
+          maxX = topBlock.x + travel;
+        } else {
+          minX = -width - 25;
+          maxX = V_WIDTH + 25;
+          dir = (level % 2 === 1) ? 1 : -1;
+          startX = (dir > 0) ? minX : maxX;
+        }
+
+        // 2. 特殊ブロック判定 (10段を過ぎてから、だいたい6〜10段に1回)
+        let specialType = 'normal';
+        let currentSpeed = baseSpeed;
+
+        if (level > 10 && level >= nextSpecialLevel) {
+          // 50% ゴールドブロック (金色の光、PERFECTで+100pt & 幅大幅回復)
+          // 50% 速いブロック (1.6倍速、残像つき、置けたら+30pt)
+          specialType = Math.random() < 0.5 ? 'gold' : 'fast';
+          nextSpecialLevel = level + 6 + Math.floor(Math.random() * 5); // 6〜10段に1回
+        }
+
+        if (specialType === 'gold') {
+          hue = 46; // Gold hue
+        } else if (specialType === 'fast') {
+          currentSpeed = baseSpeed * 1.6;
+        }
+
+        // 3. 動きの変化
+        // 20段以降: 往復中にゆっくり加減速する (wave)
+        // 40段以降: たまに一瞬止まるフェイント (feint)
+        let motionType = 'normal';
+        let hasFeint = false;
+
+        if (specialType === 'normal' && level > 3) {
+          if (level >= 40 && Math.random() < 0.22) {
+            hasFeint = true;
+          } else if (level >= 20 && Math.random() < 0.35) {
+            motionType = 'wave';
+          }
+        }
+
+        movingBlock = {
+          x: startX,
+          y: y,
+          width: width,
+          height: BLOCK_HEIGHT,
+          hue: hue,
+          dir: dir,
+          baseSpeed: baseSpeed,
+          currentSpeed: currentSpeed,
+          minX: minX,
+          maxX: maxX,
+          specialType: specialType,
+          motionType: motionType,
+          motionTime: 0,
+          hasFeint: hasFeint,
+          feintDone: false,
+          feintTimer: 0,
+          afterimages: []
+        };
+
+        // Autopilot target calculation for ?bot=1:
+        // Showcase combos and regrowth initially, naturally failing between 20-60 levels.
+        // Higher levels progressively increase error rate and misplacement size until game over.
+        if (isBotActive) {
+          if (level < 16) {
+            // Early levels: gentle demonstration, occasional small cut
+            const willCut = Math.random() < 0.22;
+            if (willCut) {
+              const sign = Math.random() < 0.5 ? -1 : 1;
+              botTargetOffset = sign * (PERFECT_TOLERANCE + 0.6 + Math.random() * 3.0);
+            } else {
+              botTargetOffset = (Math.random() - 0.5) * (PERFECT_TOLERANCE * 0.75);
+            }
+          } else {
+            // Progression from level 16 up to 55 (100% fail by level 55-60)
+            const progress = Math.min(1.0, (level - 16) / 39); // 0 at 16, 1.0 at 55
+            const errorChance = 0.30 + progress * 0.70; // 0.30 -> 1.0
+
+            if (Math.random() > errorChance) {
+              // Perfect placement
+              botTargetOffset = (Math.random() - 0.5) * (PERFECT_TOLERANCE * 0.8);
+            } else {
+              // Miss or heavy cut error
+              // Fatal chance: 0% at level 20, scaling up to 100% at level 55
+              const fatalChance = level < 20 ? 0 : Math.min(1.0, (level - 20) / 35);
+              if (level >= 55 || Math.random() < fatalChance) {
+                // Complete miss (guaranteed game over)
+                let sign = Math.random() < 0.5 ? -1 : 1;
+                if (topBlock.x + (width + 15) > maxX - 10) {
+                  sign = -1;
+                } else if (topBlock.x - (width + 15) < minX + 10) {
+                  sign = 1;
+                }
+                botTargetOffset = sign * (width + 12 + Math.random() * 20);
+              } else {
+                // Progressive partial cuts: cut grows larger as level increases
+                let sign = Math.random() < 0.5 ? -1 : 1;
+                const cutRatio = 0.15 + progress * 0.40 + Math.random() * 0.25;
+                botTargetOffset = sign * Math.max(PERFECT_TOLERANCE + 1.2, width * cutRatio);
+              }
+            }
+          }
+
+          // Ensure target falls well within moving block's accessible span
+          const targetX = topBlock.x + botTargetOffset;
+          if (targetX < minX + 10) {
+            botTargetOffset = (minX + 10) - topBlock.x;
+          } else if (targetX > maxX - 10) {
+            botTargetOffset = (maxX - 10) - topBlock.x;
+          }
+        }
+
+        syncGameHook();
+      }
+
+      // --- Debris & Particle Spawners ---
+      function spawnDebris(x, y, width, height, hue, vx, vy, vRot) {
+        if (width <= 0) return;
+        debrisList.push({
+          x: x,
+          y: y,
+          width: width,
+          height: height,
+          hue: hue,
+          vx: vx,
+          vy: vy,
+          rot: 0,
+          vRot: vRot,
+          alpha: 1.0
+        });
+      }
+
+      function spawnCutSparks(x, y, count, dirVx = 0) {
+        for (let i = 0; i < count; i++) {
+          const angle = (Math.random() * Math.PI) - (Math.PI / 2);
+          const spd = Math.random() * 140 + 70;
+          particles.push({
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * spd + (dirVx > 0 ? 50 : (dirVx < 0 ? -50 : 0)),
+            vy: Math.sin(angle) * spd - 60,
+            size: Math.random() * 3 + 2,
+            color: '#ffffff',
+            alpha: 1.0,
+            life: 0.35
+          });
+        }
+      }
+
+      function spawnFloatingText(type, text, x, y, color, baseScale = 1.0, vy = -45, fontSize = 18, glow = null, jitter = false) {
+        // Remove existing popup of the same category so old ones don't linger and overlap
+        if (type) {
+          floatingTexts = floatingTexts.filter(ft => ft.type !== type);
+        }
+        floatingTexts.push({
+          type: type,
+          text: text,
+          x: x,
+          y: y,
+          vy: vy,
+          alpha: 1.0,
+          baseScale: baseScale,
+          currentScale: 0.35 * baseScale,
+          age: 0,
+          fontSize: fontSize,
+          color: color,
+          glow: glow,
+          jitter: jitter
+        });
+      }
+
+      function spawnPerfectFX(block, comboCount, willRegrow, earnedPts, isGold = false, isFast = false) {
+        // Glowing expanding ring
+        rings.push({
+          x: block.x + block.width / 2,
+          y: block.y + BLOCK_HEIGHT / 2,
+          radiusX: block.width / 2,
+          radiusY: BLOCK_HEIGHT / 2,
+          scale: 1.0,
+          maxScale: isGold ? 3.0 : 2.2,
+          alpha: 1.0,
+          hue: isGold ? 48 : block.hue
+        });
+
+        // Sparkle bursts
+        const sparkCount = isGold ? 32 : 18;
+        for (let i = 0; i < sparkCount; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const spd = Math.random() * 190 + 90;
+          particles.push({
+            x: block.x + Math.random() * block.width,
+            y: block.y + Math.random() * BLOCK_HEIGHT,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd - (isGold ? 40 : 0),
+            size: Math.random() * 4 + 2,
+            color: isGold ? ((i % 2 === 0) ? '#ffd700' : '#ffffff') : ((Math.random() < 0.5) ? '#ffffff' : `hsl(${block.hue}, 95%, 75%)`),
+            alpha: 1.0,
+            life: isGold ? 0.6 : 0.45
+          });
+        }
+
+        // Floating judgment text
+        const midX = block.x + block.width / 2;
+        let judgmentText = 'PERFECT!';
+        let textColor = isGold ? '#ffd700' : '#00f2fe';
+        let fontSize = 24;
+        let scale = 1.15;
+
+        if (isGold) {
+          judgmentText = 'GOLD PERFECT!';
+          textColor = '#ffd700';
+          fontSize = 26;
+          scale = 1.3;
+        } else if (isFast) {
+          judgmentText = comboCount >= 2 ? `SPEED PERFECT! x${comboCount}` : 'SPEED PERFECT!';
+          textColor = '#38bdf8';
+          fontSize = 25;
+          scale = 1.25;
+        } else if (comboCount >= 2) {
+          judgmentText = `PERFECT! x${comboCount}`;
+          textColor = comboCount >= 5 ? '#ffea00' : '#ffe600';
+          fontSize = Math.min(30, 24 + comboCount * 1.2);
+          scale = Math.min(1.4, 1.2 + comboCount * 0.04);
+        }
+
+        // 判定文字を主役として大きく1つ、ポイントはその下、「幅UP!」はさらに下に縦に並べて重ならないように配置
+        const baseY = block.y;
+        // 上: 判定文字（主役、大きく1つ）
+        spawnFloatingText('judgment', judgmentText, midX, baseY - 58, textColor, scale, -45, fontSize, textColor);
+        // 中: ポイント（その下）
+        const ptText = isGold ? `+${earnedPts} pt (GOLD!)` : (isFast ? `+${earnedPts} pt (SPEED!)` : `+${earnedPts} pt`);
+        spawnFloatingText('point', ptText, midX, baseY - 34, isGold ? '#ffe066' : '#38bdf8', 1.0, -45, 16);
+        // 下: 幅UP!（さらに下）
+        if (willRegrow) {
+          const regrowMsg = isGold ? '大幅幅UP!' : '幅UP!';
+          spawnFloatingText('status', regrowMsg, midX, baseY - 14, isGold ? '#ffd700' : '#34d399', 1.15, -45, 16, isGold ? '#ffd700' : '#34d399');
+        } else {
+          // 幅UPがない場合は古いstatus（コンボ終了等）を消去
+          floatingTexts = floatingTexts.filter(ft => ft.type !== 'status');
+        }
+      }
+
+      function triggerMilestone(lvl) {
+        const area = getAreaName(lvl);
+        milestoneBanner = {
+          text: `${lvl}段到達!`,
+          subText: `${area}エリア突入！`,
+          timer: 2.2,
+          duration: 2.2
+        };
+
+        // Celebratory starburst particles
+        for (let i = 0; i < 28; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const spd = Math.random() * 210 + 90;
+          particles.push({
+            x: V_WIDTH / 2,
+            y: vHeight * 0.28,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd,
+            size: Math.random() * 4 + 2,
+            color: (i % 2 === 0) ? '#ffd700' : '#38bdf8',
+            alpha: 1.0,
+            life: 0.65
+          });
+        }
+
+        playSound('milestone');
+      }
+
+      // --- Core Action Handling (Tap / Click / Space) ---
+      function handleAction(vx, vy) {
+        initAudio();
+
+        // もし「あそびかた」モーダルが開いている場合
+        if (showHelpModal) {
+          showHelpModal = false;
+          return;
+        }
+
+        if (gameState === 'title') {
+          // タイトル画面で「あそびかた」ボタンがタップされたか判定
+          if (vx !== undefined && vy !== undefined) {
+            const btnW = 135;
+            const btnH = 30;
+            const btnX = 52;
+            const btnY = vHeight * 0.245 - 15;
+            if (vx >= btnX && vx <= btnX + btnW && vy >= btnY && vy <= btnY + btnH) {
+              showHelpModal = true;
+              return;
+            }
+          }
+
+          gameState = 'play';
+          gameStartCooldown = 0.28; // スタート直後の誤ドロップ防止 (280ms)
+          initTower();
+          return;
+        }
+
+        if (gameState === 'over') {
+          // パネル表示遅延(0.75s) + 入力無効(0.6s) = 1.35s (1350ms)
+          if (performance.now() - gameOverTime < 1350) return;
+          gameState = 'play';
+          gameStartCooldown = 0.28;
+          initTower();
+          return;
+        }
+
+        if (gameState === 'play' && movingBlock) {
+          // スタート直後の誤ドロップクールダウン中は操作を受け付けない
+          if (gameStartCooldown > 0 && !isBotAction) return;
+
+          const topBlock = tower[tower.length - 1];
+          const diff = movingBlock.x - topBlock.x;
+          const absDiff = Math.abs(diff);
+
+          if (absDiff <= PERFECT_TOLERANCE) {
+            // ==========================================
+            // 1. PERFECT SNAP
+            // ==========================================
+            combo++;
+            perfectCount++;
+            if (combo > maxCombo) {
+              maxCombo = combo;
+            }
+            streakGreat++;
+            if (streakGreat > maxGreatStreak) {
+              maxGreatStreak = streakGreat;
+            }
+            movingBlock.x = topBlock.x;
+
+            const isGold = (movingBlock.specialType === 'gold');
+            const isFast = (movingBlock.specialType === 'fast');
+
+            // ポイント計算: 10 + 25 * combo (ゴールドなら+100pt, 速いなら+30pt)
+            let earnedPts = 10 + 25 * combo;
+            if (isGold) {
+              earnedPts += 100;
+              goldCount++;
+              goldPlacedCount++;
+              goldPerfectCount++;
+            }
+            if (isFast) {
+              earnedPts += 30;
+            }
+            points += earnedPts;
+
+            // 幅の回復計算 (ゴールドは大幅回復+35、通常はcombo>=3で+8)
+            let willRegrow = false;
+            let regrowAmount = REGROW_AMOUNT;
+            if (isGold && movingBlock.width < INITIAL_WIDTH) {
+              willRegrow = true;
+              regrowAmount = 35; // ゴールド大幅回復
+            } else if (combo >= 3 && movingBlock.width < INITIAL_WIDTH) {
+              willRegrow = true;
+              regrowAmount = REGROW_AMOUNT;
+            }
+
+            const prevW = movingBlock.width;
+            const targetW = willRegrow ? Math.min(INITIAL_WIDTH, prevW + regrowAmount) : prevW;
+            const prevX = movingBlock.x;
+            const targetX = willRegrow ? Math.max(10, Math.min(V_WIDTH - targetW - 10, prevX - (targetW - prevW) / 2)) : prevX;
+
+            const placed = {
+              x: willRegrow ? prevX : movingBlock.x,
+              y: movingBlock.y,
+              width: willRegrow ? prevW : movingBlock.width,
+              height: BLOCK_HEIGHT,
+              hue: movingBlock.hue,
+              flash: 1.0,
+              dangerPulse: 0,
+              specialType: movingBlock.specialType,
+              isBase: false,
+              regrow: willRegrow ? {
+                fromW: prevW,
+                targetW: targetW,
+                fromX: prevX,
+                targetX: targetX,
+                timer: 0.35,
+                duration: 0.35
+              } : null
+            };
+
+            // Haptic vibration on mobile
+            triggerVibrate(15);
+
+            tower.push(placed);
+            spawnPerfectFX(placed, combo, willRegrow, earnedPts, isGold, isFast);
+
+            if (isGold) {
+              playSound('gold_perfect');
+            } else if (isFast) {
+              playSound('speed_bonus');
+            } else {
+              playSound('perfect', combo);
+            }
+
+            // Tactile Tower bounce & screen shake & white flash
+            towerBounceY = 4.0;
+            towerBounceVy = 0;
+            screenShake = isGold ? 4.5 : 3.5;
+            screenWhiteFlash = isGold ? 0.38 : 0.28;
+            comboBadgePulse = 1.35;
+
+          } else if (movingBlock.x + movingBlock.width <= topBlock.x || movingBlock.x >= topBlock.x + topBlock.width) {
+            // ==========================================
+            // COMPLETE MISS -> GAME OVER
+            // ==========================================
+            combo = 0;
+            streakGreat = 0;
+            // The whole block falls and tumbles away
+            spawnDebris(
+              movingBlock.x,
+              movingBlock.y,
+              movingBlock.width,
+              BLOCK_HEIGHT,
+              movingBlock.hue,
+              movingBlock.dir * 85,
+              -45,
+              movingBlock.dir * 5.0
+            );
+            movingBlock = null;
+            screenShake = 7.5;
+            triggerGameOver();
+            return;
+
+          } else {
+            // ==========================================
+            // PARTIAL OVERLAP (CUT)
+            // ==========================================
+            const hadCombo = combo > 0;
+            combo = 0; // Combo breaks
+
+            let overhangWidth = 0;
+            let newWidth = 0;
+            let newX = 0;
+            let debrisX = 0;
+            let debrisWidth = 0;
+            let debrisVx = 0;
+            let debrisVRot = 0;
+
+            if (diff < 0) {
+              overhangWidth = topBlock.x - movingBlock.x;
+              newWidth = movingBlock.width - overhangWidth;
+              newX = topBlock.x;
+              debrisX = movingBlock.x;
+              debrisWidth = overhangWidth;
+              debrisVx = -80 - Math.random() * 25;
+              debrisVRot = -4.8 - Math.random() * 2.0;
+            } else {
+              overhangWidth = (movingBlock.x + movingBlock.width) - (topBlock.x + topBlock.width);
+              newWidth = movingBlock.width - overhangWidth;
+              newX = movingBlock.x;
+              debrisX = topBlock.x + topBlock.width;
+              debrisWidth = overhangWidth;
+              debrisVx = 80 + Math.random() * 25;
+              debrisVRot = 4.8 + Math.random() * 2.0;
+            }
+
+            if (newWidth <= 1.5) {
+              // Remaining sliver is too small -> complete miss
+              spawnDebris(
+                movingBlock.x,
+                movingBlock.y,
+                movingBlock.width,
+                BLOCK_HEIGHT,
+                movingBlock.hue,
+                movingBlock.dir * 85,
+                -45,
+                movingBlock.dir * 5.0
+              );
+              movingBlock = null;
+              screenShake = 7.5;
+              triggerGameOver();
+              return;
+            }
+
+            // Sliced debris pops slightly up and rotates off towards sliced side
+            spawnDebris(
+              debrisX,
+              movingBlock.y,
+              debrisWidth,
+              BLOCK_HEIGHT,
+              movingBlock.hue,
+              debrisVx,
+              -40,
+              debrisVRot
+            );
+            spawnCutSparks(debrisVx > 0 ? debrisX : debrisX + debrisWidth, movingBlock.y + BLOCK_HEIGHT / 2, 10, debrisVx);
+
+            // Determine Judgment Tier: ギリギリ! / GREAT / GOOD
+            let tierName = 'GOOD';
+            let tierColor = '#38bdf8';
+            let tierPts = 10;
+            let flashVal = 0.35;
+            let dangerPulse = 0;
+            let fontSize = 22;
+            let scale = 1.05;
+
+            if (newWidth <= DANGER_WIDTH) {
+              // ギリギリ! (Remaining width is narrow)
+              streakGreat = 0;
+              tierName = 'ギリギリ!';
+              tierColor = '#ff3355';
+              tierPts = 10;
+              flashVal = 0.7;
+              dangerPulse = 1.2; // Red pulsing tension effect
+              fontSize = 25;
+              scale = 1.25;
+              playSound('danger');
+              screenShake = 4.5;
+            } else if (absDiff <= GREAT_TOLERANCE) {
+              // GREAT! (Small offset)
+              streakGreat++;
+              if (streakGreat > maxGreatStreak) {
+                maxGreatStreak = streakGreat;
+              }
+              tierName = 'GREAT!';
+              tierColor = '#4ade80';
+              tierPts = 10 + 15; // 25pt
+              flashVal = 0.55;
+              fontSize = 24;
+              scale = 1.15;
+              playSound('great');
+              screenShake = 2.2;
+            } else {
+              // GOOD
+              streakGreat = 0;
+              tierName = 'GOOD';
+              tierColor = '#38bdf8';
+              tierPts = 10;
+              flashVal = 0.35;
+              fontSize = 22;
+              scale = 1.05;
+              playSound('drop');
+              screenShake = 2.0;
+            }
+
+            // 速いブロックは置けたらボーナス +30pt
+            const isFast = (movingBlock.specialType === 'fast');
+            const isGold = (movingBlock.specialType === 'gold');
+            if (isGold) {
+              goldCount++;
+              goldPlacedCount++;
+            }
+            let bonusPts = isFast ? 30 : 0;
+            if (isFast) {
+              playSound('speed_bonus');
+            }
+            points += tierPts + bonusPts;
+
+            const midX = newX + newWidth / 2;
+            const isDanger = tierName === 'ギリギリ!';
+            const baseY = movingBlock.y;
+
+            // 判定文字を主役として大きく1つ、ポイントはその下、「コンボ終了」はさらに下に縦に並べて重ならないように配置
+            spawnFloatingText('judgment', tierName, midX, baseY - 58, tierColor, scale, -45, fontSize, tierColor, isDanger);
+            const ptText = bonusPts > 0 ? `+${tierPts + bonusPts} pt (SPEED!)` : `+${tierPts} pt`;
+            spawnFloatingText('point', ptText, midX, baseY - 34, bonusPts > 0 ? '#38bdf8' : '#e2e8f0', 1.0, -45, 16);
+            if (hadCombo) {
+              spawnFloatingText('status', 'コンボ終了', midX, baseY - 14, '#94a3b8', 1.0, -45, 14);
+            } else {
+              floatingTexts = floatingTexts.filter(ft => ft.type !== 'status');
+            }
+
+            const placed = {
+              x: newX,
+              y: movingBlock.y,
+              width: newWidth,
+              height: BLOCK_HEIGHT,
+              hue: movingBlock.hue,
+              flash: flashVal,
+              dangerPulse: dangerPulse,
+              specialType: movingBlock.specialType,
+              isBase: false,
+              regrow: null
+            };
+            tower.push(placed);
+
+            // Tactile Tower bounce on landing
+            towerBounceY = 3.6;
+            towerBounceVy = 0;
+          }
+
+          // Advance score (段数)
+          const placedBlock = tower[tower.length - 1];
+          score = tower.length - 1;
+          if (score > best) {
+            best = score;
+            saveBest(best);
+            syncGameHook();
+          }
+
+          // チュートリアル3段目完了判定
+          if (score >= 3 && !hasSeenTutorial) {
+            hasSeenTutorial = true;
+            localStorage.setItem('stackTowerTutorialSeen', 'true');
+          }
+
+          // ミッション進捗チェック
+          checkMissions();
+
+          // 4. ベスト目標: 超えたら「ベスト更新!」の演出とファンファーレ
+          if (prevBest > 0 && score > prevBest && !hasCelebratedBest) {
+            hasCelebratedBest = true;
+            isNewBest = true;
+            playSound('fanfare');
+
+            // 祝賀花火・星パーティクル
+            for (let i = 0; i < 36; i++) {
+              const angle = Math.random() * Math.PI * 2;
+              const spd = Math.random() * 230 + 80;
+              particles.push({
+                x: V_WIDTH / 2,
+                y: placedBlock ? placedBlock.y : movingBlock.y,
+                vx: Math.cos(angle) * spd,
+                vy: Math.sin(angle) * spd - 50,
+                size: Math.random() * 4 + 2,
+                color: ['#ffd700', '#38bdf8', '#ff3366', '#ffffff', '#4ade80'][i % 5],
+                alpha: 1.0,
+                life: 0.85
+              });
+            }
+            screenWhiteFlash = 0.35;
+            screenShake = 4.0;
+            spawnFloatingText('milestone', '👑 ベスト更新!!', V_WIDTH / 2, (placedBlock ? placedBlock.y : movingBlock.y) - 70, '#ffd700', 1.35, -45, 26, '#ffd700');
+          }
+
+          // 10-layer milestone announcement
+          if (score > 0 && score % 10 === 0) {
+            triggerMilestone(score);
+          }
+
+          spawnMovingBlock(tower.length);
+        }
+      }
+
+      function triggerGameOver() {
+        gameState = 'over';
+        gameOverTime = performance.now();
+        playSound('gameover');
+
+        if (score > best) {
+          best = score;
+          saveBest(best);
+        }
+        best = Math.max(best, getLatestBest());
+
+        if (score > prevBest && score > 0) {
+          isNewBest = true;
+        }
+
+        // 1プレイ遊んだらチュートリアル完了扱い
+        if (!hasSeenTutorial) {
+          hasSeenTutorial = true;
+          localStorage.setItem('stackTowerTutorialSeen', 'true');
+        }
+
+        // 称号アップ判定
+        const currentRank = getPlayerRank(clearedMissionIds.length);
+        if (currentRank.index > startRunRankIndex) {
+          rankedUpThisRun = currentRank;
+          setTimeout(() => {
+            if (gameState === 'over') {
+              playSound('rank_up');
+              for (let i = 0; i < 40; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const spd = Math.random() * 240 + 80;
+                particles.push({
+                  x: V_WIDTH / 2,
+                  y: vHeight * 0.45,
+                  vx: Math.cos(angle) * spd,
+                  vy: Math.sin(angle) * spd,
+                  size: Math.random() * 4 + 2,
+                  color: ['#ffd700', '#ec4899', '#38bdf8', '#4ade80'][i % 4],
+                  alpha: 1.0,
+                  life: 0.9
+                });
+              }
+            }
+          }, 850);
+        }
+
+        syncGameHook();
+      }
+
+      // --- Input Event Listeners (No double fire, robust coordinate tracking) ---
+      let lastInputTime = 0;
+      function onUserInput(e) {
+        hasUserInteracted = true;
+        if (e && e.target && e.target.closest && e.target.closest('#mute-btn')) return;
+        if (e && e.preventDefault && e.cancelable) {
+          e.preventDefault();
+        }
+        const now = performance.now();
+        if (now - lastInputTime < 220) return; // Debounce rapid multi-events
+        lastInputTime = now;
+
+        let vx = undefined;
+        let vy = undefined;
+        if (e && (e.clientX !== undefined || (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]))) {
+          const rect = canvas.getBoundingClientRect();
+          const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : 0));
+          const clientY = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : 0));
+          const canvasX = clientX - rect.left;
+          const canvasY = clientY - rect.top;
+          vx = (canvasX - colLeft) / colScale;
+          vy = canvasY / colScale;
+        }
+
+        handleAction(vx, vy);
+      }
+
+      window.addEventListener('pointerdown', onUserInput, { passive: false });
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          onUserInput(e);
+        }
+      });
+
+      // --- Autopilot for ?bot=1 ---
+      let botTargetOffset = 0;
+      let botWaitTimer = 0;
+
+      function updateBot(dt) {
+        if (!isBotActive) return;
+
+        if (gameState === 'title') {
+          botWaitTimer += dt;
+          if (botWaitTimer > 0.4) {
+            botWaitTimer = 0;
+            isBotAction = true;
+            handleAction();
+            isBotAction = false;
+          }
+        } else if (gameState === 'play' && movingBlock) {
+          // フェイントで停止中はタップしない
+          if (movingBlock.feintTimer > 0) return;
+
+          const topBlock = tower[tower.length - 1];
+          const targetX = topBlock.x + botTargetOffset;
+          const currentX = movingBlock.x;
+          const currentSpeed = movingBlock.currentSpeed || movingBlock.baseSpeed || 200;
+          const step = currentSpeed * dt;
+
+          const dist = targetX - currentX;
+          const movingTowards = (movingBlock.dir > 0 && dist >= 0) || (movingBlock.dir < 0 && dist <= 0);
+
+          // 高速や加減速でも取りこぼさないよう判定マージンを調整
+          const threshold = Math.max(step * 1.25, 7.5);
+          if (movingTowards && Math.abs(dist) <= threshold) {
+            movingBlock.x = targetX;
+            isBotAction = true;
+            handleAction();
+            isBotAction = false;
+          }
+        } else if (gameState === 'over') {
+          const timeSinceOver = (performance.now() - gameOverTime) / 1000;
+          const panelDelay = 0.75;
+          // 結果パネルが表示されてから2.5秒待ってからリトライ
+          if (timeSinceOver >= panelDelay + 2.5) {
+            isBotAction = true;
+            handleAction();
+            isBotAction = false;
+          }
+        }
+      }
+
+      // --- Update Loop ---
+      function update(dt) {
+        // Autopilot
+        updateBot(dt);
+
+        // Tower Bounce spring physics
+        if (towerBounceY !== 0 || towerBounceVy !== 0) {
+          const k = 360; // Spring stiffness
+          const d = 26;  // Damping
+          const accel = -k * towerBounceY - d * towerBounceVy;
+          towerBounceVy += accel * dt;
+          towerBounceY += towerBounceVy * dt;
+          if (Math.abs(towerBounceY) < 0.05 && Math.abs(towerBounceVy) < 0.1) {
+            towerBounceY = 0;
+            towerBounceVy = 0;
+          }
+        }
+
+        // Screen shake & white flash decay
+        if (screenShake > 0) {
+          screenShake = Math.max(0, screenShake - dt * 25);
+        }
+        if (screenWhiteFlash > 0) {
+          screenWhiteFlash = Math.max(0, screenWhiteFlash - dt * 4.2);
+        }
+        if (comboBadgePulse > 1.0) {
+          comboBadgePulse = Math.max(1.0, comboBadgePulse - dt * 2.8);
+        }
+        if (gameStartCooldown > 0) {
+          gameStartCooldown = Math.max(0, gameStartCooldown - dt);
+        }
+        if (missionClearBanner) {
+          missionClearBanner.timer -= dt;
+          if (missionClearBanner.timer <= 0) {
+            missionClearBanner = null;
+          }
+        }
+
+        // Camera scroll
+        if (tower.length > 0) {
+          const topY = tower[tower.length - 1].y;
+          // Keep active block at ~42% of viewport height once tower grows into upper half
+          const idealCameraY = Math.min(0, topY - vHeight * 0.42);
+          targetCameraY = idealCameraY;
+          cameraY += (targetCameraY - cameraY) * Math.min(1, dt * 5.0);
+        }
+
+        // Moving block update
+        if (movingBlock) {
+          const topBlock = tower[tower.length - 1];
+
+          // 3. 動きの変化: フェイント処理 (40段以降でたまに一瞬停止)
+          if (movingBlock.feintTimer > 0) {
+            movingBlock.feintTimer -= dt;
+            if (movingBlock.feintTimer <= 0) {
+              movingBlock.feintDone = true;
+            }
+          } else {
+            // フェイント発動判定 (塔の中央手前に近づいた瞬間にピクッと一瞬停止)
+            if (movingBlock.hasFeint && !movingBlock.feintDone && topBlock) {
+              const distToCenter = Math.abs(movingBlock.x - topBlock.x);
+              if (distToCenter < 55) {
+                movingBlock.feintTimer = 0.20; // 0.2秒停止
+                movingBlock.feintDone = true;
+                playSound('feint');
+                // ブレーキ微小火花
+                for (let i = 0; i < 5; i++) {
+                  particles.push({
+                    x: movingBlock.x + (movingBlock.dir > 0 ? 0 : movingBlock.width),
+                    y: movingBlock.y + BLOCK_HEIGHT,
+                    vx: -movingBlock.dir * (Math.random() * 50 + 20),
+                    vy: -Math.random() * 35,
+                    size: Math.random() * 2 + 1,
+                    color: '#ff9933',
+                    alpha: 0.9,
+                    life: 0.2
+                  });
+                }
+              }
+            }
+
+            // 速度計算 (速いブロック: 1.6倍 / 20段以降: 往復中に加減速)
+            let effSpeed = movingBlock.baseSpeed;
+            if (movingBlock.specialType === 'fast') {
+              effSpeed = movingBlock.baseSpeed * 1.6;
+            } else if (movingBlock.motionType === 'wave') {
+              movingBlock.motionTime += dt;
+              // 0.65倍〜1.35倍で滑らかに加減速
+              const waveFactor = Math.sin(movingBlock.motionTime * 3.4);
+              effSpeed = movingBlock.baseSpeed * (1.0 + 0.35 * waveFactor);
+            }
+            movingBlock.currentSpeed = effSpeed;
+
+            // 残像保存 (速いブロック)
+            if (movingBlock.specialType === 'fast') {
+              movingBlock.afterimages.push({
+                x: movingBlock.x,
+                y: movingBlock.y,
+                width: movingBlock.width,
+                height: movingBlock.height,
+                alpha: 0.38
+              });
+              if (movingBlock.afterimages.length > 5) {
+                movingBlock.afterimages.shift();
+              }
+            }
+
+            // ゴールドブロックの周囲キラキラパーティクル
+            if (movingBlock.specialType === 'gold' && Math.random() < 0.25) {
+              particles.push({
+                x: movingBlock.x + Math.random() * movingBlock.width,
+                y: movingBlock.y + Math.random() * movingBlock.height,
+                vx: (Math.random() - 0.5) * 30,
+                vy: (Math.random() - 0.5) * 30 - 15,
+                size: Math.random() * 2.5 + 1.2,
+                color: (Math.random() < 0.6) ? '#ffd700' : '#ffffff',
+                alpha: 0.85,
+                life: 0.35
+              });
+            }
+
+            // 移動と折り返し
+            movingBlock.x += movingBlock.dir * effSpeed * dt;
+            if (movingBlock.dir > 0 && movingBlock.x >= movingBlock.maxX) {
+              movingBlock.dir = -1;
+              movingBlock.x = movingBlock.maxX;
+            } else if (movingBlock.dir < 0 && movingBlock.x <= movingBlock.minX) {
+              movingBlock.dir = 1;
+              movingBlock.x = movingBlock.minX;
+            }
+          }
+
+          // 残像の減衰
+          if (movingBlock.afterimages && movingBlock.afterimages.length > 0) {
+            for (let i = movingBlock.afterimages.length - 1; i >= 0; i--) {
+              const img = movingBlock.afterimages[i];
+              img.alpha -= dt * 2.4;
+              if (img.alpha <= 0) {
+                movingBlock.afterimages.splice(i, 1);
+              }
+            }
+          }
+        }
+
+        // Placed blocks updates: flash decay, red danger pulse, width regrowth animation
+        for (let b of tower) {
+          if (b.flash > 0) {
+            b.flash = Math.max(0, b.flash - dt * 4.0);
+          }
+          if (b.dangerPulse > 0) {
+            b.dangerPulse = Math.max(0, b.dangerPulse - dt * 0.8);
+          }
+          if (b.regrow) {
+            b.regrow.timer -= dt;
+            const t = 1 - Math.max(0, b.regrow.timer) / b.regrow.duration;
+            const ease = 1 - Math.pow(1 - t, 3); // easeOutCubic
+            b.width = lerp(b.regrow.fromW, b.regrow.targetW, ease);
+            b.x = lerp(b.regrow.fromX, b.regrow.targetX, ease);
+
+            // Emit outward expanding sparkles from both ends
+            if (Math.random() < 0.7) {
+              particles.push({
+                x: b.x,
+                y: b.y + BLOCK_HEIGHT / 2,
+                vx: -Math.random() * 110 - 40,
+                vy: (Math.random() - 0.5) * 50,
+                size: Math.random() * 3 + 1.5,
+                color: '#34d399',
+                alpha: 1.0,
+                life: 0.35
+              });
+              particles.push({
+                x: b.x + b.width,
+                y: b.y + BLOCK_HEIGHT / 2,
+                vx: Math.random() * 110 + 40,
+                vy: (Math.random() - 0.5) * 50,
+                size: Math.random() * 3 + 1.5,
+                color: '#34d399',
+                alpha: 1.0,
+                life: 0.35
+              });
+            }
+
+            if (b.regrow.timer <= 0) {
+              b.width = b.regrow.targetW;
+              b.x = b.regrow.targetX;
+              b.regrow = null;
+            }
+          }
+        }
+
+        // Debris physics
+        for (let i = debrisList.length - 1; i >= 0; i--) {
+          const d = debrisList[i];
+          d.vy += GRAVITY * dt;
+          d.x += d.vx * dt;
+          d.y += d.vy * dt;
+          d.rot += d.vRot * dt;
+          d.alpha -= dt * 0.7; // Smooth fade as it falls
+          if (d.alpha <= 0 || d.y - cameraY > vHeight + 100) {
+            debrisList.splice(i, 1);
+          }
+        }
+
+        // Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.vy += GRAVITY * 0.4 * dt;
+          p.alpha -= dt / p.life;
+          if (p.alpha <= 0) {
+            particles.splice(i, 1);
+          }
+        }
+
+        // Expanding rings
+        for (let i = rings.length - 1; i >= 0; i--) {
+          const r = rings[i];
+          r.scale += dt * 3.5;
+          r.alpha -= dt * 2.5;
+          if (r.alpha <= 0 || r.scale >= r.maxScale) {
+            rings.splice(i, 1);
+          }
+        }
+
+        // Floating texts with tactile spring-pop bounce
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+          const ft = floatingTexts[i];
+          ft.age = (ft.age || 0) + dt;
+          ft.y += ft.vy * dt;
+          ft.alpha -= dt * 1.25;
+
+          // Tactile spring-pop bounce on spawn
+          if (ft.age < 0.10) {
+            const t = ft.age / 0.10;
+            ft.currentScale = ft.baseScale * (0.35 + 1.05 * Math.sin(t * Math.PI * 0.7));
+          } else if (ft.age < 0.20) {
+            const t = (ft.age - 0.10) / 0.10;
+            ft.currentScale = ft.baseScale * (1.4 - 0.4 * t);
+          } else {
+            ft.currentScale = ft.baseScale;
+          }
+
+          if (ft.alpha <= 0) {
+            floatingTexts.splice(i, 1);
+          }
+        }
+
+        // Milestone Banner decay
+        if (milestoneBanner) {
+          milestoneBanner.timer -= dt;
+          if (milestoneBanner.timer <= 0) {
+            milestoneBanner = null;
+          }
+        }
+
+        // Ambient clouds
+        for (let c of clouds) {
+          c.x += c.speed * dt;
+          if (c.x > V_WIDTH + 60) {
+            c.x = -c.width - 60;
+          }
+        }
+
+        syncGameHook();
+      }
+
+      // --- Rendering Functions ---
+      function draw2DBlock(context, x, y, w, h, hue, flash = 0, dangerPulse = 0, regrowAnim = null, specialType = null, isBase = false) {
+        if (w <= 0) return;
+
+        context.save();
+
+        if (isBase) {
+          // 土台専用の重厚な台座メタルブロックデザイン
+          const baseGrad = context.createLinearGradient(x, y, x, y + h);
+          baseGrad.addColorStop(0, '#334155');
+          baseGrad.addColorStop(0.4, '#1e293b');
+          baseGrad.addColorStop(1, '#0f172a');
+          context.fillStyle = baseGrad;
+          context.beginPath();
+          context.roundRect(x, y, w, h, 3);
+          context.fill();
+
+          // 金属ハイライト線
+          context.fillStyle = 'rgba(255, 255, 255, 0.35)';
+          context.fillRect(x + 1, y + 1, w - 2, 2);
+
+          // 境界線
+          context.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+          context.lineWidth = 1;
+          context.beginPath();
+          context.roundRect(x, y, w, h, 3);
+          context.stroke();
+
+          // 中央に控えめな「BASE (土台)」刻印
+          context.fillStyle = 'rgba(255, 255, 255, 0.55)';
+          context.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+          context.textAlign = 'center';
+          context.textBaseline = 'middle';
+          context.fillText('BASE (土台)', x + w / 2, y + h / 2);
+          context.textBaseline = 'alphabetic';
+          context.restore();
+          return;
+        }
+
+        // Base block gradient (2.5D bevel effect, specialized for Gold or Fast blocks)
+        const grad = context.createLinearGradient(x, y, x, y + h);
+        if (specialType === 'gold') {
+          grad.addColorStop(0, '#fff3a8');
+          grad.addColorStop(0.3, '#ffd700');
+          grad.addColorStop(0.7, '#f59e0b');
+          grad.addColorStop(1, '#b45309');
+        } else if (specialType === 'fast') {
+          grad.addColorStop(0, '#67e8f9');
+          grad.addColorStop(0.5, '#06b6d4');
+          grad.addColorStop(1, '#0e7490');
+        } else {
+          grad.addColorStop(0, `hsl(${hue}, 88%, 65%)`);
+          grad.addColorStop(0.5, `hsl(${hue}, 82%, 52%)`);
+          grad.addColorStop(1, `hsl(${hue}, 84%, 42%)`);
+        }
+
+        context.fillStyle = grad;
+        context.beginPath();
+        context.roundRect(x, y, w, h, 3);
+        context.fill();
+
+        // Top highlight bevel
+        context.fillStyle = specialType === 'gold' ? 'rgba(255, 255, 255, 0.65)' : 'rgba(255, 255, 255, 0.42)';
+        context.beginPath();
+        context.roundRect(x + 1, y + 1, w - 2, Math.min(3, h * 0.25), 1.5);
+        context.fill();
+
+        // Bottom shade
+        context.fillStyle = 'rgba(0, 0, 0, 0.22)';
+        context.beginPath();
+        context.roundRect(x + 1, y + h - 3, w - 2, 2.5, 1);
+        context.fill();
+
+        // Left highlight
+        context.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        context.fillRect(x, y + 2, 2, h - 4);
+
+        // Right shade
+        context.fillStyle = 'rgba(0, 0, 0, 0.18)';
+        context.fillRect(x + w - 2, y + 2, 2, h - 4);
+
+        // Drop shadow cast downward
+        const shadowGrad = context.createLinearGradient(x, y + h, x, y + h + 5);
+        shadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0.22)');
+        shadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        context.fillStyle = shadowGrad;
+        context.fillRect(x, y + h, w, 5);
+
+        // Gold Block special shimmering border & aura
+        if (specialType === 'gold') {
+          context.strokeStyle = 'rgba(255, 235, 120, 0.9)';
+          context.lineWidth = 1.6;
+          context.shadowColor = '#ffd700';
+          context.shadowBlur = 8;
+          context.beginPath();
+          context.roundRect(x, y, w, h, 3);
+          context.stroke();
+          context.shadowBlur = 0;
+        }
+
+        // ギリギリ (Danger) Red Pulsing Aura & Tint
+        if (dangerPulse > 0 || w <= DANGER_WIDTH) {
+          const pulse = Math.sin(performance.now() * 0.015) * 0.4 + 0.6;
+          const intensity = Math.max(dangerPulse, w <= DANGER_WIDTH ? 0.75 : 0);
+
+          // Red surface tint
+          context.fillStyle = `rgba(255, 45, 75, ${0.35 * intensity * pulse})`;
+          context.beginPath();
+          context.roundRect(x, y, w, h, 3);
+          context.fill();
+
+          // Red pulsating border
+          context.strokeStyle = `rgba(255, 50, 75, ${0.9 * pulse * intensity})`;
+          context.lineWidth = 2.5;
+          context.shadowColor = 'rgba(255, 30, 60, 0.9)';
+          context.shadowBlur = 8;
+          context.beginPath();
+          context.roundRect(x, y, w, h, 3);
+          context.stroke();
+          context.shadowBlur = 0;
+        }
+
+        // Snap white flash overlay
+        if (flash > 0) {
+          context.fillStyle = `rgba(255, 255, 255, ${flash * 0.8})`;
+          context.beginPath();
+          context.roundRect(x, y, w, h, 3);
+          context.fill();
+        }
+
+        // Width UP both ends expanding animation indicators
+        if (regrowAnim) {
+          const animAlpha = Math.max(0, regrowAnim.timer / regrowAnim.duration);
+          context.save();
+          context.strokeStyle = `rgba(52, 211, 153, ${animAlpha * 0.9})`;
+          context.lineWidth = 3;
+          context.shadowColor = '#34d399';
+          context.shadowBlur = 8;
+
+          // Left expanding wing bar
+          context.beginPath();
+          context.moveTo(x, y - 2);
+          context.lineTo(x, y + h + 2);
+          context.stroke();
+
+          // Right expanding wing bar
+          context.beginPath();
+          context.moveTo(x + w, y - 2);
+          context.lineTo(x + w, y + h + 2);
+          context.stroke();
+
+          context.restore();
+        }
+
+        context.restore();
+      }
+
+      function drawDebris(context, d) {
+        context.save();
+        context.translate(d.x + d.width / 2, d.y + d.height / 2);
+        context.rotate(d.rot);
+        context.globalAlpha = Math.max(0, d.alpha);
+
+        draw2DBlock(context, -d.width / 2, -d.height / 2, d.width, d.height, d.hue, 0, 0, null, null, false);
+
+        context.restore();
+      }
+
+      // --- Height Meter (画面右端の細い高度メーター) ---
+      function drawHeightMeter(context) {
+        const meterW = 5;
+        const meterX = V_WIDTH - 12;
+        const meterTop = 90;
+        const meterBottom = vHeight - 110;
+        const meterH = meterBottom - meterTop;
+
+        context.save();
+        // トラック背景
+        context.fillStyle = 'rgba(15, 23, 42, 0.55)';
+        context.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+        context.lineWidth = 1;
+        context.beginPath();
+        context.roundRect(meterX, meterTop, meterW, meterH, 2.5);
+        context.fill();
+        context.stroke();
+
+        const nextMilestone = Math.floor(score / 10 + 1) * 10;
+        const maxDisplayLevel = Math.max(30, (best || 0) + 5, nextMilestone + 5);
+
+        // 10段マイルストーン目盛り
+        for (let lvl = 10; lvl <= maxDisplayLevel; lvl += 10) {
+          const ratio = lvl / maxDisplayLevel;
+          const my = meterBottom - ratio * meterH;
+          if (my >= meterTop && my <= meterBottom) {
+            const isTarget = (lvl === nextMilestone);
+            context.fillStyle = isTarget ? '#38bdf8' : 'rgba(255, 255, 255, 0.35)';
+            context.fillRect(meterX - (isTarget ? 3 : 2), my - 1, meterW + (isTarget ? 6 : 4), 2);
+            if (isTarget) {
+              context.font = 'bold 9px -apple-system, sans-serif';
+              context.fillStyle = '#38bdf8';
+              context.textAlign = 'right';
+              context.fillText(`${lvl}`, meterX - 5, my + 3);
+            }
+          }
+        }
+
+        // 自己ベストマーカー
+        if (best > 0) {
+          const bRatio = Math.min(1.0, best / maxDisplayLevel);
+          const by = meterBottom - bRatio * meterH;
+          context.fillStyle = '#ffd700';
+          context.fillRect(meterX - 3, by - 1.5, meterW + 6, 3);
+          context.font = 'bold 8px -apple-system, sans-serif';
+          context.fillStyle = '#ffd700';
+          context.textAlign = 'right';
+          context.fillText(`👑${best}`, meterX - 5, by + 3);
+        }
+
+        // 現在の高さインジケーター（下からのフィル）
+        const curRatio = Math.min(1.0, score / maxDisplayLevel);
+        const fillH = curRatio * meterH;
+        if (fillH > 0) {
+          const barGrad = context.createLinearGradient(0, meterBottom, 0, meterBottom - fillH);
+          barGrad.addColorStop(0, '#00f2fe');
+          barGrad.addColorStop(1, '#38bdf8');
+          context.fillStyle = barGrad;
+          context.beginPath();
+          context.roundRect(meterX, meterBottom - fillH, meterW, fillH, 2.5);
+          context.fill();
+
+          const curY = meterBottom - fillH;
+          context.shadowColor = '#00f2fe';
+          context.shadowBlur = 6;
+          context.fillStyle = '#ffffff';
+          context.beginPath();
+          context.arc(meterX + meterW / 2, curY, 3, 0, Math.PI * 2);
+          context.fill();
+          context.shadowBlur = 0;
+        }
+
+        context.restore();
+      }
+
+      // --- First-time Tutorial Prompt (ブロックの直上、親指で隠れない位置) ---
+      function drawTutorialPrompt(context) {
+        if (isBotActive || hasSeenTutorial || score >= 3 || !movingBlock) return;
+
+        let msg = '';
+        if (score === 0) {
+          msg = 'ブロックが塔の真上に来たらタップ!';
+        } else if (score === 1) {
+          msg = 'はみ出た部分は切れて細くなる';
+        } else if (score === 2) {
+          msg = 'ピッタリ重ねると PERFECT!';
+        }
+        if (!msg) return;
+
+        context.save();
+        const midX = movingBlock.x + movingBlock.width / 2;
+        const bubbleY = movingBlock.y - 36;
+        const bubbleW = 236;
+        const bubbleH = 26;
+        let bubbleX = midX - bubbleW / 2;
+        bubbleX = Math.max(12, Math.min(V_WIDTH - bubbleW - 12, bubbleX));
+
+        context.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        context.strokeStyle = score === 2 ? '#ffe600' : '#38bdf8';
+        context.lineWidth = 1.4;
+        context.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        context.shadowBlur = 6;
+        context.beginPath();
+        context.roundRect(bubbleX, bubbleY, bubbleW, bubbleH, 13);
+        context.fill();
+        context.stroke();
+
+        context.beginPath();
+        context.moveTo(midX - 5, bubbleY + bubbleH);
+        context.lineTo(midX + 5, bubbleY + bubbleH);
+        context.lineTo(midX, bubbleY + bubbleH + 6);
+        context.closePath();
+        context.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        context.fill();
+        context.stroke();
+
+        context.shadowBlur = 0;
+        context.fillStyle = '#ffffff';
+        context.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(msg, bubbleX + bubbleW / 2, bubbleY + bubbleH / 2);
+        context.textBaseline = 'alphabetic';
+        context.restore();
+      }
+
+      // --- Mission Card Drawing Helper (タイトル画面 & 結果画面で共通利用) ---
+      function drawMissionCard(context, m, x, y, w, h) {
+        context.save();
+        context.fillStyle = 'rgba(15, 23, 42, 0.65)';
+        context.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+        context.lineWidth = 1;
+        context.beginPath();
+        context.roundRect(x, y, w, h, 8);
+        context.fill();
+        context.stroke();
+
+        const curVal = getMissionCurrentValue(m);
+        const targetVal = m.target;
+        const isDone = clearedMissionIds.includes(m.id) || curVal >= targetVal;
+
+        context.fillStyle = '#ffffff';
+        context.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+        context.textAlign = 'left';
+        context.fillText(`🎯 ${m.title}`, x + 10, y + 15);
+
+        context.textAlign = 'right';
+        context.font = 'bold 11px -apple-system, sans-serif';
+        context.fillStyle = isDone ? '#4ade80' : '#38bdf8';
+        context.fillText(isDone ? 'CLEAR!' : `${curVal} / ${targetVal}`, x + w - 10, y + 15);
+
+        // プログレスバー
+        const barX = x + 10;
+        const barY = y + 22;
+        const barW = w - 20;
+        const barH = 4;
+        context.fillStyle = 'rgba(255, 255, 255, 0.12)';
+        context.beginPath();
+        context.roundRect(barX, barY, barW, barH, 2);
+        context.fill();
+
+        const progress = isDone ? 1.0 : Math.min(1.0, curVal / targetVal);
+        if (progress > 0) {
+          context.fillStyle = isDone ? '#4ade80' : '#38bdf8';
+          context.beginPath();
+          context.roundRect(barX, barY, barW * progress, barH, 2);
+          context.fill();
+        }
+
+        context.restore();
+      }
+
+      // --- In-Game Mission Banner ---
+      function drawMissionBanner(context) {
+        if (!missionClearBanner || missionClearBanner.timer <= 0) return;
+        const t = missionClearBanner.timer / missionClearBanner.duration;
+        const bannerAlpha = Math.min(1.0, t < 0.2 ? t / 0.2 : (missionClearBanner.duration - missionClearBanner.timer < 0.25 ? (missionClearBanner.duration - missionClearBanner.timer) / 0.25 : 1.0));
+
+        context.save();
+        context.globalAlpha = bannerAlpha;
+        const bw = 240;
+        const bh = 50;
+        const bx = (V_WIDTH - bw) / 2;
+        const by = 160;
+
+        context.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        context.strokeStyle = '#4ade80';
+        context.lineWidth = 1.8;
+        context.shadowColor = 'rgba(74, 222, 128, 0.6)';
+        context.shadowBlur = 12;
+        context.beginPath();
+        context.roundRect(bx, by, bw, bh, 25);
+        context.fill();
+        context.stroke();
+
+        context.shadowBlur = 0;
+        context.fillStyle = '#4ade80';
+        context.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+        context.textAlign = 'center';
+        context.fillText('🎯 ミッション達成!', V_WIDTH / 2, by + 21);
+
+        context.fillStyle = '#ffffff';
+        context.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+        context.fillText(missionClearBanner.title, V_WIDTH / 2, by + 39);
+
+        context.restore();
+      }
+
+      // --- Help Modal (あそびかた画面) ---
+      function drawHelpModal(context) {
+        if (!showHelpModal) return;
+
+        context.save();
+        // 背景暗転
+        context.fillStyle = 'rgba(10, 15, 26, 0.85)';
+        context.fillRect(0, 0, V_WIDTH, vHeight);
+
+        // モーダルボックス
+        const mw = 330;
+        const mh = 440;
+        const mx = (V_WIDTH - mw) / 2;
+        const my = (vHeight - mh) / 2;
+
+        context.fillStyle = 'rgba(23, 32, 51, 0.96)';
+        context.strokeStyle = 'rgba(78, 237, 255, 0.45)';
+        context.lineWidth = 1.5;
+        context.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        context.shadowBlur = 16;
+        context.beginPath();
+        context.roundRect(mx, my, mw, mh, 16);
+        context.fill();
+        context.stroke();
+
+        context.shadowBlur = 0;
+        context.textAlign = 'center';
+        context.fillStyle = '#ffffff';
+        context.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+        context.fillText('🏗️ あそびかた', V_WIDTH / 2, my + 34);
+
+        const rules = [
+          { icon: '🎯', title: 'タイミングよくタップ', desc: 'ブロックが塔の真上に来た瞬間に画面をタップ！' },
+          { icon: '✂️', title: 'はみ出た部分はカット', desc: '土台からはみ出た部分は切り落とされ細くなります。' },
+          { icon: '✨', title: 'ピッタリで PERFECT!', desc: 'ピッタリ重ねるとPERFECT！3回以上連続で幅回復！' },
+          { icon: '⭐', title: '特殊ブロック', desc: '金色ブロックは高得点＆大幅回復、水色は高速ボーナス！' },
+          { icon: '🏆', title: 'ミッション＆称号', desc: 'ミッションを達成して「天空の建築家」を目指そう！' }
+        ];
+
+        let ry = my + 54;
+        context.textAlign = 'left';
+        for (let r of rules) {
+          context.fillStyle = 'rgba(15, 23, 42, 0.6)';
+          context.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+          context.lineWidth = 1;
+          context.beginPath();
+          context.roundRect(mx + 14, ry, mw - 28, 54, 8);
+          context.fill();
+          context.stroke();
+
+          context.fillStyle = '#ffd700';
+          context.font = 'bold 13px -apple-system, sans-serif';
+          context.fillText(`${r.icon} ${r.title}`, mx + 24, ry + 20);
+
+          context.fillStyle = 'rgba(255, 255, 255, 0.82)';
+          context.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          context.fillText(r.desc, mx + 24, ry + 39);
+
+          ry += 60;
+        }
+
+        // 閉じるボタン
+        const closeBtnW = 160;
+        const closeBtnH = 38;
+        const closeBtnX = (V_WIDTH - closeBtnW) / 2;
+        const closeBtnY = my + mh - 48;
+        context.fillStyle = 'rgba(56, 189, 248, 0.2)';
+        context.strokeStyle = '#38bdf8';
+        context.lineWidth = 1.4;
+        context.beginPath();
+        context.roundRect(closeBtnX, closeBtnY, closeBtnW, closeBtnH, 19);
+        context.fill();
+        context.stroke();
+
+        context.textAlign = 'center';
+        context.fillStyle = '#38bdf8';
+        context.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+        context.fillText('とじる', V_WIDTH / 2, closeBtnY + 24);
+
+        context.restore();
+      }
+
+      function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Sky colors based on current altitude (0: Ground -> 10: Clouds -> 20: Sunset -> 30: Night -> 40: Space)
+        const sky = getSkyColors(score);
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        skyGrad.addColorStop(0, `rgb(${sky.top[0]}, ${sky.top[1]}, ${sky.top[2]})`);
+        skyGrad.addColorStop(1, `rgb(${sky.bottom[0]}, ${sky.bottom[1]}, ${sky.bottom[2]})`);
+
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Stars (fade in as tower grows taller into night and space)
+        const starAlpha = Math.min(1.0, Math.max(0, (score - 16) / 24));
+        if (starAlpha > 0) {
+          ctx.save();
+          const timeSec = performance.now() * 0.001;
+          for (let s of stars) {
+            const twinkle = Math.sin(timeSec * s.twinkleSpeed) * 0.3 + 0.7;
+            ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha * starAlpha * twinkle})`;
+            ctx.beginPath();
+            ctx.arc(s.x * canvas.width, s.y * canvas.height, s.size * dpr, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // Apply screen shake
+        let shakeOffsetX = 0;
+        let shakeOffsetY = 0;
+        if (screenShake > 0) {
+          shakeOffsetX = (Math.random() - 0.5) * screenShake * colScale;
+          shakeOffsetY = (Math.random() - 0.5) * screenShake * colScale;
+        }
+
+        // Setup Virtual Play Area Transformation
+        ctx.save();
+        ctx.translate(colLeft * dpr + shakeOffsetX * dpr, shakeOffsetY * dpr);
+        ctx.scale(colScale * dpr, colScale * dpr);
+
+        // Draw soft ambient clouds in lower atmosphere (fade out as you ascend)
+        const cloudAlpha = Math.max(0, 1.0 - score / 16) * 0.35;
+        if (cloudAlpha > 0) {
+          ctx.fillStyle = `rgba(255, 255, 255, ${cloudAlpha})`;
+          for (let c of clouds) {
+            ctx.beginPath();
+            const cy = c.y * vHeight;
+            ctx.ellipse(c.x + c.width / 2, cy, c.width / 2, c.height / 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // Camera offset for world objects
+        ctx.save();
+        ctx.translate(0, -cameraY);
+
+        // Apply tactile tower bounce to pedestal and placed blocks
+        ctx.save();
+        ctx.translate(0, towerBounceY);
+
+        // Draw ground foundation pedestal
+        const floorY = vHeight * 0.70;
+        const pedestalHeight = Math.max(300, vHeight - floorY + 200);
+        const pedestalGrad = ctx.createLinearGradient(0, floorY + BLOCK_HEIGHT, 0, floorY + BLOCK_HEIGHT + pedestalHeight);
+        pedestalGrad.addColorStop(0, '#1a2332');
+        pedestalGrad.addColorStop(1, '#0b111a');
+        ctx.fillStyle = pedestalGrad;
+        ctx.beginPath();
+        ctx.roundRect((V_WIDTH - 240) / 2, floorY + BLOCK_HEIGHT, 240, pedestalHeight, [4, 4, 0, 0]);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.fillRect((V_WIDTH - 236) / 2, floorY + BLOCK_HEIGHT, 236, 2);
+
+        // 4. ベスト目標: 塔の横（世界座標）に自己ベストの高さの位置に「BEST」の点線ラインを描く
+        if (best > 0) {
+          const bestY = floorY - best * BLOCK_HEIGHT;
+          if (bestY - cameraY >= -80 && bestY - cameraY <= vHeight + 80) {
+            ctx.save();
+            ctx.setLineDash([6, 5]);
+            ctx.strokeStyle = 'rgba(255, 215, 0, 0.75)';
+            ctx.lineWidth = 1.8;
+            ctx.shadowColor = 'rgba(255, 215, 0, 0.5)';
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.moveTo(10, bestY);
+            ctx.lineTo(V_WIDTH - 18, bestY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // BEST フラグラベル（画面右端の高度メーターより内側に収め、重ならないように配置）
+            const labelW = 80;
+            const labelH = 20;
+            const labelX = V_WIDTH - 52 - labelW;
+            const labelY = bestY - 10;
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.roundRect(labelX, labelY, labelW, labelH, 4);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`👑 BEST ${best}段`, labelX + labelW / 2, labelY + 14);
+            ctx.restore();
+          }
+        }
+
+        // Draw placed tower blocks
+        for (let b of tower) {
+          // Viewport culling
+          if (b.y - cameraY > vHeight + 50 || b.y + b.height - cameraY < -50) continue;
+          draw2DBlock(ctx, b.x, b.y, b.width, b.height, b.hue, b.flash, b.dangerPulse, b.regrow, b.specialType, b.isBase);
+        }
+
+        ctx.restore(); // Restore towerBounceY
+
+        // Draw moving block (with残像 for fast blocks, gold aura for gold blocks)
+        if (movingBlock) {
+          // 速いブロックの残像描画
+          if (movingBlock.specialType === 'fast' && movingBlock.afterimages) {
+            for (let img of movingBlock.afterimages) {
+              ctx.save();
+              ctx.globalAlpha = Math.max(0, img.alpha * 0.55);
+              draw2DBlock(ctx, img.x, img.y, img.width, img.height, movingBlock.hue, 0, 0, null, 'fast', false);
+              ctx.restore();
+            }
+          }
+
+          // 移動ブロック本体
+          draw2DBlock(ctx, movingBlock.x, movingBlock.y, movingBlock.width, movingBlock.height, movingBlock.hue, 0, 0, null, movingBlock.specialType, false);
+
+          // 特殊ブロックのヘッドバッジ (見た目ですぐ分かるように)
+          if (movingBlock.specialType === 'gold') {
+            ctx.save();
+            const badgeW = 68;
+            const badgeH = 18;
+            const badgeX = movingBlock.x + (movingBlock.width - badgeW) / 2;
+            const badgeY = movingBlock.y - 23;
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 1.2;
+            ctx.shadowColor = 'rgba(255, 215, 0, 0.7)';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 9);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('★ GOLD ★', badgeX + badgeW / 2, badgeY + 13);
+            ctx.restore();
+          } else if (movingBlock.specialType === 'fast') {
+            ctx.save();
+            const badgeW = 76;
+            const badgeH = 18;
+            const badgeX = movingBlock.x + (movingBlock.width - badgeW) / 2;
+            const badgeY = movingBlock.y - 23;
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+            ctx.strokeStyle = '#00f2fe';
+            ctx.lineWidth = 1.2;
+            ctx.shadowColor = 'rgba(0, 242, 254, 0.7)';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 9);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#00f2fe';
+            ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('⚡ SPEED 1.6x', badgeX + badgeW / 2, badgeY + 13);
+            ctx.restore();
+          }
+        }
+
+        // Draw falling sliced debris
+        for (let d of debrisList) {
+          drawDebris(ctx, d);
+        }
+
+        // Draw expanding rings
+        for (let r of rings) {
+          ctx.save();
+          ctx.strokeStyle = `hsla(${r.hue}, 100%, 75%, ${r.alpha})`;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.ellipse(r.x, r.y, r.radiusX * r.scale, r.radiusY * r.scale * 1.5, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Draw particles
+        for (let p of particles) {
+          ctx.save();
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = Math.max(0, p.alpha);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // Draw floating judgment and score popup texts
+        for (let ft of floatingTexts) {
+          ctx.save();
+          const currentScale = ft.currentScale || ft.baseScale || 1.0;
+          const drawX = ft.jitter ? ft.x + (Math.random() - 0.5) * 3.5 : ft.x;
+          const drawY = ft.jitter ? ft.y + (Math.random() - 0.5) * 3.5 : ft.y;
+          ctx.font = `bold ${Math.round((ft.fontSize || 18) * currentScale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.globalAlpha = Math.max(0, ft.alpha);
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+          ctx.shadowBlur = 5;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 1.5;
+          ctx.strokeStyle = '#070c18';
+          ctx.lineWidth = ft.type === 'point' ? 3.5 : 4;
+          ctx.strokeText(ft.text, drawX, drawY);
+
+          ctx.fillStyle = ft.color;
+          if (ft.glow) {
+            ctx.shadowColor = ft.glow;
+            ctx.shadowBlur = 12;
+          } else {
+            ctx.shadowBlur = 0;
+          }
+          ctx.fillText(ft.text, drawX, drawY);
+          ctx.restore();
+        }
+
+        ctx.restore(); // Restore camera translation
+
+        // --- HUD Overlay (Fixed Screen Space within Column) ---
+        if (gameState === 'play') {
+          ctx.save();
+          ctx.textAlign = 'center';
+
+          // Main Height Score (段数)
+          ctx.font = 'bold 50px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.strokeStyle = '#070c18';
+          ctx.lineWidth = 4;
+          ctx.strokeText(`${score}段`, V_WIDTH / 2, 78);
+          ctx.fillStyle = '#ffffff';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 6;
+          ctx.shadowOffsetY = 2;
+          ctx.fillText(`${score}段`, V_WIDTH / 2, 78);
+
+          // Points (ポイント)
+          ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.strokeStyle = '#070d19';
+          ctx.lineWidth = 3.5;
+          ctx.strokeText(`${points.toLocaleString()} pt`, V_WIDTH / 2, 102);
+          ctx.fillStyle = '#38bdf8';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetY = 1.5;
+          ctx.fillText(`${points.toLocaleString()} pt`, V_WIDTH / 2, 102);
+
+          // Best score badge
+          ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.strokeStyle = '#070d19';
+          ctx.lineWidth = 3;
+          ctx.strokeText(`BEST ${best}段`, V_WIDTH / 2, 122);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetY = 1;
+          ctx.fillText(`BEST ${best}段`, V_WIDTH / 2, 122);
+
+          // Active Combo Multiplier Badge with tactile bounce
+          if (combo >= 2) {
+            ctx.save();
+            ctx.translate(V_WIDTH / 2, 144);
+            ctx.scale(comboBadgePulse, comboBadgePulse);
+            ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillStyle = combo >= 3 ? '#ffe600' : '#4eedff';
+            ctx.shadowColor = combo >= 3 ? 'rgba(255, 230, 0, 0.6)' : 'rgba(78, 237, 255, 0.6)';
+            ctx.shadowBlur = 8;
+            ctx.fillText(`★ COMBO x${combo}`, 0, 0);
+            ctx.restore();
+          }
+
+          // Milestone Announcement Banner (10段ごとにポップ表示)
+          if (milestoneBanner && milestoneBanner.timer > 0) {
+            const banner = milestoneBanner;
+            const t = banner.timer / banner.duration;
+            const bannerAlpha = Math.min(1.0, t < 0.2 ? t / 0.2 : (banner.duration - banner.timer < 0.25 ? (banner.duration - banner.timer) / 0.25 : 1.0));
+
+            ctx.save();
+            ctx.globalAlpha = bannerAlpha;
+
+            const bw = 240;
+            const bh = 54;
+            const bx = (V_WIDTH - bw) / 2;
+            const by = 168;
+
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = 'rgba(255, 215, 0, 0.55)';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.roundRect(bx, by, bw, bh, 27);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+            ctx.fillText(banner.text, V_WIDTH / 2, by + 24);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+            ctx.fillText(banner.subText, V_WIDTH / 2, by + 42);
+
+            ctx.restore();
+          }
+
+          // 高さの見える化（画面右端の細い高度メーター）
+          drawHeightMeter(ctx);
+
+          // 初回チュートリアル（親指で隠れないブロック直上）
+          drawTutorialPrompt(ctx);
+
+          // プレイ中ミッション達成バナー
+          drawMissionBanner(ctx);
+
+          ctx.restore();
+        }
+
+        // --- Title Screen Screen Space ---
+        if (gameState === 'title') {
+          best = Math.max(best, getLatestBest());
+          syncGameHook();
+          ctx.save();
+          ctx.textAlign = 'center';
+
+          // 1. タイトルロゴ
+          ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          ctx.strokeStyle = 'rgba(15, 23, 42, 0.7)';
+          ctx.lineWidth = 4;
+          ctx.strokeText('積み上げタワー', V_WIDTH / 2, vHeight * 0.115);
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+          ctx.shadowBlur = 10;
+          ctx.shadowOffsetY = 2;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText('積み上げタワー', V_WIDTH / 2, vHeight * 0.115);
+
+          // 2. サブタイトル帯
+          const descW = 310;
+          const descH = 28;
+          const descX = (V_WIDTH - descW) / 2;
+          const descY = vHeight * 0.158 - 14;
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+          ctx.shadowBlur = 6;
+          ctx.shadowOffsetY = 2;
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.58)';
+          ctx.beginPath();
+          ctx.roundRect(descX, descY, descW, descH, 14);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetY = 1;
+          ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText('タイミングよくタップしてブロックを積もう！', V_WIDTH / 2, vHeight * 0.158 + 4);
+
+          // 3. 称号表示バッジ
+          const playerRank = getPlayerRank(clearedMissionIds.length);
+          const rankW = 210;
+          const rankH = 26;
+          const rankX = (V_WIDTH - rankW) / 2;
+          const rankY = vHeight * 0.20 - 13;
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+          ctx.strokeStyle = playerRank.color;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.roundRect(rankX, rankY, rankW, rankH, 13);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          ctx.fillStyle = playerRank.color;
+          ctx.fillText(`称号: ${playerRank.name} ${playerRank.stars}`, V_WIDTH / 2, rankY + 17);
+
+          // 4. 「❓ あそびかた」ボタン & 「👑 自己ベスト」
+          const btnW = 135;
+          const btnH = 30;
+          const helpBtnX = 52;
+          const helpBtnY = vHeight * 0.245 - 15;
+
+          // あそびかたボタン（濃い背景＋白文字で青空の上でもはっきり読める）
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.roundRect(helpBtnX, helpBtnY, btnW, btnH, 15);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText('❓ あそびかた', helpBtnX + btnW / 2, helpBtnY + 19);
+
+          // 自己ベスト
+          const bestBtnX = 203;
+          const bestBtnY = helpBtnY;
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+          ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.roundRect(bestBtnX, bestBtnY, btnW, btnH, 15);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffd700';
+          ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillText(`👑 BEST: ${best}段`, bestBtnX + btnW / 2, bestBtnY + 19);
+
+          // 5. 常に3つのミッション表示
+          const missionHeaderY = vHeight * 0.29;
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText('🎯 現在のミッション (3つ)', 32, missionHeaderY);
+          ctx.textAlign = 'right';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+          ctx.font = '11px -apple-system, sans-serif';
+          ctx.fillText(`達成: ${clearedMissionIds.length} / ${MISSION_LIST.length}`, V_WIDTH - 32, missionHeaderY);
+
+          const activeMissions = getActiveMissions();
+          let cardY = missionHeaderY + 8;
+          for (let m of activeMissions) {
+            drawMissionCard(ctx, m, 30, cardY, V_WIDTH - 60, 36);
+            cardY += 41;
+          }
+
+          // 6. スタートボタン
+          const pulse = Math.sin(performance.now() * 0.005) * 0.2 + 0.8;
+          const startBtnW = 260;
+          const startBtnH = 62;
+          const startBtnX = (V_WIDTH - startBtnW) / 2;
+          const startBtnY = vHeight * 0.46;
+
+          ctx.save();
+          ctx.fillStyle = `rgba(15, 23, 42, ${0.60 * pulse + 0.15})`;
+          ctx.strokeStyle = `rgba(78, 237, 255, ${0.5 * pulse + 0.3})`;
+          ctx.lineWidth = 1.8;
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+          ctx.shadowBlur = 10;
+          ctx.shadowOffsetY = 3;
+          ctx.beginPath();
+          ctx.roundRect(startBtnX, startBtnY, startBtnW, startBtnH, 31);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.textAlign = 'center';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+          ctx.shadowBlur = 6;
+          ctx.shadowOffsetY = 1;
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+          ctx.fillText('▶ タップでスタート', V_WIDTH / 2, startBtnY + 28);
+
+          ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+          ctx.fillText('[Space] キーまたはクリック', V_WIDTH / 2, startBtnY + 48);
+          ctx.restore();
+
+          // 7. あそびかたモーダル描画
+          drawHelpModal(ctx);
+
+          ctx.restore();
+        }
+
+        // --- Game Over Screen Screen Space ---
+        if (gameState === 'over') {
+          const timeSinceOver = (performance.now() - gameOverTime) / 1000;
+          const panelDelay = 0.75; // 最後のブロックがゆっくり落ちていく様子が見えるように少し間を取る
+
+          if (timeSinceOver >= panelDelay) {
+            ctx.save();
+            const fade = Math.min(1.0, (timeSinceOver - panelDelay) / 0.25);
+            ctx.globalAlpha = fade;
+
+            // Dark frosted overlay
+            ctx.fillStyle = 'rgba(10, 15, 26, 0.78)';
+            ctx.fillRect(0, 0, V_WIDTH, vHeight);
+
+            // Modal Box (330 x 438)
+            const boxW = 330;
+            const boxH = 438;
+            const boxX = (V_WIDTH - boxW) / 2;
+            const boxY = Math.max(16, (vHeight - boxH) / 2);
+
+            ctx.fillStyle = 'rgba(23, 32, 51, 0.95)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+            ctx.shadowBlur = 16;
+            ctx.beginPath();
+            ctx.roundRect(boxX, boxY, boxW, boxH, 18);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ff4d6d';
+            ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText('GAME OVER', V_WIDTH / 2, boxY + 28);
+
+            // Score (段数) & Points (ポイント)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
+            ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText('タワーの高さ', V_WIDTH / 2, boxY + 47);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(`${score}段`, V_WIDTH / 2, boxY + 80);
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(`獲得ポイント: ${points.toLocaleString()} pt`, V_WIDTH / 2, boxY + 100);
+
+            // 統計プレート (PERFECT回数、最大コンボ、ゴールド取得数)
+            const statsPlateX = boxX + 16;
+            const statsPlateY = boxY + 110;
+            const statsPlateW = boxW - 32;
+            const statsPlateH = 50;
+
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(statsPlateX, statsPlateY, statsPlateW, statsPlateH, 10);
+            ctx.fill();
+            ctx.stroke();
+
+            const colW = statsPlateW / 3;
+            // 1. PERFECT回数
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText('PERFECT', statsPlateX + colW * 0.5, statsPlateY + 17);
+            ctx.fillStyle = '#00f2fe';
+            ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(`${perfectCount}回`, statsPlateX + colW * 0.5, statsPlateY + 36);
+
+            // 区切り線1
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+            ctx.beginPath();
+            ctx.moveTo(statsPlateX + colW, statsPlateY + 8);
+            ctx.lineTo(statsPlateX + colW, statsPlateY + statsPlateH - 8);
+            ctx.stroke();
+
+            // 2. 最大コンボ
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText('最大コンボ', statsPlateX + colW * 1.5, statsPlateY + 17);
+            ctx.fillStyle = '#ffe600';
+            ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(`x${maxCombo}`, statsPlateX + colW * 1.5, statsPlateY + 36);
+
+            // 区切り線2
+            ctx.beginPath();
+            ctx.moveTo(statsPlateX + colW * 2, statsPlateY + 8);
+            ctx.lineTo(statsPlateX + colW * 2, statsPlateY + statsPlateH - 8);
+            ctx.stroke();
+
+            // 3. ゴールド取得数
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText('ゴールド', statsPlateX + colW * 2.5, statsPlateY + 17);
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(`${goldCount}個`, statsPlateX + colW * 2.5, statsPlateY + 36);
+
+            // 称号表示 or 称号アップ演出バナー
+            const currentRank = getPlayerRank(clearedMissionIds.length);
+            const rankBannerY = boxY + 168;
+            const rankBannerH = 26;
+            if (rankedUpThisRun) {
+              // 称号アップ! 祝賀バナー
+              ctx.save();
+              const rPulse = Math.sin(performance.now() * 0.008) * 0.15 + 0.85;
+              ctx.fillStyle = 'rgba(236, 72, 153, 0.22)';
+              ctx.strokeStyle = '#ec4899';
+              ctx.lineWidth = 1.4;
+              ctx.shadowColor = '#ec4899';
+              ctx.shadowBlur = 8;
+              ctx.beginPath();
+              ctx.roundRect(boxX + 16, rankBannerY, boxW - 32, rankBannerH, 13);
+              ctx.fill();
+              ctx.stroke();
+
+              ctx.shadowBlur = 0;
+              ctx.fillStyle = '#ffd700';
+              ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+              ctx.fillText(`🎉 称号アップ! 【${rankedUpThisRun.name}】に昇格!`, V_WIDTH / 2, rankBannerY + 18);
+              ctx.restore();
+            } else {
+              // 通常の称号表示
+              ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+              ctx.strokeStyle = currentRank.color;
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.roundRect(boxX + 24, rankBannerY, boxW - 48, rankBannerH, 13);
+              ctx.fill();
+              ctx.stroke();
+
+              ctx.fillStyle = currentRank.color;
+              ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+              ctx.fillText(`現在の称号: ${currentRank.name} ${currentRank.stars}`, V_WIDTH / 2, rankBannerY + 17);
+            }
+
+            // ミッション進捗（常に3つのミッション表示）
+            const mSecY = boxY + 214;
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('🎯 ミッション進捗', boxX + 18, mSecY);
+            ctx.textAlign = 'right';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.font = '10px -apple-system, sans-serif';
+            ctx.fillText(`累計達成: ${clearedMissionIds.length}個`, boxX + boxW - 18, mSecY);
+
+            const activeMissions = getActiveMissions();
+            let mCardY = mSecY + 7;
+            for (let m of activeMissions) {
+              drawMissionCard(ctx, m, boxX + 16, mCardY, boxW - 32, 32);
+              mCardY += 37;
+            }
+
+            // ベスト目標 / NEW BEST / あと◯段でベスト表示
+            const bestInfoY = boxY + 348;
+            ctx.textAlign = 'center';
+            if (isNewBest && score > 0) {
+              ctx.fillStyle = '#ffd700';
+              ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              ctx.fillText('★ NEW BEST RECORD! ★', V_WIDTH / 2, bestInfoY);
+            } else if (prevBest > 0) {
+              const diff = prevBest - score;
+              if (diff > 0) {
+                ctx.fillStyle = '#fbbf24';
+                ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+                ctx.fillText(`あと ${diff}段 で自己ベスト更新 (${prevBest}段)`, V_WIDTH / 2, bestInfoY);
+              } else {
+                ctx.fillStyle = '#fbbf24';
+                ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+                ctx.fillText(`自己ベストタイ記録！ (${prevBest}段)`, V_WIDTH / 2, bestInfoY);
+              }
+            } else {
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+              ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+              ctx.fillText(`自己ベスト: ${best}段`, V_WIDTH / 2, bestInfoY);
+            }
+
+            // Retry Prompt (パネル表示後 0.6s は入力無効維持、つまり timeSinceOver >= 1.35s で有効化)
+            const canRetry = (timeSinceOver >= panelDelay + 0.6);
+            if (canRetry) {
+              const retryPulse = Math.sin(performance.now() * 0.007) * 0.25 + 0.75;
+              ctx.save();
+              ctx.globalAlpha = fade * retryPulse;
+
+              const rBtnW = 210;
+              const rBtnH = 42;
+              const rBtnX = (V_WIDTH - rBtnW) / 2;
+              const rBtnY = boxY + 368;
+
+              ctx.fillStyle = 'rgba(78, 237, 255, 0.2)';
+              ctx.strokeStyle = '#4eedff';
+              ctx.lineWidth = 1.5;
+              ctx.beginPath();
+              ctx.roundRect(rBtnX, rBtnY, rBtnW, rBtnH, 21);
+              ctx.fill();
+              ctx.stroke();
+
+              ctx.fillStyle = '#4eedff';
+              ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif';
+              ctx.fillText('▶ タップでリトライ', V_WIDTH / 2, rBtnY + 26);
+              ctx.restore();
+            } else {
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+              ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+              ctx.fillText('少しお待ちください...', V_WIDTH / 2, boxY + 390);
+            }
+
+            ctx.restore();
+          }
+        }
+
+        // Screen white flash overlay on PERFECT
+        if (screenWhiteFlash > 0) {
+          ctx.save();
+          ctx.fillStyle = `rgba(255, 255, 255, ${screenWhiteFlash})`;
+          ctx.fillRect(0, 0, V_WIDTH, vHeight);
+          ctx.restore();
+        }
+
+        ctx.restore(); // Restore virtual play area transformation
+
+        // Pillarbox letterboxing on widescreen/desktop
+        if (colLeft > 0) {
+          ctx.save();
+          ctx.fillStyle = '#0a0d14';
+          ctx.fillRect(0, 0, colLeft * dpr, canvas.height);
+          ctx.fillRect((colLeft + colWidth) * dpr, 0, (screenWidth - (colLeft + colWidth)) * dpr, canvas.height);
+
+          // Subtle column border lines
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+          ctx.lineWidth = 1 * dpr;
+          ctx.beginPath();
+          ctx.moveTo(colLeft * dpr, 0);
+          ctx.lineTo(colLeft * dpr, canvas.height);
+          ctx.moveTo((colLeft + colWidth) * dpr, 0);
+          ctx.lineTo((colLeft + colWidth) * dpr, canvas.height);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // --- Main Animation Loop with Clamped Delta Time ---
+      let lastTime = performance.now();
+
+      function gameLoop(now) {
+        const rawDt = (now - lastTime) / 1000;
+        lastTime = now;
+        const dt = Math.min(rawDt, 0.1); // Clamp to prevent jump on tab switch
+
+        update(dt);
+        render();
+
+        requestAnimationFrame(gameLoop);
+      }
+
+      // Start on title screen
+      initTower();
+      requestAnimationFrame(gameLoop);
+
+    })();
+  </script>
+</body>
+</html>
