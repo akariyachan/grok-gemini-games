@@ -493,6 +493,38 @@
           });
         } catch(e) {}
       }
+
+      playCountdown(num) {
+        if (this.muted || !this.ctx || !this.sfxGain) return;
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          if (num === 0) {
+            // "GO!" / Resume sound
+            osc.frequency.setValueAtTime(880, t);
+            osc.frequency.exponentialRampToValueAtTime(1760, t + 0.15);
+            gain.gain.setValueAtTime(0.2, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+            osc.connect(gain);
+            gain.connect(this.sfxGain);
+            osc.start(t);
+            osc.stop(t + 0.2);
+          } else {
+            // Countdown tick (3 -> 2 -> 1 rising pitch)
+            const freqs = { 3: 440, 2: 554.37, 1: 659.25 };
+            const freq = freqs[num] || 440;
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.18, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+            osc.connect(gain);
+            gain.connect(this.sfxGain);
+            osc.start(t);
+            osc.stop(t + 0.13);
+          }
+        } catch(e) {}
+      }
     }
 
     const sound = new SoundFx();
@@ -514,7 +546,7 @@
         pattern: 'day'
       },
       {
-        minMeters: 400,
+        minMeters: 300,
         name: 'FAST',
         bannerTitle: 'TIER 2 ― SUNSET',
         bpm: 132,
@@ -528,7 +560,7 @@
         pattern: 'sunset'
       },
       {
-        minMeters: 900,
+        minMeters: 700,
         name: 'TURBO',
         bannerTitle: 'TIER 3 ― NEON NIGHT',
         bpm: 148,
@@ -542,7 +574,7 @@
         pattern: 'neon'
       },
       {
-        minMeters: 1500,
+        minMeters: 1200,
         name: 'HYPER',
         bannerTitle: 'TIER 4 ― CRITICAL RED',
         bpm: 165,
@@ -628,9 +660,11 @@
     let virtualH = MIN_VIRTUAL_H;
     let playerInitialized = false;
     let isPortrait = false;
+    const FIGURE_HALF_HEIGHT = 21;
 
     // Track vertical bounds (in virtual coordinates)
-    const TRACK_HEIGHT = 300;
+    let trackHeight = 300;
+    let travelScale = 1.0;
     let trackCenterY = 250;
     let ceilingY = 100;
     let floorY = 400;
@@ -648,16 +682,32 @@
       canvas.style.width = w + 'px';
       canvas.style.height = h + 'px';
 
-      // Always guarantee at least 800px virtual width for gameplay visibility
-      renderScale = Math.min((w * dpr) / MIN_VIRTUAL_W, (h * dpr) / MIN_VIRTUAL_H);
+      // Scale virtual coordinates: In portrait (e.g. 390x844), guarantee at least 600px forward view,
+      // and in landscape guarantee at least 800px.
+      const targetVirtualW = isPortrait ? 600 : 800;
+      const targetVirtualH = isPortrait ? 420 : 500;
+      renderScale = Math.min((w * dpr) / targetVirtualW, (h * dpr) / targetVirtualH);
       if (renderScale <= 0) renderScale = 1;
 
       virtualW = (w * dpr) / renderScale;
       virtualH = (h * dpr) / renderScale;
-
       trackCenterY = virtualH / 2;
-      ceilingY = trackCenterY - (TRACK_HEIGHT / 2);
-      floorY = trackCenterY + (TRACK_HEIGHT / 2);
+
+      // In portrait mode, dynamically expand trackHeight so the play area occupies at least 52% of the screen height (vertical spaciousness)
+      const scaleFactor = renderScale / dpr;
+      if (isPortrait) {
+        const targetScreenTrackH = Math.max(300 * scaleFactor, h * 0.54);
+        trackHeight = targetScreenTrackH / scaleFactor;
+      } else {
+        trackHeight = 300;
+      }
+
+      ceilingY = trackCenterY - (trackHeight / 2);
+      floorY = trackCenterY + (trackHeight / 2);
+
+      // Travel ratio for vertical physics scaling (keeps flip duration exactly 0.7194s across all screens)
+      const baseTravel = 300 - 2 * FIGURE_HALF_HEIGHT; // 256
+      travelScale = (trackHeight - 2 * FIGURE_HALF_HEIGHT) / baseTravel;
 
       if (playerInitialized && player && player.isGrounded) {
         player.y = (player.groundedSurface === 'floor') ? (floorY - FIGURE_HALF_HEIGHT) : (ceilingY + FIGURE_HALF_HEIGHT);
@@ -772,16 +822,153 @@
     let gameTime = 0;
     const GAME_OVER_INPUT_LOCK = 0.6; // 0.6s input lock after game over
 
-    // Juice timers
+    // Juice timers & Screen Shake setting (localStorage persisted)
     let hitStopTimer = 0;
     let slowMotionTimer = 0; // 0.15s slow-motion on near miss
     let screenShake = { timer: 0, duration: 0, intensity: 0 };
     let speedUpBanner = { active: false, timer: 0, title: '', accent: '#0284c7' };
 
+    const SCREENSHAKE_STORAGE_KEY = 'gravity_runner_screenshake';
+    let screenShakeEnabled = true;
+    try {
+      const savedShake = localStorage.getItem(SCREENSHAKE_STORAGE_KEY);
+      if (savedShake !== null) {
+        screenShakeEnabled = (savedShake === 'true');
+      }
+    } catch(e) {}
+
+    function toggleScreenShake() {
+      screenShakeEnabled = !screenShakeEnabled;
+      try {
+        localStorage.setItem(SCREENSHAKE_STORAGE_KEY, String(screenShakeEnabled));
+      } catch(e) {}
+      return screenShakeEnabled;
+    }
+
     function addScreenShake(intensity, duration) {
+      if (!screenShakeEnabled) {
+        screenShake.timer = 0;
+        return;
+      }
       screenShake.intensity = Math.max(screenShake.intensity, intensity);
       screenShake.duration = Math.max(screenShake.duration, duration);
       screenShake.timer = Math.max(screenShake.timer, duration);
+    }
+
+    // --- Pause & Countdown System ---
+    let isPaused = false;
+    let pauseCountdown = 0;
+    let countdownAnnouncedSecond = -1;
+    const PAUSE_BTN_SIZE = 28;
+    const PAUSE_BTN_MARGIN = 14;
+
+    function pauseGame() {
+      if (state !== 'playing' || isPaused) return;
+      isPaused = true;
+      pauseCountdown = 0;
+      countdownAnnouncedSecond = -1;
+      sound.stopBgm();
+    }
+
+    function startResumeCountdown() {
+      if (!isPaused || pauseCountdown > 0) return;
+      pauseCountdown = 3.0;
+      countdownAnnouncedSecond = 3;
+      sound.playCountdown(3);
+    }
+
+    function togglePause() {
+      if (state !== 'playing') return;
+      if (!isPaused) {
+        pauseGame();
+      } else if (pauseCountdown <= 0) {
+        startResumeCountdown();
+      } else {
+        pauseGame();
+      }
+    }
+
+    // --- Result Share System ---
+    let copySuccessTimer = 0;
+    let showFallbackShareText = false;
+    let fallbackInputElem = null;
+
+    function getShareText() {
+      const scoreStr = Math.floor(gameScore).toLocaleString();
+      const distStr = Math.floor(scoreMeters);
+      const coinStr = coinsCollected;
+      return `重力反転ランナーで ${scoreStr}点（${distStr}m・コイン${coinStr}枚）！ https://akariyachan.github.io/grok-gemini-games/gravity-runner/`;
+    }
+
+    function copyResultToClipboard() {
+      const text = getShareText();
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          copySuccessTimer = 2.2;
+          showFallbackShareText = false;
+          removeFallbackInputElement();
+          sound.playCoin(0, 1, true);
+        }).catch(() => {
+          fallbackClipboardCopy(text);
+        });
+      } else {
+        fallbackClipboardCopy(text);
+      }
+    }
+
+    function fallbackClipboardCopy(text) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (successful) {
+          copySuccessTimer = 2.2;
+          showFallbackShareText = false;
+          removeFallbackInputElement();
+          sound.playCoin(0, 1, true);
+          return;
+        }
+      } catch (err) {}
+
+      showFallbackShareText = true;
+      createFallbackInputElement(text);
+    }
+
+    function createFallbackInputElement(text) {
+      if (fallbackInputElem) return;
+      fallbackInputElem = document.createElement('input');
+      fallbackInputElem.type = 'text';
+      fallbackInputElem.readOnly = true;
+      fallbackInputElem.value = text;
+      fallbackInputElem.style.position = 'fixed';
+      fallbackInputElem.style.bottom = '18px';
+      fallbackInputElem.style.left = '50%';
+      fallbackInputElem.style.transform = 'translateX(-50%)';
+      fallbackInputElem.style.width = '90%';
+      fallbackInputElem.style.maxWidth = '420px';
+      fallbackInputElem.style.padding = '8px 12px';
+      fallbackInputElem.style.fontSize = '12px';
+      fallbackInputElem.style.background = '#ffffff';
+      fallbackInputElem.style.border = '2px solid #0284c7';
+      fallbackInputElem.style.borderRadius = '8px';
+      fallbackInputElem.style.color = '#0f172a';
+      fallbackInputElem.style.zIndex = '999';
+      document.body.appendChild(fallbackInputElem);
+      fallbackInputElem.select();
+    }
+
+    function removeFallbackInputElement() {
+      if (fallbackInputElem && fallbackInputElem.parentNode) {
+        fallbackInputElem.parentNode.removeChild(fallbackInputElem);
+        fallbackInputElem = null;
+      }
     }
 
     function getComboMultiplier(combo) {
@@ -800,7 +987,6 @@
     // Physics parameters (soft floaty gravity)
     const GRAVITY_ACCEL = 1000; // px/s^2
     const MAX_VERTICAL_SPEED = 680;
-    const FIGURE_HALF_HEIGHT = 21;
     const PLAYER_X = 84;
     const FLIP_BUFFER_WINDOW = 0.12; // 0.12s input buffer window before landing
 
@@ -868,10 +1054,10 @@
       }
 
       // 2. Comprehensive Trajectory Safety Simulation:
-      // Checks if flipping NOW would cause collision during transit, on landing, or for 0.45s after landing.
+      // Checks if flipping NOW would cause collision during transit, on landing, or for 0.85s after landing.
       function isSafeToFlip() {
-        const totalSimTime = transitTime + 0.45;
-        const steps = 12;
+        const totalSimTime = transitTime + 0.85;
+        const steps = 18;
 
         for (let i = 1; i <= steps; i++) {
           const t = (i / steps) * totalSimTime;
@@ -882,14 +1068,14 @@
 
           const simHitbox = {
             x: player.x - 12,
-            y: simY - FIGURE_HALF_HEIGHT + 3,
+            y: simY - FIGURE_HALF_HEIGHT + 2,
             w: 24,
-            h: FIGURE_HALF_HEIGHT * 2 - 6
+            h: FIGURE_HALF_HEIGHT * 2 - 4
           };
 
           for (const obs of obstacles) {
             const simObsX = obs.x - currentSpeed * t;
-            if (simObsX + obs.w < simHitbox.x - 20 || simObsX > simHitbox.x + simHitbox.w + 20) {
+            if (simObsX + obs.w < simHitbox.x - 25 || simObsX > simHitbox.x + simHitbox.w + 25) {
               continue;
             }
 
@@ -902,14 +1088,14 @@
               simObsY = obs.baseY + Math.sin((gameTime + t) * obs.speedFactor + obs.phase) * obs.amplitude - (obs.h / 2);
             }
 
-            const margin = 8;
+            const margin = 10;
             if (
               simHitbox.x < simObsX + obs.w + margin &&
               simHitbox.x + simHitbox.w > simObsX - margin &&
               simHitbox.y < simObsY + obs.h + margin &&
               simHitbox.y + simHitbox.h > simObsY - margin
             ) {
-              return false; // Collision risk along simulated trajectory!
+              return false; // Collision risk along simulated trajectory or post-landing!
             }
           }
         }
@@ -931,9 +1117,9 @@
       if (threat) {
         const timeToHit = (threat.x - (player.x + 13)) / currentSpeed;
 
-        // Approaching danger on current surface: react with ample safety margin (0.58s)
-        if (timeToHit <= 0.58 && autopilotActionCooldown <= 0) {
-          if (isSafeToFlip() || timeToHit <= 0.22) {
+        // Approaching danger on current surface: react with ample safety margin (0.62s)
+        if (timeToHit <= 0.62 && autopilotActionCooldown <= 0) {
+          if (isSafeToFlip() || timeToHit <= 0.28) {
             autopilotActionCooldown = 0.35;
             player.flip();
             return;
@@ -942,10 +1128,23 @@
       }
 
       // 4. Safe Opportunistic Flip for Power-ups, Gold Stars, and Aerial Coins
-      // Only flip when current surface is completely clear of threats for at least 1.35 seconds!
-      const isCurrentSurfaceClear = !threat || ((threat.x - player.x) / currentSpeed > 1.35);
+      // Only flip when current surface is completely clear of threats for at least 1.4s,
+      // AND landing surface has no incoming threats for at least (transitTime + 0.9s)!
+      const isCurrentSurfaceClear = !threat || ((threat.x - player.x) / currentSpeed > 1.4);
 
-      if (isCurrentSurfaceClear && autopilotActionCooldown <= 0) {
+      const destThreat = obstacles.find(o => {
+        if (o.x + o.w <= player.x - 5) return false;
+        if (o.surface === otherSurf) return true;
+        if (o.surface === 'moving') {
+          const oy = o.getY();
+          const targetY = (otherSurf === 'floor') ? (floorY - FIGURE_HALF_HEIGHT) : (ceilingY + FIGURE_HALF_HEIGHT);
+          return Math.abs(oy + o.h / 2 - targetY) < 70;
+        }
+        return false;
+      });
+      const isDestinationClear = !destThreat || ((destThreat.x - player.x) / currentSpeed > transitTime + 0.9);
+
+      if (isCurrentSurfaceClear && isDestinationClear && autopilotActionCooldown <= 0) {
         // (a) Target aerial Power-ups (Shield, Magnet)
         const powerUpAhead = powerUps.find(p => !p.collected && p.x > player.x + 20 && p.x < player.x + transitDist + 70);
         if (powerUpAhead && isSafeToFlip()) {
@@ -1064,10 +1263,10 @@
         const totalTravel = floorCenterY - ceilingCenterY;
 
         if (!this.isGrounded) {
-          // Accelerate gently toward target surface
-          this.vy += GRAVITY_ACCEL * this.gravityDir * dt;
-          if (Math.abs(this.vy) > MAX_VERTICAL_SPEED) {
-            this.vy = Math.sign(this.vy) * MAX_VERTICAL_SPEED;
+          // Accelerate gently toward target surface (scaled by travelScale in portrait to maintain identical transit timing)
+          this.vy += GRAVITY_ACCEL * travelScale * this.gravityDir * dt;
+          if (Math.abs(this.vy) > MAX_VERTICAL_SPEED * travelScale) {
+            this.vy = Math.sign(this.vy) * MAX_VERTICAL_SPEED * travelScale;
           }
           this.y += this.vy * dt;
 
@@ -1233,15 +1432,47 @@
       }
     }
 
+    const MAX_ACTIVE_POPUPS = 3;
     function spawnPopupText(x, y, text, color = '#0284c7', fontSize = 14, isBold = true) {
+      // 1. Strict limit on simultaneous active popups to prevent screen clutter
+      while (popupTexts.length >= MAX_ACTIVE_POPUPS) {
+        popupTexts.shift();
+      }
+
+      // 2. Vertical offset & overlap prevention:
+      // If any active popup is horizontally close (within 140px), iteratively shift targetY
+      // so no two popups share the same vertical band (minimum 26px spacing).
+      const nearby = popupTexts.filter(p => Math.abs(p.x - x) < 140);
+      let targetY = y;
+      const minDistance = 26;
+
+      let collided = true;
+      let iterations = 0;
+      while (collided && iterations < 8) {
+        collided = false;
+        iterations++;
+        for (const other of nearby) {
+          if (Math.abs(other.y - targetY) < minDistance) {
+            // Shift upward if space permits, otherwise shift downward
+            if (targetY < ceilingY + 36) {
+              targetY = other.y + minDistance;
+            } else {
+              targetY = other.y - minDistance;
+            }
+            collided = true;
+            break;
+          }
+        }
+      }
+
       popupTexts.push({
         x: x,
-        y: y,
+        y: targetY,
         text: text,
         color: color,
         fontSize: fontSize,
         isBold: isBold,
-        vy: -40,
+        vy: -32,
         alpha: 1.0,
         life: 0.85
       });
@@ -1583,16 +1814,17 @@
     function getFlipTrajectoryY(fromSurface, tRatio) {
       const isFromFloor = (fromSurface === 'floor');
       const startY = isFromFloor ? (floorY - FIGURE_HALF_HEIGHT) : (ceilingY + FIGURE_HALF_HEIGHT);
+      const totalTravel = (floorY - FIGURE_HALF_HEIGHT) - (ceilingY + FIGURE_HALF_HEIGHT);
       const dir = isFromFloor ? -1 : 1;
       const totalT = 0.7194; // Total transit duration (0.68s accel + 0.0394s at max speed)
       const t = Math.max(0, Math.min(totalT, tRatio * totalT));
       let dy = 0;
       if (t <= 0.68) {
-        dy = 0.5 * GRAVITY_ACCEL * t * t;
+        dy = 0.5 * (GRAVITY_ACCEL * travelScale) * t * t;
       } else {
-        dy = 231.2 + MAX_VERTICAL_SPEED * (t - 0.68);
+        dy = (231.2 * travelScale) + (MAX_VERTICAL_SPEED * travelScale) * (t - 0.68);
       }
-      return startY + dir * Math.min(258, dy);
+      return startY + dir * Math.min(totalTravel, dy);
     }
 
     function spawnCoinArc(startX, fromSurface, toSurface, count = 5) {
@@ -1851,8 +2083,25 @@
       if (isTutorialActive) return; // Completely obstacle-free during tutorial guided zone
 
       const transitDist = currentSpeed * 0.7194;
-      const isFirst60s = (gameTime < 60 || scoreMeters < 400);
-      const isTier3Plus = (currentTierIndex >= 2);
+      const isFirst60s = (gameTime < 60 || scoreMeters < 300);
+      const isTier3Plus = (currentTierIndex >= 2 || scoreMeters >= 700);
+      const isTier4 = (currentTierIndex >= 3 || scoreMeters >= 1200);
+
+      // Breathing zone (息継ぎ区間): 1.0s before each tier boundary (300, 700, 1200m), do NOT spawn obstacles.
+      // Account for pattern width so preceding multi-obstacle patterns never encroach into the 1.0s breathing window.
+      const tierBoundaries = [300, 700, 1200];
+      const nextSpawnDistMeters = scoreMeters + (nextSpawnX - player.x) / 24;
+      const graceDistMeters = (currentSpeed * 1.0) / 24; // Distance traveled in 1.0 second
+      const patternMarginMeters = 14; // Prevents preceding pattern tail from intruding into breathing zone
+      for (const boundary of tierBoundaries) {
+        if (nextSpawnDistMeters >= (boundary - graceDistMeters - patternMarginMeters) && nextSpawnDistMeters <= boundary + 2) {
+          const skipMeters = (boundary + 3.0) - scoreMeters;
+          if (skipMeters > 0) {
+            nextSpawnX = Math.max(nextSpawnX, player.x + skipMeters * 24 + 40);
+          }
+          return;
+        }
+      }
 
       // Chance to spawn aerial Power-Up in the gap
       maybeSpawnPowerUp(nextSpawnX + transitDist * 0.4);
@@ -1867,9 +2116,13 @@
       let choices = [0, 1];
       if (!isFirst60s) {
         choices = [0, 1, 2, 3, 4, 5, 6, 7];
-        if (scoreMeters >= 450) choices.push(8); // Moving energy hazard
-        if (scoreMeters >= 750) choices.push(9); // Zigzag rhythm run
-        if (scoreMeters >= 950) choices.push(10); // Narrow tunnel challenge
+        if (scoreMeters >= 380) choices.push(8); // Moving energy hazard
+        if (scoreMeters >= 580) choices.push(9); // Zigzag rhythm run
+        if (scoreMeters >= 700) choices.push(10); // Narrow tunnel challenge
+        if (isTier4) {
+          // New pattern: Triple alternating gates in Tier 4
+          choices.push(11, 11);
+        }
       } else {
         choices = [0, 1, 2, 3];
       }
@@ -2053,6 +2306,32 @@
           nextSpawnX = tunnelCeilingX + transitDist + minRunBuffer + 150;
           break;
         }
+
+        case 11: {
+          // Triple Alternating Gates (Tier 4 Peak Challenge)
+          // 3 consecutive short tunnels alternating Floor -> Ceiling -> Floor
+          const gateGap = transitDist + Math.max(68, currentSpeed * 0.16);
+
+          // Gate 1: Floor short tunnel (Floor block)
+          obstacles.push(new Obstacle({ surface: 'floor', type: 'block', x: nextSpawnX, w: 38, h: 48 }));
+          spawnGoldStar(nextSpawnX + 19, floorY - 56);
+          spawnCoinArc(nextSpawnX - currentSpeed * 0.25, 'floor', 'ceiling', 4);
+
+          // Gate 2: Ceiling short tunnel (Ceiling block)
+          const gate2X = nextSpawnX + gateGap;
+          obstacles.push(new Obstacle({ surface: 'ceiling', type: 'block', x: gate2X, w: 38, h: 48 }));
+          spawnGoldStar(gate2X + 19, ceilingY + 56);
+          spawnCoinArc(gate2X - currentSpeed * 0.25, 'ceiling', 'floor', 4);
+
+          // Gate 3: Floor short tunnel (Floor block)
+          const gate3X = gate2X + gateGap;
+          obstacles.push(new Obstacle({ surface: 'floor', type: 'block', x: gate3X, w: 38, h: 48 }));
+          spawnGoldStar(gate3X + 19, floorY - 56);
+          spawnCoinArc(gate3X - currentSpeed * 0.25, 'floor', 'ceiling', 4);
+
+          nextSpawnX = gate3X + transitDist + minRunBuffer + 160;
+          break;
+        }
       }
 
       patternIndex++;
@@ -2168,7 +2447,7 @@
         line.x -= currentSpeed * line.speedFactor * dt;
         if (line.x < -line.len) {
           line.x = virtualW + Math.random() * 160;
-          line.y = ceilingY + 15 + Math.random() * (TRACK_HEIGHT - 30);
+          line.y = ceilingY + 15 + Math.random() * (trackHeight - 30);
         }
       }
     }
@@ -2228,6 +2507,12 @@
       sound.setBpm(SPEED_TIERS[0].bpm);
       sound.startBgm();
 
+      isPaused = false;
+      pauseCountdown = 0;
+      copySuccessTimer = 0;
+      showFallbackShareText = false;
+      removeFallbackInputElement();
+
       syncGameTestingObj();
     }
 
@@ -2236,6 +2521,12 @@
       gameOverTimer = 0;
       player.flipBufferTimer = 0;
       isTutorialActive = false;
+
+      isPaused = false;
+      pauseCountdown = 0;
+      copySuccessTimer = 0;
+      showFallbackShareText = false;
+      removeFallbackInputElement();
 
       // Juice: 80ms hit-stop & strong screen shake
       hitStopTimer = 0.08;
@@ -2277,6 +2568,12 @@
       if (state === 'title') {
         startGame();
       } else if (state === 'playing') {
+        if (isPaused) {
+          if (pauseCountdown <= 0) {
+            startResumeCountdown();
+          }
+          return; // CRITICAL: NEVER flip while paused!
+        }
         if (startInputLockTimer > 0) return;
         player.flip();
       } else if (state === 'gameover') {
@@ -2302,12 +2599,26 @@
       );
     }
 
+    function isPauseButtonClicked(clientX, clientY) {
+      if (state !== 'playing') return false;
+      const hitPadding = 8;
+      const x = canvasWidth - MUTE_BTN_MARGIN - MUTE_BTN_SIZE - 8 - PAUSE_BTN_SIZE;
+      const y = PAUSE_BTN_MARGIN;
+      return (
+        clientX >= x - hitPadding &&
+        clientX <= x + PAUSE_BTN_SIZE + hitPadding &&
+        clientY >= y - hitPadding &&
+        clientY <= y + PAUSE_BTN_SIZE + hitPadding
+      );
+    }
+
     let lastInputTime = 0;
     function handlePointer(e, clientX, clientY) {
       const now = performance.now();
       if (now - lastInputTime < 80) return;
       lastInputTime = now;
 
+      // 1. Mute button click
       if (isMuteButtonClicked(clientX, clientY)) {
         if (e && e.cancelable) e.preventDefault();
         sound.init();
@@ -2315,19 +2626,72 @@
         return;
       }
 
+      // 2. Pause button click
+      if (isPauseButtonClicked(clientX, clientY)) {
+        if (e && e.cancelable) e.preventDefault();
+        sound.init();
+        togglePause();
+        return;
+      }
+
+      // 3. If currently paused in game, tap triggers resume countdown (NEVER flip!)
+      if (state === 'playing' && isPaused) {
+        if (e && e.cancelable) e.preventDefault();
+        sound.init();
+        if (pauseCountdown <= 0) {
+          startResumeCountdown();
+        }
+        return;
+      }
+
+      // 4. Title screen buttons
       if (state === 'title') {
-        // Check if clicked the small "チュートリアルをもう一度" link on title screen
         const vx = (clientX * dpr) / renderScale;
         const vy = (clientY * dpr) / renderScale;
         const centerX = virtualW / 2;
-        const cardH = 258;
-        const cardY = trackCenterY - cardH / 2 - 15;
+        const cardH = 286;
+        const cardY = trackCenterY - cardH / 2 - 10;
 
-        if (Math.abs(vx - centerX) <= 120 && vy >= cardY + cardH - 34 && vy <= cardY + cardH + 12) {
+        // Tutorial replay link
+        if (Math.abs(vx - centerX) <= 120 && vy >= cardY + cardH - 26 && vy <= cardY + cardH + 6) {
           if (e && e.cancelable) e.preventDefault();
           forceTutorial = true;
           startGame();
           return;
+        }
+
+        // Screen Shake Toggle button
+        const shakeBtnW = 160;
+        const shakeBtnH = 28;
+        const shakeBtnX = centerX - shakeBtnW / 2;
+        const shakeBtnY = cardY + cardH - 62;
+        if (vx >= shakeBtnX && vx <= shakeBtnX + shakeBtnW && vy >= shakeBtnY && vy <= shakeBtnY + shakeBtnH) {
+          if (e && e.cancelable) e.preventDefault();
+          sound.init();
+          toggleScreenShake();
+          return;
+        }
+      }
+
+      // 5. Game Over screen buttons
+      if (state === 'gameover') {
+        if (gameOverTimer >= GAME_OVER_INPUT_LOCK) {
+          const vx = (clientX * dpr) / renderScale;
+          const vy = (clientY * dpr) / renderScale;
+          const centerX = virtualW / 2;
+          const cardH = 340;
+          const cardY = trackCenterY - cardH / 2;
+
+          // Copy Result button check
+          const copyBtnW = 190;
+          const copyBtnH = 32;
+          const copyBtnX = centerX - copyBtnW / 2;
+          const copyBtnY = cardY + cardH - 78;
+          if (vx >= copyBtnX && vx <= copyBtnX + copyBtnW && vy >= copyBtnY && vy <= copyBtnY + copyBtnH) {
+            if (e && e.cancelable) e.preventDefault();
+            copyResultToClipboard();
+            return;
+          }
         }
       }
 
@@ -2344,11 +2708,42 @@
     }, { passive: false });
 
     window.addEventListener('keydown', (e) => {
+      // Pause toggle via Escape or P key
+      if (e.code === 'Escape' || e.code === 'KeyP') {
+        e.preventDefault();
+        togglePause();
+        return;
+      }
+
+      // If paused, space/enter triggers resume countdown, no flipping
+      if (state === 'playing' && isPaused) {
+        if (e.code === 'Space' || e.code === 'Enter') {
+          e.preventDefault();
+          if (pauseCountdown <= 0) {
+            startResumeCountdown();
+          }
+        }
+        return;
+      }
+
       if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'KeyW' || e.code === 'KeyS') {
         e.preventDefault();
         handleUserInput();
       } else if (e.code === 'KeyM') {
         sound.toggleMute();
+      }
+    });
+
+    // Auto pause on tab switch or window blur
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && state === 'playing' && !isPaused) {
+        pauseGame();
+      }
+    });
+
+    window.addEventListener('blur', () => {
+      if (state === 'playing' && !isPaused) {
+        pauseGame();
       }
     });
 
@@ -2417,7 +2812,7 @@
           };
           gameScore += 100;
           sound.playMilestone();
-          spawnPopupText(virtualW / 2, trackCenterY - 35, `🏁 ${mText} +100 BONUS!`, '#10b981', 16, true);
+          // Milestone is prominently shown via milestoneBanner at track top; avoid cluttering screen center with duplicate text
           nextMilestone += 250;
         }
 
@@ -2923,7 +3318,7 @@
       const bW = 210;
       const bH = 34;
       const bX = (virtualW - bW) / 2;
-      const bY = trackCenterY - (TRACK_HEIGHT / 2) + 20;
+      const bY = ceilingY + 20;
 
       ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
       ctx.strokeStyle = '#10b981';
@@ -3398,8 +3793,8 @@
 
       const scaleFactor = renderScale / dpr;
       const trackScreenY = canvasHeight / 2;
-      const ceilingScreenY = trackScreenY - (TRACK_HEIGHT / 2) * scaleFactor;
-      const floorScreenY = trackScreenY + (TRACK_HEIGHT / 2) * scaleFactor;
+      const ceilingScreenY = trackScreenY - (trackHeight / 2) * scaleFactor;
+      const floorScreenY = trackScreenY + (trackHeight / 2) * scaleFactor;
 
       ctx.save();
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -3586,9 +3981,9 @@
     function renderTitleScreen() {
       const centerX = virtualW / 2;
       const cardW = Math.min(virtualW - 40, 500);
-      const cardH = 258;
+      const cardH = 286;
       const cardX = centerX - cardW / 2;
-      const cardY = trackCenterY - cardH / 2 - 15;
+      const cardY = trackCenterY - cardH / 2 - 10;
 
       ctx.save();
       ctx.fillStyle = '#ffffff';
@@ -3632,20 +4027,37 @@
       // Tap to start pulsing button
       const pulse = (Math.sin(Date.now() * 0.006) + 1) / 2;
       const btnW = 210;
-      const btnH = 38;
+      const btnH = 36;
       const btnX = centerX - btnW / 2;
-      const btnY = cardY + cardH - 74;
+      const btnY = cardY + cardH - 105;
 
       ctx.fillStyle = `rgba(2, 132, 199, ${0.1 + pulse * 0.12})`;
       ctx.strokeStyle = '#0284c7';
       ctx.lineWidth = 2;
-      roundRect(ctx, btnX, btnY, btnW, btnH, 19);
+      roundRect(ctx, btnX, btnY, btnW, btnH, 18);
       ctx.fill();
       ctx.stroke();
 
       ctx.fillStyle = '#0284c7';
       ctx.font = '700 14px system-ui, sans-serif';
-      ctx.fillText('タップでスタート', centerX, btnY + 24);
+      ctx.fillText('タップでスタート', centerX, btnY + 23);
+
+      // Screen Shake Toggle Button
+      const shakeBtnW = 160;
+      const shakeBtnH = 26;
+      const shakeBtnX = centerX - shakeBtnW / 2;
+      const shakeBtnY = cardY + cardH - 62;
+
+      ctx.fillStyle = screenShakeEnabled ? 'rgba(2, 132, 199, 0.08)' : 'rgba(241, 245, 249, 0.8)';
+      ctx.strokeStyle = screenShakeEnabled ? '#0284c7' : '#94a3b8';
+      ctx.lineWidth = 1.2;
+      roundRect(ctx, shakeBtnX, shakeBtnY, shakeBtnW, shakeBtnH, 13);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = screenShakeEnabled ? '#0284c7' : '#64748b';
+      ctx.font = '600 11px system-ui, sans-serif';
+      ctx.fillText(`画面の揺れ: ${screenShakeEnabled ? 'ON' : 'OFF'}`, centerX, shakeBtnY + 17);
 
       // Tutorial Replay Link
       const linkY = cardY + cardH - 18;
@@ -3678,7 +4090,7 @@
       ctx.globalAlpha = alpha;
 
       const cardW = Math.min(virtualW - 40, 440);
-      const cardH = 296;
+      const cardH = 340;
       const cardX = centerX - cardW / 2;
       const cardY = trackCenterY - cardH / 2;
 
@@ -3762,22 +4174,40 @@
         const diff = currentBest - finalScore;
         ctx.fillStyle = '#0284c7';
         ctx.font = '800 12px system-ui, sans-serif';
-        ctx.fillText(`🔥 ベストまであと ${diff.toLocaleString()} 点！`, centerX, cardY + cardH - 66);
+        ctx.fillText(`🔥 ベストまであと ${diff.toLocaleString()} 点！`, centerX, cardY + cardH - 104);
       } else if (isNewBest) {
         ctx.fillStyle = '#f59e0b';
         ctx.font = '800 12px system-ui, sans-serif';
-        ctx.fillText(`🎉 自己ベスト更新！`, centerX, cardY + cardH - 66);
+        ctx.fillText(`🎉 自己ベスト更新！`, centerX, cardY + cardH - 104);
       }
 
       ctx.fillStyle = '#94a3b8';
       ctx.font = '600 10px system-ui, sans-serif';
-      ctx.fillText(`自己ベスト: ${currentBest.toLocaleString()} pts`, centerX, cardY + cardH - 52);
+      ctx.fillText(`自己ベスト: ${currentBest.toLocaleString()} pts`, centerX, cardY + cardH - 90);
+
+      // Copy Result Button
+      const copyBtnW = 190;
+      const copyBtnH = 32;
+      const copyBtnX = centerX - copyBtnW / 2;
+      const copyBtnY = cardY + cardH - 78;
+
+      const isCopied = (copySuccessTimer > 0);
+      ctx.fillStyle = isCopied ? 'rgba(16, 185, 129, 0.14)' : 'rgba(2, 132, 199, 0.08)';
+      ctx.strokeStyle = isCopied ? '#10b981' : '#0284c7';
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, copyBtnX, copyBtnY, copyBtnW, copyBtnH, 16);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = isCopied ? '#059669' : '#0284c7';
+      ctx.font = '700 12px system-ui, sans-serif';
+      ctx.fillText(isCopied ? '✓ コピーしました！' : '📋 結果をコピー', centerX, copyBtnY + 20);
 
       // Retry Prompt Button
-      const btnW = 180;
+      const btnW = 190;
       const btnH = 34;
       const btnX = centerX - btnW / 2;
-      const btnY = cardY + cardH - 42;
+      const btnY = cardY + cardH - 40;
       const isInputLocked = (gameOverTimer < GAME_OVER_INPUT_LOCK);
 
       if (isInputLocked) {
@@ -3803,6 +4233,103 @@
         ctx.fillStyle = '#0284c7';
         ctx.font = '700 13px system-ui, sans-serif';
         ctx.fillText('タップでリトライ', centerX, btnY + 22);
+      }
+
+      ctx.restore();
+    }
+
+    function renderPauseButton() {
+      if (state !== 'playing') return;
+
+      const x = canvasWidth - MUTE_BTN_MARGIN - MUTE_BTN_SIZE - 8 - PAUSE_BTN_SIZE;
+      const y = PAUSE_BTN_MARGIN;
+
+      ctx.save();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      ctx.fillStyle = isPaused ? 'rgba(2, 132, 199, 0.12)' : 'rgba(255, 255, 255, 0.9)';
+      ctx.strokeStyle = isPaused ? '#0284c7' : '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, x, y, PAUSE_BTN_SIZE, PAUSE_BTN_SIZE, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#0284c7';
+      ctx.font = '13px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(isPaused ? '▶' : '⏸', x + PAUSE_BTN_SIZE / 2, y + PAUSE_BTN_SIZE / 2);
+
+      ctx.restore();
+    }
+
+    function renderPauseOverlay() {
+      if (state !== 'playing' || !isPaused) return;
+
+      ctx.save();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Dark translucent backdrop
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+      const centerX = canvasWidth / 2;
+      const centerY = canvasHeight / 2;
+
+      if (pauseCountdown > 0) {
+        // Countdown display (3, 2, 1)
+        const curSec = Math.ceil(pauseCountdown);
+        const frac = pauseCountdown - Math.floor(pauseCountdown);
+        const scale = 1.0 + frac * 0.32;
+
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.scale(scale, scale);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 72px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#0284c7';
+        ctx.shadowBlur = 24;
+        ctx.fillText(String(curSec), 0, 0);
+        ctx.restore();
+
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '700 14px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('再開準備中...', centerX, centerY + 65);
+      } else {
+        // Paused Card
+        const cardW = Math.min(canvasWidth - 40, 280);
+        const cardH = 140;
+        const cardX = centerX - cardW / 2;
+        const cardY = centerY - cardH / 2;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 18;
+        roundRect(ctx, cardX, cardY, cardW, cardH, 16);
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.stroke();
+
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '900 22px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('PAUSED', centerX, cardY + 36);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '600 12px system-ui, sans-serif';
+        ctx.fillText('一時停止中', centerX, cardY + 58);
+
+        const pulse = (Math.sin(Date.now() * 0.007) + 1) / 2;
+        ctx.fillStyle = `rgba(2, 132, 199, ${0.75 + pulse * 0.25})`;
+        ctx.font = '700 14px system-ui, sans-serif';
+        ctx.fillText('タップ または [P] で再開', centerX, cardY + 98);
       }
 
       ctx.restore();
@@ -3898,6 +4425,45 @@
           enumerable: true
         });
 
+        // Pause state & controls
+        Object.defineProperty(window.__game, 'isPaused', {
+          get: () => isPaused,
+          configurable: true,
+          enumerable: true
+        });
+        Object.defineProperty(window.__game, 'pauseCountdown', {
+          get: () => pauseCountdown,
+          configurable: true,
+          enumerable: true
+        });
+        Object.defineProperty(window.__game, 'screenShakeEnabled', {
+          get: () => screenShakeEnabled,
+          set: (v) => { screenShakeEnabled = !!v; },
+          configurable: true,
+          enumerable: true
+        });
+        Object.defineProperty(window.__game, 'trackHeight', {
+          get: () => trackHeight,
+          configurable: true,
+          enumerable: true
+        });
+        Object.defineProperty(window.__game, 'travelScale', {
+          get: () => travelScale,
+          configurable: true,
+          enumerable: true
+        });
+        Object.defineProperty(window.__game, 'popupTexts', {
+          get: () => popupTexts,
+          configurable: true,
+          enumerable: true
+        });
+
+        window.__game.pause = pauseGame;
+        window.__game.resume = startResumeCountdown;
+        window.__game.togglePause = togglePause;
+        window.__game.toggleScreenShake = toggleScreenShake;
+        window.__game.copyResultToClipboard = copyResultToClipboard;
+        window.__game.getShareText = getShareText;
         window.__game.start = startGame;
         window.__game.startTutorial = () => {
           forceTutorial = true;
@@ -3922,6 +4488,11 @@
           tierTransitionTimer = 0;
           hitStopTimer = 0;
           slowMotionTimer = 0;
+          isPaused = false;
+          pauseCountdown = 0;
+          copySuccessTimer = 0;
+          showFallbackShareText = false;
+          removeFallbackInputElement();
           bestScore = getStoredBestScore();
           const tutorialDone = isTutorialCompleted();
           isTutorialActive = !tutorialDone;
@@ -3947,7 +4518,30 @@
       // Delta time clamp to avoid tunnelling on lag spikes
       dt = Math.min(dt, 0.05);
 
-      update(dt);
+      if (copySuccessTimer > 0) {
+        copySuccessTimer = Math.max(0, copySuccessTimer - dt);
+      }
+
+      // Pause & Resume Countdown update
+      if (state === 'playing' && isPaused) {
+        if (pauseCountdown > 0) {
+          pauseCountdown -= dt;
+          const curSec = Math.ceil(pauseCountdown);
+          if (curSec > 0 && curSec !== countdownAnnouncedSecond) {
+            countdownAnnouncedSecond = curSec;
+            sound.playCountdown(curSec);
+          }
+          if (pauseCountdown <= 0) {
+            pauseCountdown = 0;
+            isPaused = false;
+            countdownAnnouncedSecond = -1;
+            sound.startBgm();
+            sound.playCountdown(0);
+          }
+        }
+      } else {
+        update(dt);
+      }
 
       // Render in virtual coordinate space with Screen Shake
       ctx.save();
@@ -4017,7 +4611,9 @@
         renderHUD();
       }
 
-      // Screen-space UI (mute button)
+      // Screen-space UI (pause overlay, pause button, mute button)
+      renderPauseOverlay();
+      renderPauseButton();
       renderMuteButton();
 
       requestAnimationFrame(gameLoop);
