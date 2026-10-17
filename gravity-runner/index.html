@@ -1308,12 +1308,12 @@
         const minEscapeTime = Math.max(0.38, Math.sqrt((obsH + 8) * 2 / GRAVITY_ACCEL) + 0.06);
 
         // Check for upcoming coin arc or gold star in front of the obstacle
-        const coinInFront = coins.find(c => !c.collected && c.x >= player.x && c.x <= threat.x + 20);
+        const coinInFront = coins.find(c => !c.collected && c.x >= player.x && c.x <= threat.x + 40);
 
         if (coinInFront) {
-          // If coins/stars are present ahead, wait until takeoff sweet-spot (0.32 - 0.42s)
-          // to ride the aerial coin arc and collect gold stars while clearing the obstacle
-          const optimalCoinFlipTime = Math.max(minEscapeTime + 0.04, 0.40);
+          // If coins/stars are present ahead, wait until takeoff sweet-spot (0.38 - 0.40s)
+          // to ride the aerial coin arc and collect gold stars while safely clearing the obstacle
+          const optimalCoinFlipTime = Math.max(minEscapeTime, 0.40);
           if (timeToHit <= optimalCoinFlipTime && autopilotActionCooldown <= 0) {
             if (isSafeToFlip() || timeToHit <= minEscapeTime) {
               autopilotActionCooldown = Math.min(0.35, transitTime * 0.4);
@@ -1335,8 +1335,9 @@
       }
 
       // 4. Safe Opportunistic Flip for Power-ups, Gold Stars, and Coins
-      // Consider flipping if current surface is safe for at least 1.05s ahead
-      const isCurrentSurfaceClear = !threat || ((threat.x - player.x) / currentSpeed > 1.05);
+      // Consider flipping if current surface is safe for transitTime + reaction buffer
+      const safeClearWindow = Math.max(1.0, transitTime * 0.85);
+      const isCurrentSurfaceClear = !threat || ((threat.x - player.x) / currentSpeed > safeClearWindow);
 
       if (isCurrentSurfaceClear && autopilotActionCooldown <= 0) {
         // (a) Target aerial Power-ups (Shield, Magnet)
@@ -1355,12 +1356,26 @@
           return;
         }
 
-        // (c) Target coins on opposite surface (Runway Coins) or aerial coin arcs
-        const coinsAhead = coins.filter(c => !c.collected && c.x >= player.x + 20 && c.x <= player.x + transitDist + 80);
-        if (coinsAhead.length >= 2 && isSafeToFlip()) {
-          autopilotActionCooldown = 0.45;
-          player.flip();
-          return;
+        // Check if there are runway coins on the CURRENT surface ahead
+        const curSurfCoins = coins.filter(c => !c.collected && c.type === 'low' && c.x >= player.x && c.x <= player.x + transitDist && Math.abs(c.y - (surf === 'floor' ? floorY - FIGURE_HALF_HEIGHT : ceilingY + FIGURE_HALF_HEIGHT)) < 30);
+
+        // Only consider opportunistic flips if we won't abandon coins on the current surface
+        if (curSurfCoins.length === 0) {
+          // (c) Target aerial coin arc taking off from current surface
+          const coinArcAhead = coins.find(c => !c.collected && c.type === 'coin' && c.x >= player.x && c.x <= player.x + transitDist * 0.5 && Math.abs(c.y - (surf === 'floor' ? floorY - FIGURE_HALF_HEIGHT : ceilingY + FIGURE_HALF_HEIGHT)) < 80);
+          if (coinArcAhead && isSafeToFlip()) {
+            autopilotActionCooldown = 0.45;
+            player.flip();
+            return;
+          }
+
+          // (d) Target coins waiting on the OPPOSITE surface (Runway Coins)
+          const oppCoinsAhead = coins.filter(c => !c.collected && c.type === 'low' && c.x >= player.x + transitDist * 0.4 && c.x <= player.x + transitDist + 140 && Math.abs(c.y - (otherSurf === 'floor' ? floorY - FIGURE_HALF_HEIGHT : ceilingY + FIGURE_HALF_HEIGHT)) < 30);
+          if (oppCoinsAhead.length >= 2 && isSafeToFlip()) {
+            autopilotActionCooldown = 0.45;
+            player.flip();
+            return;
+          }
         }
       }
     }
@@ -4008,7 +4023,7 @@
       const hintW = 210;
       const hintH = 26;
       const hintX = (canvasWidth - hintW) / 2;
-      const hintY = 14;
+      const hintY = 50;
 
       ctx.save();
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
