@@ -274,35 +274,150 @@
         } catch(e) {}
       }
 
-      playCoin(multiplier = 1) {
+      playCoin(streakStep = 0, multiplier = 1, isStar = false) {
         if (this.muted || !this.ctx || !this.sfxGain) return;
         try {
           const t = this.ctx.currentTime;
-          const pitchFactor = Math.min(1.6, 1.0 + (multiplier - 1) * 0.12);
-          const f1 = 880 * pitchFactor;
-          const f2 = 1320 * pitchFactor;
+          if (isStar) {
+            // High sparkling gold star arpeggio chime (+50)
+            const freqs = [880, 1108.73, 1318.51, 1760, 2217.46]; // A5, C#6, E6, A6, C#7
+            freqs.forEach((freq, idx) => {
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'triangle';
+              const nStart = t + idx * 0.035;
+              osc.frequency.setValueAtTime(freq, nStart);
+              gain.gain.setValueAtTime(0.18, nStart);
+              gain.gain.exponentialRampToValueAtTime(0.001, nStart + 0.18);
+              osc.connect(gain);
+              gain.connect(this.sfxGain);
+              osc.start(nStart);
+              osc.stop(nStart + 0.2);
+            });
+            return;
+          }
+
+          // Pentatonic scale with octave escalation for satisfying consecutive pickups
+          const scale = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51, 1567.98, 1760.0, 2093.0];
+          const stepIndex = Math.min(scale.length - 1, Math.max(0, streakStep));
+          const f1 = scale[stepIndex];
+          const f2 = f1 * 1.5; // Perfect 5th harmonic
 
           const osc1 = this.ctx.createOscillator();
           const gain1 = this.ctx.createGain();
           osc1.type = 'sine';
           osc1.frequency.setValueAtTime(f1, t);
-          gain1.gain.setValueAtTime(0.14, t);
-          gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+          gain1.gain.setValueAtTime(0.15, t);
+          gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
           osc1.connect(gain1);
           gain1.connect(this.sfxGain);
           osc1.start(t);
-          osc1.stop(t + 0.11);
+          osc1.stop(t + 0.1);
 
           const osc2 = this.ctx.createOscillator();
           const gain2 = this.ctx.createGain();
           osc2.type = 'sine';
-          osc2.frequency.setValueAtTime(f2, t + 0.04);
-          gain2.gain.setValueAtTime(0.16, t + 0.04);
-          gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+          osc2.frequency.setValueAtTime(f2, t + 0.03);
+          gain2.gain.setValueAtTime(0.18, t + 0.03);
+          gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
           osc2.connect(gain2);
           gain2.connect(this.sfxGain);
-          osc2.start(t + 0.04);
-          osc2.stop(t + 0.16);
+          osc2.start(t + 0.03);
+          osc2.stop(t + 0.15);
+        } catch(e) {}
+      }
+
+      playPowerUp() {
+        if (this.muted || !this.ctx || !this.sfxGain) return;
+        try {
+          const t = this.ctx.currentTime;
+          const freqs = [440, 554.37, 659.25, 880, 1108.73]; // A major rising flourish
+          freqs.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            const noteStart = t + idx * 0.04;
+            osc.frequency.setValueAtTime(freq, noteStart);
+            gain.gain.setValueAtTime(0.2, noteStart);
+            gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.16);
+            osc.connect(gain);
+            gain.connect(this.sfxGain);
+            osc.start(noteStart);
+            osc.stop(noteStart + 0.18);
+          });
+        } catch(e) {}
+      }
+
+      playShieldBreak() {
+        if (this.muted || !this.ctx || !this.sfxGain) return;
+        try {
+          const t = this.ctx.currentTime;
+          // Glass shattering metallic burst
+          const osc1 = this.ctx.createOscillator();
+          const gain1 = this.ctx.createGain();
+          osc1.type = 'sawtooth';
+          osc1.frequency.setValueAtTime(980, t);
+          osc1.frequency.exponentialRampToValueAtTime(140, t + 0.22);
+          gain1.gain.setValueAtTime(0.28, t);
+          gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
+          osc1.connect(gain1);
+          gain1.connect(this.sfxGain);
+          osc1.start(t);
+          osc1.stop(t + 0.25);
+
+          const osc2 = this.ctx.createOscillator();
+          const gain2 = this.ctx.createGain();
+          osc2.type = 'triangle';
+          osc2.frequency.setValueAtTime(1600, t);
+          osc2.frequency.exponentialRampToValueAtTime(300, t + 0.18);
+          gain2.gain.setValueAtTime(0.22, t);
+          gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+          osc2.connect(gain2);
+          gain2.connect(this.sfxGain);
+          osc2.start(t);
+          osc2.stop(t + 0.21);
+        } catch(e) {}
+      }
+
+      playMilestone() {
+        if (this.muted || !this.ctx || !this.sfxGain) return;
+        try {
+          const t = this.ctx.currentTime;
+          const freqs = [587.33, 739.99, 880, 1174.66]; // D, F#, A, D
+          freqs.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            const noteStart = t + idx * 0.05;
+            osc.frequency.setValueAtTime(freq, noteStart);
+            gain.gain.setValueAtTime(0.18, noteStart);
+            gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.22);
+            osc.connect(gain);
+            gain.connect(this.sfxGain);
+            osc.start(noteStart);
+            osc.stop(noteStart + 0.24);
+          });
+        } catch(e) {}
+      }
+
+      playBestRecord() {
+        if (this.muted || !this.ctx || !this.sfxGain) return;
+        try {
+          const t = this.ctx.currentTime;
+          const freqs = [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98]; // Celebratory fanfare
+          freqs.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            const noteStart = t + idx * 0.045;
+            osc.frequency.setValueAtTime(freq, noteStart);
+            gain.gain.setValueAtTime(0.22, noteStart);
+            gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.25);
+            osc.connect(gain);
+            gain.connect(this.sfxGain);
+            osc.start(noteStart);
+            osc.stop(noteStart + 0.28);
+          });
         } catch(e) {}
       }
 
@@ -555,6 +670,7 @@
 
     // --- High Score Persistence (Score-based with backwards compatibility) ---
     const STORAGE_KEY = 'gravity_runner_best_score';
+    const BEST_DISTANCE_KEY = 'gravity_runner_best_distance';
     const TUTORIAL_STORAGE_KEY = 'gravity_runner_tutorial_done';
 
     function getStoredBestScore() {
@@ -562,6 +678,17 @@
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved !== null && saved !== '') {
           const val = parseInt(saved, 10);
+          return (!isNaN(val) && val > 0) ? val : 0;
+        }
+      } catch(e) {}
+      return 0;
+    }
+
+    function getStoredBestDistance() {
+      try {
+        const saved = localStorage.getItem(BEST_DISTANCE_KEY);
+        if (saved !== null && saved !== '') {
+          const val = parseFloat(saved);
           return (!isNaN(val) && val > 0) ? val : 0;
         }
       } catch(e) {}
@@ -577,6 +704,22 @@
     }
 
     let bestScore = getStoredBestScore();
+    let bestDistance = getStoredBestDistance();
+    let bestLineCrossed = false;
+    let lastDeathCause = '';
+
+    // --- Milestone & Consecutive Pickups Tracking ---
+    let nextMilestone = 250;
+    let milestoneBanner = null; // { text, bonus, timer, maxTimer }
+    let coinStreak = 0;
+    let coinStreakTimer = 0;
+
+    // --- Power-ups System State ---
+    let powerUps = [];
+    let magnetTimer = 0;
+    let lastPowerUpSpawnDist = 0;
+    let totalObstaclesSpawned = 0;
+    let totalPowerUpsSpawned = 0;
 
     // --- Tutorial System State ---
     let isTutorialActive = false;
@@ -595,7 +738,7 @@
       } catch(e) {}
       sound.playSpeedUp();
       spawnPopupText(virtualW / 2, trackCenterY, 'チュートリアル完了！ START!', '#10b981', 18, true);
-      nextSpawnX = virtualW + 200;
+      nextSpawnX = Math.max(nextSpawnX, virtualW + 200);
     }
 
     function advanceTutorialToStep4() {
@@ -691,8 +834,8 @@
 
       const surf = player.groundedSurface; // 'floor' | 'ceiling'
       const otherSurf = (surf === 'floor') ? 'ceiling' : 'floor';
-      const transitDist = currentSpeed * 0.72;
-      const landX = player.x + transitDist;
+      const transitTime = 0.7194;
+      const transitDist = currentSpeed * transitTime;
 
       // 1. Tutorial automated progression
       if (isTutorialActive) {
@@ -715,7 +858,7 @@
           const obs = obstacles.find(o => o.x + o.w > player.x);
           if (obs) {
             const dist = obs.x - player.x;
-            if (dist <= currentSpeed * 0.32 && autopilotActionCooldown <= 0) {
+            if (dist <= currentSpeed * 0.36 && autopilotActionCooldown <= 0) {
               autopilotActionCooldown = 0.5;
               player.flip();
             }
@@ -724,8 +867,56 @@
         }
       }
 
-      // 2. Normal Gameplay AI:
-      // Find nearest threat on current surface
+      // 2. Comprehensive Trajectory Safety Simulation:
+      // Checks if flipping NOW would cause collision during transit, on landing, or for 0.45s after landing.
+      function isSafeToFlip() {
+        const totalSimTime = transitTime + 0.45;
+        const steps = 12;
+
+        for (let i = 1; i <= steps; i++) {
+          const t = (i / steps) * totalSimTime;
+          const tRatio = Math.min(1.0, t / transitTime);
+          const simY = (t <= transitTime)
+            ? getFlipTrajectoryY(surf, tRatio)
+            : ((otherSurf === 'floor') ? (floorY - FIGURE_HALF_HEIGHT) : (ceilingY + FIGURE_HALF_HEIGHT));
+
+          const simHitbox = {
+            x: player.x - 12,
+            y: simY - FIGURE_HALF_HEIGHT + 3,
+            w: 24,
+            h: FIGURE_HALF_HEIGHT * 2 - 6
+          };
+
+          for (const obs of obstacles) {
+            const simObsX = obs.x - currentSpeed * t;
+            if (simObsX + obs.w < simHitbox.x - 20 || simObsX > simHitbox.x + simHitbox.w + 20) {
+              continue;
+            }
+
+            let simObsY = 0;
+            if (obs.surface === 'floor') {
+              simObsY = floorY - obs.h;
+            } else if (obs.surface === 'ceiling') {
+              simObsY = ceilingY;
+            } else {
+              simObsY = obs.baseY + Math.sin((gameTime + t) * obs.speedFactor + obs.phase) * obs.amplitude - (obs.h / 2);
+            }
+
+            const margin = 8;
+            if (
+              simHitbox.x < simObsX + obs.w + margin &&
+              simHitbox.x + simHitbox.w > simObsX - margin &&
+              simHitbox.y < simObsY + obs.h + margin &&
+              simHitbox.y + simHitbox.h > simObsY - margin
+            ) {
+              return false; // Collision risk along simulated trajectory!
+            }
+          }
+        }
+        return true;
+      }
+
+      // 3. Find immediate danger on CURRENT surface
       const threat = obstacles.find(o => {
         if (o.x + o.w <= player.x - 5) return false;
         if (o.surface === surf) return true;
@@ -737,18 +928,12 @@
         return false;
       });
 
-      // Check if landing zone on other surface has an obstacle
-      const isOtherSurfaceBlocked = obstacles.some(o => {
-        if (o.surface !== otherSurf && o.surface !== 'moving') return false;
-        return (landX >= o.x - 28 && landX <= o.x + o.w + 28);
-      });
-
       if (threat) {
-        const timeToHit = (threat.x - (player.x + 14)) / currentSpeed;
+        const timeToHit = (threat.x - (player.x + 13)) / currentSpeed;
 
-        // Approaching danger on current surface
-        if (timeToHit <= 0.44 && autopilotActionCooldown <= 0) {
-          if (!isOtherSurfaceBlocked || timeToHit <= 0.22) {
+        // Approaching danger on current surface: react with ample safety margin (0.58s)
+        if (timeToHit <= 0.58 && autopilotActionCooldown <= 0) {
+          if (isSafeToFlip() || timeToHit <= 0.22) {
             autopilotActionCooldown = 0.35;
             player.flip();
             return;
@@ -756,13 +941,33 @@
         }
       }
 
-      // 3. When current surface is safely clear, flip for aerial coins if safe!
-      const isCurrentSurfaceSafe = !threat || ((threat.x - player.x) / currentSpeed > 1.15);
-      if (isCurrentSurfaceSafe && !isOtherSurfaceBlocked && autopilotActionCooldown <= 0) {
-        const coinInFlight = coins.some(c => !c.collected && c.x >= player.x + 40 && c.x <= player.x + transitDist + 50);
-        if (coinInFlight) {
+      // 4. Safe Opportunistic Flip for Power-ups, Gold Stars, and Aerial Coins
+      // Only flip when current surface is completely clear of threats for at least 1.35 seconds!
+      const isCurrentSurfaceClear = !threat || ((threat.x - player.x) / currentSpeed > 1.35);
+
+      if (isCurrentSurfaceClear && autopilotActionCooldown <= 0) {
+        // (a) Target aerial Power-ups (Shield, Magnet)
+        const powerUpAhead = powerUps.find(p => !p.collected && p.x > player.x + 20 && p.x < player.x + transitDist + 70);
+        if (powerUpAhead && isSafeToFlip()) {
           autopilotActionCooldown = 0.45;
           player.flip();
+          return;
+        }
+
+        // (b) Target high-value Gold Stars (+50)
+        const starAhead = coins.find(c => !c.collected && c.type === 'star' && c.x > player.x + 30 && c.x < player.x + transitDist + 50);
+        if (starAhead && isSafeToFlip()) {
+          autopilotActionCooldown = 0.45;
+          player.flip();
+          return;
+        }
+
+        // (c) Target aerial Coin arcs if safe and profitable
+        const coinsAhead = coins.filter(c => !c.collected && c.x >= player.x + 40 && c.x <= player.x + transitDist + 40);
+        if (coinsAhead.length >= 2 && isSafeToFlip()) {
+          autopilotActionCooldown = 0.45;
+          player.flip();
+          return;
         }
       }
     }
@@ -780,6 +985,8 @@
       ghostTrails: [],
       flipBufferTimer: 0,
       squashTimer: 0,
+      hasShield: false,
+      invincibleTimer: 0,
 
       reset() {
         this.x = PLAYER_X;
@@ -793,6 +1000,8 @@
         this.ghostTrails = [];
         this.flipBufferTimer = 0;
         this.squashTimer = 0;
+        this.hasShield = false;
+        this.invincibleTimer = 0;
       },
 
       flip() {
@@ -842,9 +1051,12 @@
           this.animPhase += runFrequency * dt;
         }
 
-        // Squash timer countdown
+        // Squash & invincibility countdown
         if (this.squashTimer > 0) {
           this.squashTimer = Math.max(0, this.squashTimer - dt);
+        }
+        if (this.invincibleTimer > 0) {
+          this.invincibleTimer = Math.max(0, this.invincibleTimer - dt);
         }
 
         const floorCenterY = floorY - FIGURE_HALF_HEIGHT;
@@ -1035,6 +1247,33 @@
       });
     }
 
+    function spawnShieldBreakParticles(x, y) {
+      for (let i = 0; i < 18; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = 70 + Math.random() * 180;
+        particles.push({
+          type: 'sparkle',
+          x: x,
+          y: y,
+          vx: Math.cos(angle) * spd,
+          vy: Math.sin(angle) * spd,
+          size: 2.5 + Math.random() * 3.5,
+          color: Math.random() < 0.5 ? '#38bdf8' : (Math.random() < 0.5 ? '#bae6fd' : '#ffffff'),
+          alpha: 1.0,
+          life: 0.4 + Math.random() * 0.3
+        });
+      }
+      particles.push({
+        type: 'shockwave',
+        x: x,
+        y: y,
+        r: 8,
+        maxR: 45,
+        alpha: 0.8,
+        life: 0.3
+      });
+    }
+
     function createDeathExplosion(p) {
       deathDebris = [];
       const segments = [
@@ -1116,51 +1355,118 @@
     let coins = [];
 
     class Coin {
-      constructor(x, y) {
+      constructor(x, y, type = 'coin') {
         this.x = x;
         this.y = y;
-        this.r = 8.5;
+        this.type = type; // 'coin' (normal aerial: 10), 'low' (runway: 5), 'star' (gold star: 50)
+        this.value = (type === 'star') ? 50 : (type === 'low' ? 5 : 10);
+        this.r = (type === 'star') ? 11 : (type === 'low' ? 7 : 8.5);
         this.collected = false;
         this.animPhase = Math.random() * Math.PI * 2;
       }
 
       update(dt) {
         this.x -= currentSpeed * dt;
-        this.animPhase += dt * 5.5;
+        this.animPhase += dt * (this.type === 'star' ? 4.5 : 5.5);
+
+        // Magnet suction effect toward player
+        if (magnetTimer > 0 && !this.collected) {
+          const dx = player.x - this.x;
+          const dy = player.y - this.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 260) {
+            const pullSpeed = Math.max(340, 850 * (1 - dist / 260));
+            this.x += (dx / dist) * pullSpeed * dt;
+            this.y += (dy / dist) * pullSpeed * dt;
+          }
+        }
       }
 
       render(ctx) {
         if (this.collected) return;
-        const wScale = Math.abs(Math.sin(this.animPhase));
-        const coinW = Math.max(2, this.r * wScale);
-
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // Subtle glowing halo
-        ctx.fillStyle = 'rgba(251, 191, 36, 0.28)';
-        ctx.beginPath();
-        ctx.arc(0, 0, this.r + 5, 0, Math.PI * 2);
-        ctx.fill();
+        if (this.type === 'star') {
+          // Sparkling 5-point Gold Star (+50)
+          const rot = this.animPhase * 1.5;
+          ctx.rotate(rot);
 
-        // Rim
-        ctx.fillStyle = '#d97706';
-        ctx.beginPath();
-        ctx.ellipse(0, 0, coinW + 1, this.r + 1, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Gold body
-        ctx.fillStyle = '#fbbf24';
-        ctx.beginPath();
-        ctx.ellipse(0, 0, coinW, this.r, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Inner highlight slit
-        if (wScale > 0.35) {
-          ctx.fillStyle = '#fffbeb';
+          // Star outer glow
+          ctx.fillStyle = 'rgba(245, 158, 11, 0.35)';
           ctx.beginPath();
-          ctx.ellipse(0, 0, Math.max(1, 2 * wScale), 3.5, 0, 0, Math.PI * 2);
+          ctx.arc(0, 0, this.r + 7, 0, Math.PI * 2);
           ctx.fill();
+
+          // 5-point star geometry
+          ctx.fillStyle = '#fbbf24';
+          ctx.strokeStyle = '#d97706';
+          ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          const outerR = this.r;
+          const innerR = this.r * 0.44;
+          for (let i = 0; i < 10; i++) {
+            const r = (i % 2 === 0) ? outerR : innerR;
+            const a = (i * Math.PI) / 5 - Math.PI / 2;
+            const sx = Math.cos(a) * r;
+            const sy = Math.sin(a) * r;
+            if (i === 0) ctx.moveTo(sx, sy);
+            else ctx.lineTo(sx, sy);
+          }
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // Inner gleam
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (this.type === 'low') {
+          // Low-point runway coin (+5)
+          const wScale = Math.abs(Math.sin(this.animPhase));
+          const coinW = Math.max(2, this.r * wScale);
+
+          ctx.fillStyle = 'rgba(251, 191, 36, 0.2)';
+          ctx.beginPath();
+          ctx.arc(0, 0, this.r + 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#b45309';
+          ctx.beginPath();
+          ctx.ellipse(0, 0, coinW + 1, this.r + 1, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#fcd34d';
+          ctx.beginPath();
+          ctx.ellipse(0, 0, coinW, this.r, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Standard Aerial Coin (+10)
+          const wScale = Math.abs(Math.sin(this.animPhase));
+          const coinW = Math.max(2, this.r * wScale);
+
+          ctx.fillStyle = 'rgba(251, 191, 36, 0.28)';
+          ctx.beginPath();
+          ctx.arc(0, 0, this.r + 5, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#d97706';
+          ctx.beginPath();
+          ctx.ellipse(0, 0, coinW + 1, this.r + 1, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#fbbf24';
+          ctx.beginPath();
+          ctx.ellipse(0, 0, coinW, this.r, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (wScale > 0.35) {
+            ctx.fillStyle = '#fffbeb';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, Math.max(1, 2 * wScale), 3.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
 
         ctx.restore();
@@ -1168,12 +1474,108 @@
 
       collidesWith(hitbox) {
         if (this.collected) return false;
-        // Expanded forgiving collection radius (~22.5px)
+        // Expanded forgiving collection radius
         const closestX = Math.max(hitbox.x, Math.min(this.x, hitbox.x + hitbox.w));
         const closestY = Math.max(hitbox.y, Math.min(this.y, hitbox.y + hitbox.h));
         const dx = this.x - closestX;
         const dy = this.y - closestY;
         return (dx * dx + dy * dy) < (this.r + 14) * (this.r + 14);
+      }
+    }
+
+    // --- Power-ups System (Shield & Magnet, Aerial Only) ---
+    class PowerUp {
+      constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.type = type; // 'shield' | 'magnet'
+        this.r = 15;
+        this.collected = false;
+        this.animPhase = Math.random() * Math.PI * 2;
+        totalPowerUpsSpawned++;
+      }
+
+      update(dt) {
+        this.x -= currentSpeed * dt;
+        this.animPhase += dt * 3.5;
+      }
+
+      render(ctx) {
+        if (this.collected) return;
+        const bounceY = this.y + Math.sin(this.animPhase) * 4;
+        ctx.save();
+        ctx.translate(this.x, bounceY);
+
+        const isShield = (this.type === 'shield');
+        const auraColor = isShield ? 'rgba(56, 189, 248, 0.35)' : 'rgba(239, 68, 68, 0.35)';
+        const ringColor = isShield ? '#0284c7' : '#dc2626';
+
+        // Outer pulsing aura
+        ctx.fillStyle = auraColor;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.r + 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Round capsule badge
+        ctx.fillStyle = isShield ? '#e0f2fe' : '#fee2e2';
+        ctx.strokeStyle = ringColor;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        if (isShield) {
+          // Shield crest icon
+          ctx.fillStyle = '#0284c7';
+          ctx.beginPath();
+          ctx.moveTo(0, -9);
+          ctx.lineTo(8, -6);
+          ctx.lineTo(6, 4);
+          ctx.lineTo(0, 9);
+          ctx.lineTo(-6, 4);
+          ctx.lineTo(-8, -6);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = '#bae6fd';
+          ctx.beginPath();
+          ctx.moveTo(0, -7);
+          ctx.lineTo(5, -5);
+          ctx.lineTo(4, 2);
+          ctx.lineTo(0, 6);
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          // Magnet U-shape icon
+          ctx.fillStyle = '#dc2626';
+          ctx.beginPath();
+          ctx.arc(0, -2, 8, Math.PI, 0, false);
+          ctx.lineTo(8, 6);
+          ctx.lineTo(4, 6);
+          ctx.lineTo(4, -2);
+          ctx.arc(0, -2, 4, 0, Math.PI, true);
+          ctx.lineTo(-4, 6);
+          ctx.lineTo(-8, 6);
+          ctx.closePath();
+          ctx.fill();
+
+          // Silver contact tips
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillRect(-8, 3, 4, 4);
+          ctx.fillRect(4, 3, 4, 4);
+        }
+
+        ctx.restore();
+      }
+
+      collidesWith(hitbox) {
+        if (this.collected) return false;
+        const closestX = Math.max(hitbox.x, Math.min(this.x, hitbox.x + hitbox.w));
+        const closestY = Math.max(hitbox.y, Math.min(this.y, hitbox.y + hitbox.h));
+        const dx = this.x - closestX;
+        const dy = this.y - closestY;
+        return (dx * dx + dy * dy) < (this.r + 15) * (this.r + 15);
       }
     }
 
@@ -1199,18 +1601,40 @@
         const tRatio = (i + 1) / (count + 1);
         const cx = startX + tRatio * transitDist;
         const cy = getFlipTrajectoryY(fromSurface, tRatio);
-        coins.push(new Coin(cx, cy));
+        coins.push(new Coin(cx, cy, 'coin'));
       }
     }
 
-    function spawnRunwayCoins(startX, surface, count = 3) {
+    function spawnRunwayCoins(startX, surface, count = 3, type = 'low') {
       const cy = (surface === 'floor') ? (floorY - FIGURE_HALF_HEIGHT) : (ceilingY + FIGURE_HALF_HEIGHT);
       for (let i = 0; i < count; i++) {
-        coins.push(new Coin(startX + i * 36, cy));
+        coins.push(new Coin(startX + i * 36, cy, type));
+      }
+    }
+
+    function spawnGoldStar(x, y) {
+      coins.push(new Coin(x, y, 'star'));
+    }
+
+    function maybeSpawnPowerUp(spawnX) {
+      if (scoreMeters - lastPowerUpSpawnDist >= 440 + Math.random() * 80) {
+        // Only in aerial space (between floor and ceiling)
+        const airY = trackCenterY + (Math.random() < 0.5 ? -35 : 35);
+        const type = (!player.hasShield && Math.random() < 0.6) ? 'shield' : 'magnet';
+        powerUps.push(new PowerUp(spawnX, airY, type));
+        lastPowerUpSpawnDist = scoreMeters;
       }
     }
 
     function updateCoins(dt) {
+      // Countdown streak timer
+      if (coinStreakTimer > 0) {
+        coinStreakTimer -= dt;
+        if (coinStreakTimer <= 0) {
+          coinStreak = 0;
+        }
+      }
+
       const hitbox = player.getHitbox();
 
       for (let i = coins.length - 1; i >= 0; i--) {
@@ -1221,18 +1645,34 @@
           c.collected = true;
           coinsCollected++;
 
+          // Consecutive pickup chain pitch elevation
+          if (coinStreakTimer > 0) {
+            coinStreak++;
+          } else {
+            coinStreak = 0;
+          }
+          coinStreakTimer = 0.85;
+
           // Combo progression
           comboCount++;
           comboMultiplier = getComboMultiplier(comboCount);
           comboTimer = 2.0; // Reset landing timer
           maxCombo = Math.max(maxCombo, comboCount);
 
-          const gain = 10 * comboMultiplier;
+          const isStar = (c.type === 'star');
+          const baseGain = c.value;
+          const gain = baseGain * comboMultiplier;
           gameScore += gain;
 
-          sound.playCoin(comboMultiplier);
-          spawnCoinSparkles(c.x, c.y);
-          spawnPopupText(c.x, c.y - 12, `+${gain}`, '#f59e0b', 13, true);
+          sound.playCoin(coinStreak, comboMultiplier, isStar);
+
+          if (isStar) {
+            spawnNearMissSparkles(c.x, c.y);
+            spawnPopupText(c.x, c.y - 16, `★ GOLD STAR! +${gain}`, '#f59e0b', 15, true);
+          } else {
+            spawnCoinSparkles(c.x, c.y);
+            spawnPopupText(c.x, c.y - 12, `+${gain}`, c.type === 'low' ? '#fcd34d' : '#f59e0b', 13, true);
+          }
 
           // Tutorial Step 3 progression
           if (isTutorialActive && tutorialStep === 3) {
@@ -1242,6 +1682,38 @@
 
         if (c.x < -60 || c.collected) {
           coins.splice(i, 1);
+        }
+      }
+    }
+
+    function updatePowerUps(dt) {
+      if (magnetTimer > 0) {
+        magnetTimer = Math.max(0, magnetTimer - dt);
+      }
+
+      const hitbox = player.getHitbox();
+
+      for (let i = powerUps.length - 1; i >= 0; i--) {
+        const p = powerUps[i];
+        p.update(dt);
+
+        if (state === 'playing' && !p.collected && p.collidesWith(hitbox)) {
+          p.collected = true;
+          sound.playPowerUp();
+
+          if (p.type === 'shield') {
+            player.hasShield = true;
+            spawnShieldBreakParticles(p.x, p.y);
+            spawnPopupText(p.x, p.y - 18, '🛡️ SHIELD GET! (1被弾無効)', '#38bdf8', 15, true);
+          } else if (p.type === 'magnet') {
+            magnetTimer = 5.0;
+            spawnNearMissSparkles(p.x, p.y);
+            spawnPopupText(p.x, p.y - 18, '🧲 MAGNET GET! (5秒吸着)', '#ef4444', 15, true);
+          }
+        }
+
+        if (p.x < -60 || p.collected) {
+          powerUps.splice(i, 1);
         }
       }
     }
@@ -1264,6 +1736,9 @@
         this.phase = opts.phase || 0;
         this.nearMissAwarded = false;
         this.isTutorial = !!opts.isTutorial;
+        if (!this.isTutorial) {
+          totalObstaclesSpawned++;
+        }
       }
 
       getY() {
@@ -1364,8 +1839,12 @@
     function resetObstacles() {
       obstacles = [];
       coins = [];
+      powerUps = [];
+      magnetTimer = 0;
       nextSpawnX = virtualW + 40;
       patternIndex = 0;
+      totalObstaclesSpawned = 0;
+      totalPowerUpsSpawned = 0;
     }
 
     function spawnNextPattern() {
@@ -1375,7 +1854,9 @@
       const isFirst60s = (gameTime < 60 || scoreMeters < 400);
       const isTier3Plus = (currentTierIndex >= 2);
 
-      // (c) Difficulty balance: First 60s is gentler, Tier 3+ is noticeably challenging
+      // Chance to spawn aerial Power-Up in the gap
+      maybeSpawnPowerUp(nextSpawnX + transitDist * 0.4);
+
       let minRunBuffer = Math.max(180, currentSpeed * 0.52);
       if (isFirst60s) {
         minRunBuffer = Math.max(260, currentSpeed * 0.7);
@@ -1390,7 +1871,6 @@
         if (scoreMeters >= 750) choices.push(9); // Zigzag rhythm run
         if (scoreMeters >= 950) choices.push(10); // Narrow tunnel challenge
       } else {
-        // First 60 seconds: simple single obstacle patterns with guidance arcs and runway coins
         choices = [0, 1, 2, 3];
       }
 
@@ -1406,8 +1886,10 @@
             w: 36,
             h: 40
           }));
+          spawnRunwayCoins(nextSpawnX - 110, 'floor', 3, 'low');
+          spawnGoldStar(nextSpawnX + 18, floorY - 56);
           spawnCoinArc(nextSpawnX - currentSpeed * 0.28, 'floor', 'ceiling', 5);
-          spawnRunwayCoins(nextSpawnX + transitDist + 50, 'ceiling', 3);
+          spawnRunwayCoins(nextSpawnX + transitDist + 50, 'ceiling', 3, 'low');
           nextSpawnX += transitDist + minRunBuffer + 120;
           break;
         }
@@ -1421,8 +1903,10 @@
             w: 36,
             h: 40
           }));
+          spawnRunwayCoins(nextSpawnX - 110, 'ceiling', 3, 'low');
+          spawnGoldStar(nextSpawnX + 18, ceilingY + 56);
           spawnCoinArc(nextSpawnX - currentSpeed * 0.28, 'ceiling', 'floor', 5);
-          spawnRunwayCoins(nextSpawnX + transitDist + 50, 'floor', 3);
+          spawnRunwayCoins(nextSpawnX + transitDist + 50, 'floor', 3, 'low');
           nextSpawnX += transitDist + minRunBuffer + 120;
           break;
         }
@@ -1436,8 +1920,10 @@
             w: 30,
             h: 38
           }));
+          spawnRunwayCoins(nextSpawnX - 90, 'floor', 2, 'low');
+          spawnGoldStar(nextSpawnX + 15, floorY - 52);
           spawnCoinArc(nextSpawnX - currentSpeed * 0.28, 'floor', 'ceiling', 5);
-          spawnRunwayCoins(nextSpawnX + transitDist + 40, 'ceiling', 3);
+          spawnRunwayCoins(nextSpawnX + transitDist + 40, 'ceiling', 3, 'low');
           nextSpawnX += transitDist + minRunBuffer + 120;
           break;
         }
@@ -1451,8 +1937,10 @@
             w: 30,
             h: 38
           }));
+          spawnRunwayCoins(nextSpawnX - 90, 'ceiling', 2, 'low');
+          spawnGoldStar(nextSpawnX + 15, ceilingY + 52);
           spawnCoinArc(nextSpawnX - currentSpeed * 0.28, 'ceiling', 'floor', 5);
-          spawnRunwayCoins(nextSpawnX + transitDist + 40, 'floor', 3);
+          spawnRunwayCoins(nextSpawnX + transitDist + 40, 'floor', 3, 'low');
           nextSpawnX += transitDist + minRunBuffer + 120;
           break;
         }
@@ -1460,12 +1948,15 @@
         case 4: {
           // Floor Block -> Runway -> Ceiling Block
           obstacles.push(new Obstacle({ surface: 'floor', type: 'block', x: nextSpawnX, w: 40, h: 46 }));
+          spawnGoldStar(nextSpawnX + 20, floorY - 60);
           spawnCoinArc(nextSpawnX - currentSpeed * 0.26, 'floor', 'ceiling', 4);
 
           const ceilingX = nextSpawnX + transitDist + minRunBuffer;
+          spawnRunwayCoins(nextSpawnX + transitDist + 20, 'ceiling', 3, 'low');
           obstacles.push(new Obstacle({ surface: 'ceiling', type: 'block', x: ceilingX, w: 40, h: 46 }));
+          spawnGoldStar(ceilingX + 20, ceilingY + 60);
           spawnCoinArc(ceilingX - currentSpeed * 0.26, 'ceiling', 'floor', 4);
-          spawnRunwayCoins(ceilingX + transitDist + 40, 'floor', 3);
+          spawnRunwayCoins(ceilingX + transitDist + 40, 'floor', 3, 'low');
 
           nextSpawnX = ceilingX + transitDist + minRunBuffer + 130;
           break;
@@ -1475,8 +1966,10 @@
           // Double Spikes on Floor
           obstacles.push(new Obstacle({ surface: 'floor', type: 'spike', x: nextSpawnX, w: 26, h: 36 }));
           obstacles.push(new Obstacle({ surface: 'floor', type: 'spike', x: nextSpawnX + 32, w: 26, h: 36 }));
+          spawnRunwayCoins(nextSpawnX - 100, 'floor', 3, 'low');
+          spawnGoldStar(nextSpawnX + 29, floorY - 52);
           spawnCoinArc(nextSpawnX - currentSpeed * 0.28, 'floor', 'ceiling', 5);
-          spawnRunwayCoins(nextSpawnX + transitDist + 50, 'ceiling', 3);
+          spawnRunwayCoins(nextSpawnX + transitDist + 50, 'ceiling', 3, 'low');
           nextSpawnX += transitDist + minRunBuffer + 120;
           break;
         }
@@ -1485,8 +1978,10 @@
           // Double Spikes on Ceiling
           obstacles.push(new Obstacle({ surface: 'ceiling', type: 'spike', x: nextSpawnX, w: 26, h: 36 }));
           obstacles.push(new Obstacle({ surface: 'ceiling', type: 'spike', x: nextSpawnX + 32, w: 26, h: 36 }));
+          spawnRunwayCoins(nextSpawnX - 100, 'ceiling', 3, 'low');
+          spawnGoldStar(nextSpawnX + 29, ceilingY + 52);
           spawnCoinArc(nextSpawnX - currentSpeed * 0.28, 'ceiling', 'floor', 5);
-          spawnRunwayCoins(nextSpawnX + transitDist + 50, 'floor', 3);
+          spawnRunwayCoins(nextSpawnX + transitDist + 50, 'floor', 3, 'low');
           nextSpawnX += transitDist + minRunBuffer + 120;
           break;
         }
@@ -1494,8 +1989,10 @@
         case 7: {
           // Tall Floor Pillar (80px)
           obstacles.push(new Obstacle({ surface: 'floor', type: 'block', x: nextSpawnX, w: 38, h: 78 }));
+          spawnRunwayCoins(nextSpawnX - 110, 'floor', 3, 'low');
+          spawnGoldStar(nextSpawnX + 19, floorY - 96);
           spawnCoinArc(nextSpawnX - currentSpeed * 0.28, 'floor', 'ceiling', 5);
-          spawnRunwayCoins(nextSpawnX + transitDist + 40, 'ceiling', 3);
+          spawnRunwayCoins(nextSpawnX + transitDist + 40, 'ceiling', 3, 'low');
           nextSpawnX += transitDist + minRunBuffer + 130;
           break;
         }
@@ -1515,10 +2012,11 @@
             speedFactor: spdFactor,
             phase: Math.random() * Math.PI * 2
           }));
-          spawnRunwayCoins(nextSpawnX - 30, 'floor', 2);
-          spawnRunwayCoins(nextSpawnX + 50, 'floor', 2);
-          spawnRunwayCoins(nextSpawnX - 30, 'ceiling', 2);
-          spawnRunwayCoins(nextSpawnX + 50, 'ceiling', 2);
+          spawnGoldStar(nextSpawnX + 18, trackCenterY - amp - 14);
+          spawnRunwayCoins(nextSpawnX - 50, 'floor', 3, 'low');
+          spawnRunwayCoins(nextSpawnX + 50, 'floor', 3, 'low');
+          spawnRunwayCoins(nextSpawnX - 50, 'ceiling', 3, 'low');
+          spawnRunwayCoins(nextSpawnX + 50, 'ceiling', 3, 'low');
           nextSpawnX += transitDist + minRunBuffer + 140;
           break;
         }
@@ -1527,12 +2025,15 @@
           // Zigzag Sequence: Floor -> Ceiling -> Floor
           const gap = transitDist + minRunBuffer * 0.95;
           obstacles.push(new Obstacle({ surface: 'floor', type: 'spike', x: nextSpawnX, w: 30, h: 38 }));
+          spawnGoldStar(nextSpawnX + 15, floorY - 52);
           spawnCoinArc(nextSpawnX - currentSpeed * 0.26, 'floor', 'ceiling', 4);
 
           obstacles.push(new Obstacle({ surface: 'ceiling', type: 'spike', x: nextSpawnX + gap, w: 30, h: 38 }));
+          spawnGoldStar(nextSpawnX + gap + 15, ceilingY + 52);
           spawnCoinArc(nextSpawnX + gap - currentSpeed * 0.26, 'ceiling', 'floor', 4);
 
           obstacles.push(new Obstacle({ surface: 'floor', type: 'spike', x: nextSpawnX + gap * 2, w: 30, h: 38 }));
+          spawnGoldStar(nextSpawnX + gap * 2 + 15, floorY - 52);
           spawnCoinArc(nextSpawnX + gap * 2 - currentSpeed * 0.26, 'floor', 'ceiling', 4);
 
           nextSpawnX += gap * 2 + transitDist + minRunBuffer + 150;
@@ -1546,6 +2047,7 @@
 
           const tunnelCeilingX = nextSpawnX + transitDist + 60;
           obstacles.push(new Obstacle({ surface: 'ceiling', type: 'block', x: tunnelCeilingX, w: 46, h: 48 }));
+          spawnGoldStar((nextSpawnX + tunnelCeilingX) / 2, trackCenterY);
           spawnCoinArc(tunnelCeilingX - currentSpeed * 0.28, 'ceiling', 'floor', 4);
 
           nextSpawnX = tunnelCeilingX + transitDist + minRunBuffer + 150;
@@ -1558,6 +2060,10 @@
 
     function updateObstacles(dt) {
       if (!isTutorialActive && gameTime >= 1.5) {
+        nextSpawnX -= currentSpeed * dt;
+        if (nextSpawnX < virtualW + 40) {
+          nextSpawnX = virtualW + 40;
+        }
         while (nextSpawnX < virtualW + 850) {
           spawnNextPattern();
         }
@@ -1578,6 +2084,31 @@
               spawnPopupText(player.x, player.y - 10, 'ドンマイ！ 練習完了！', '#f59e0b', 14, true);
               completeTutorial();
             } else {
+              // Shield Protection Check: absorb 1 hit + 1s invincibility
+              if (player.hasShield) {
+                player.hasShield = false;
+                player.invincibleTimer = 1.0;
+                sound.playShieldBreak();
+                spawnShieldBreakParticles(player.x, player.y);
+                spawnPopupText(player.x, player.y - 18, '🛡️ SHIELD BROKEN!', '#38bdf8', 15, true);
+                addScreenShake(7.5, 0.25);
+                continue;
+              }
+              if (player.invincibleTimer > 0) {
+                continue; // Safe during invincibility flicker
+              }
+
+              // Determine death cause
+              if (obs.type === 'block') {
+                lastDeathCause = 'ブロックに激突！';
+              } else if (obs.type === 'spike') {
+                lastDeathCause = 'トゲに接触！';
+              } else if (obs.type === 'moving') {
+                lastDeathCause = '動くハザードに接触！';
+              } else {
+                lastDeathCause = '障害物に衝突！';
+              }
+
               triggerGameOver();
               return;
             }
@@ -1664,6 +2195,15 @@
       isNewBest = false;
       currentSpeed = SPEED_INITIAL;
 
+      coinStreak = 0;
+      coinStreakTimer = 0;
+      magnetTimer = 0;
+      lastPowerUpSpawnDist = 0;
+      nextMilestone = 250;
+      milestoneBanner = null;
+      bestDistance = getStoredBestDistance();
+      bestLineCrossed = false;
+
       player.reset();
       resetObstacles();
       particles = [];
@@ -1717,6 +2257,18 @@
         bestScore = currentStoredBest;
         isNewBest = false;
       }
+
+      const finalDist = Math.floor(scoreMeters);
+      const currentStoredDist = getStoredBestDistance();
+      if (finalDist > currentStoredDist && finalDist > 0) {
+        bestDistance = finalDist;
+        try {
+          localStorage.setItem(BEST_DISTANCE_KEY, String(bestDistance));
+        } catch(e) {}
+      } else {
+        bestDistance = currentStoredDist;
+      }
+
       syncGameTestingObj();
     }
 
@@ -1854,6 +2406,44 @@
         // Score progression from distance (scaled by combo multiplier)
         gameScore += deltaMeters * 5 * comboMultiplier;
 
+        // Milestone trigger: subtle 250m notice and +100 bonus
+        if (scoreMeters >= nextMilestone) {
+          const mText = `${nextMilestone}m!`;
+          milestoneBanner = {
+            text: mText,
+            bonus: 100,
+            timer: 2.2,
+            maxTimer: 2.2
+          };
+          gameScore += 100;
+          sound.playMilestone();
+          spawnPopupText(virtualW / 2, trackCenterY - 35, `🏁 ${mText} +100 BONUS!`, '#10b981', 16, true);
+          nextMilestone += 250;
+        }
+
+        // BEST distance line crossing celebration
+        if (bestDistance > 20 && !bestLineCrossed && scoreMeters >= bestDistance) {
+          bestLineCrossed = true;
+          sound.playBestRecord();
+          addScreenShake(6.0, 0.3);
+          spawnPopupText(player.x + 30, trackCenterY, '★ NEW BEST DISTANCE! ★', '#f59e0b', 18, true);
+          for (let i = 0; i < 35; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const spd = 70 + Math.random() * 220;
+            particles.push({
+              type: 'sparkle',
+              x: player.x,
+              y: trackCenterY,
+              vx: Math.cos(angle) * spd,
+              vy: Math.sin(angle) * spd,
+              size: 3 + Math.random() * 3,
+              alpha: 1.0,
+              life: 0.6 + Math.random() * 0.5,
+              color: ['#f59e0b', '#38bdf8', '#10b981', '#ec4899', '#8b5cf6'][Math.floor(Math.random() * 5)]
+            });
+          }
+        }
+
         // Speed tier check & trigger
         for (let i = SPEED_TIERS.length - 1; i >= 0; i--) {
           if (scoreMeters >= SPEED_TIERS[i].minMeters) {
@@ -1888,6 +2478,7 @@
         player.update(simDt);
         updateObstacles(simDt);
         updateCoins(simDt);
+        updatePowerUps(simDt);
         updateBackground(simDt);
         sound.updateBgm();
       } else if (state === 'title') {
@@ -1908,6 +2499,13 @@
         speedUpBanner.timer -= dt;
         if (speedUpBanner.timer <= 0) {
           speedUpBanner.active = false;
+        }
+      }
+
+      if (milestoneBanner) {
+        milestoneBanner.timer -= dt;
+        if (milestoneBanner.timer <= 0) {
+          milestoneBanner = null;
         }
       }
 
@@ -2275,9 +2873,126 @@
       }
     }
 
+    function renderBestLine() {
+      if (bestDistance <= 20) return;
+      const screenX = player.x + (bestDistance - scoreMeters) * 24;
+      if (screenX < -100 || screenX > virtualW + 100) return;
+
+      ctx.save();
+      // Glowing neon gold vertical line
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#f59e0b';
+      ctx.shadowBlur = 10;
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath();
+      ctx.moveTo(screenX, ceilingY);
+      ctx.lineTo(screenX, floorY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.shadowBlur = 0;
+
+      // BEST badge tag attached to line
+      const tagW = 78;
+      const tagH = 22;
+      const tagX = screenX - tagW / 2;
+      const tagY = ceilingY + 10;
+
+      ctx.fillStyle = '#f59e0b';
+      roundRect(ctx, tagX, tagY, tagW, tagH, 6);
+      ctx.fill();
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '800 11px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`★ BEST ${bestDistance}m`, screenX, tagY + tagH / 2);
+
+      ctx.restore();
+    }
+
+    function renderMilestoneBanner() {
+      if (!milestoneBanner || state !== 'playing') return;
+
+      const p = milestoneBanner.timer / milestoneBanner.maxTimer;
+      const alpha = Math.min(1.0, Math.sin(p * Math.PI) * 1.5);
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      const bW = 210;
+      const bH = 34;
+      const bX = (virtualW - bW) / 2;
+      const bY = trackCenterY - (TRACK_HEIGHT / 2) + 20;
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2.0;
+      ctx.shadowColor = 'rgba(16, 185, 129, 0.4)';
+      ctx.shadowBlur = 12;
+      roundRect(ctx, bX, bY, bW, bH, 17);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.shadowColor = 'transparent';
+      ctx.fillStyle = '#10b981';
+      ctx.font = '900 14px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`🏁 ${milestoneBanner.text}  +100 BONUS`, bX + bW / 2, bY + bH / 2);
+
+      ctx.restore();
+    }
+
     function renderPlayerFigure(x, y, rotation, animPhase, isGrounded, alpha = 1.0, squashTimer = 0, surface = 'floor') {
+      if (player.invincibleTimer > 0 && Math.sin(player.invincibleTimer * 32) > 0) {
+        alpha *= 0.25; // Invincibility flicker
+      }
+
       ctx.save();
       ctx.translate(x, y);
+
+      // Energy Shield Barrier Visual
+      if (player.hasShield && alpha > 0.4) {
+        ctx.save();
+        const pulse = Math.sin(gameTime * 6) * 2;
+        const shieldR = FIGURE_HALF_HEIGHT + 7 + pulse;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.0;
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+        ctx.beginPath();
+        ctx.arc(0, 0, shieldR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.rotate(gameTime * 2);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, shieldR - 3, 0, Math.PI * 0.6);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, shieldR - 3, Math.PI, Math.PI * 1.6);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Magnet Active Electromagnetic Aura
+      if (magnetTimer > 0 && alpha > 0.4) {
+        ctx.save();
+        const magPulse = Math.sin(gameTime * 12) * 3;
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.55)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(0, 0, FIGURE_HALF_HEIGHT + 13 + magPulse, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
       ctx.rotate(rotation);
 
       // Juice: Squash & stretch animation on landing
@@ -2776,19 +3491,51 @@
       const comboLabel = comboMultiplier > 1 ? `x${comboMultiplier} COMBO` : 'x1 MULTI';
       ctx.fillText(comboLabel, comboX + comboW / 2, comboY + 13);
 
-      if (player.isGrounded && comboCount > 0 && comboTimer > 0) {
+        if (player.isGrounded && comboCount > 0 && comboTimer > 0) {
         const timerPct = Math.max(0, comboTimer / 2.0);
         ctx.fillStyle = currentMultColor;
         ctx.fillRect(comboX + 10, comboY + comboH - 3, (comboW - 20) * timerPct, 2);
       }
 
-      // 4. Coins & Speed Gauge with Tier Color Reflecting
+      // 4. Magnet Active HUD Remaining Time Gauge
+      if (magnetTimer > 0) {
+        const magW = 126;
+        const magH = 22;
+        const magX = (canvasWidth - magW) / 2;
+        const magY = pillY + pillH + 6;
+        const pct = Math.max(0, magnetTimer / 5.0);
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 1.5;
+        roundRect(ctx, magX, magY, magW, magH, 11);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#ef4444';
+        roundRect(ctx, magX + 2, magY + 2, Math.max(0, (magW - 4) * pct), magH - 4, 9);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '800 11px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`🧲 MAGNET ${magnetTimer.toFixed(1)}s`, magX + magW / 2, magY + magH / 2);
+      }
+
+      // 5. Coins & Speed Gauge with Tier Color Reflecting
       const bottomY = floorScreenY + 14;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
       ctx.fillStyle = '#d97706';
       ctx.font = '700 13px system-ui, sans-serif';
       ctx.fillText(`🪙 ${coinsCollected}`, 16, bottomY + 12);
+
+      if (player.hasShield) {
+        ctx.fillStyle = '#0284c7';
+        ctx.font = '700 12px system-ui, sans-serif';
+        ctx.fillText(`🛡️ SHIELD ACTIVE`, 72, bottomY + 12);
+      }
 
       const speedPct = Math.min(1, (currentSpeed - SPEED_INITIAL) / (SPEED_MAX - SPEED_INITIAL));
       const barW = 110;
@@ -2931,7 +3678,7 @@
       ctx.globalAlpha = alpha;
 
       const cardW = Math.min(virtualW - 40, 440);
-      const cardH = 260;
+      const cardH = 296;
       const cardX = centerX - cardW / 2;
       const cardY = trackCenterY - cardH / 2;
 
@@ -2946,41 +3693,51 @@
       ctx.shadowColor = 'transparent';
       ctx.stroke();
 
-      // Title & Best Badge
+      // Title
       ctx.textAlign = 'center';
       ctx.fillStyle = '#0f172a';
       ctx.font = '900 24px system-ui, sans-serif';
-      ctx.fillText('GAME OVER', centerX, cardY + 34);
+      ctx.fillText('GAME OVER', centerX, cardY + 30);
 
+      let currentTopY = cardY + 45;
       if (isNewBest) {
         ctx.fillStyle = '#f59e0b';
         ctx.font = '800 11px system-ui, sans-serif';
-        ctx.fillText('★ NEW BEST! ★', centerX, cardY + 49);
+        ctx.fillText('★ NEW BEST RECORD! ★', centerX, currentTopY);
+        currentTopY += 16;
+      }
+
+      // Death Cause notice
+      if (lastDeathCause) {
+        ctx.fillStyle = '#ef4444';
+        ctx.font = '700 12px system-ui, sans-serif';
+        ctx.fillText(`死因: ${lastDeathCause}`, centerX, currentTopY);
+        currentTopY += 12;
       }
 
       // Divider
       ctx.strokeStyle = '#e2e8f0';
       ctx.lineWidth = 1.2;
       ctx.beginPath();
-      ctx.moveTo(cardX + 28, cardY + 56);
-      ctx.lineTo(cardX + cardW - 28, cardY + 56);
+      ctx.moveTo(cardX + 28, currentTopY);
+      ctx.lineTo(cardX + cardW - 28, currentTopY);
       ctx.stroke();
 
       // Large Score display
       const finalScore = Math.floor(gameScore);
       ctx.fillStyle = '#64748b';
       ctx.font = '600 10px system-ui, sans-serif';
-      ctx.fillText('FINAL SCORE', centerX, cardY + 72);
+      ctx.fillText('FINAL SCORE', centerX, currentTopY + 16);
 
       ctx.fillStyle = '#0f172a';
       ctx.font = '900 32px system-ui, sans-serif';
-      ctx.fillText(finalScore.toLocaleString(), centerX, cardY + 104);
+      ctx.fillText(finalScore.toLocaleString(), centerX, currentTopY + 46);
 
       // Stats 2-column layout
-      const statsY = cardY + 124;
+      const statsY = currentTopY + 68;
       const col1X = cardX + 44;
       const col2X = cardX + cardW - 44;
-      const lineGap = 19;
+      const lineGap = 18;
 
       ctx.font = '600 11px system-ui, sans-serif';
       ctx.fillStyle = '#64748b';
@@ -2998,18 +3755,29 @@
       ctx.fillText(`x${getComboMultiplier(maxCombo)} (${maxCombo} 連鎖)`, col2X, statsY + lineGap * 2);
       ctx.fillText(`${nearMissCount} 回`, col2X, statsY + lineGap * 3);
 
-      // Self Best Note
+      // "One More Run" Motivation: Points to Best & Stored Best
       const currentBest = getStoredBestScore();
       ctx.textAlign = 'center';
+      if (!isNewBest && currentBest > finalScore) {
+        const diff = currentBest - finalScore;
+        ctx.fillStyle = '#0284c7';
+        ctx.font = '800 12px system-ui, sans-serif';
+        ctx.fillText(`🔥 ベストまであと ${diff.toLocaleString()} 点！`, centerX, cardY + cardH - 66);
+      } else if (isNewBest) {
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = '800 12px system-ui, sans-serif';
+        ctx.fillText(`🎉 自己ベスト更新！`, centerX, cardY + cardH - 66);
+      }
+
       ctx.fillStyle = '#94a3b8';
       ctx.font = '600 10px system-ui, sans-serif';
-      ctx.fillText(`自己ベスト: ${currentBest.toLocaleString()} pts`, centerX, cardY + 208);
+      ctx.fillText(`自己ベスト: ${currentBest.toLocaleString()} pts`, centerX, cardY + cardH - 52);
 
       // Retry Prompt Button
       const btnW = 180;
       const btnH = 34;
       const btnX = centerX - btnW / 2;
-      const btnY = cardY + cardH - 44;
+      const btnY = cardY + cardH - 42;
       const isInputLocked = (gameOverTimer < GAME_OVER_INPUT_LOCK);
 
       if (isInputLocked) {
@@ -3094,6 +3862,10 @@
         Object.defineProperty(window.__game, 'player', { get: () => player, configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'obstacles', { get: () => obstacles, configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'coins', { get: () => coins, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'powerUps', { get: () => powerUps, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'totalObstaclesSpawned', { get: () => totalObstaclesSpawned, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'totalPowerUpsSpawned', { get: () => totalPowerUpsSpawned, configurable: true, enumerable: true });
+        Object.defineProperty(window.__game, 'lastDeathCause', { get: () => lastDeathCause, configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'coinsCollected', { get: () => coinsCollected, configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'nearMisses', { get: () => nearMissCount, configurable: true, enumerable: true });
         Object.defineProperty(window.__game, 'combo', { get: () => comboCount, configurable: true, enumerable: true });
@@ -3191,11 +3963,17 @@
       }
 
       renderBackground();
+      renderBestLine();
       renderObstacles();
 
       // Render coins
       for (const coin of coins) {
         coin.render(ctx);
+      }
+
+      // Render power-ups (Shield, Magnet)
+      for (const p of powerUps) {
+        p.render(ctx);
       }
 
       // Ghost silhouettes during transit
@@ -3222,6 +4000,7 @@
 
       renderParticles();
       renderSpeedUpBanner();
+      renderMilestoneBanner();
       renderTutorialBanner();
 
       if (state === 'title') {
