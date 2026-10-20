@@ -7,6 +7,20 @@
   <meta name="description" content="タイミングよく画面を長押しして棒を伸ばし、足場から足場へ橋を架け渡す爽快ミニゲーム。">
   <meta name="theme-color" content="#090d16">
 
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://akariyachan.github.io/grok-gemini-games/bridge-jump/">
+  <meta property="og:title" content="ワンタップ・ジャンプ橋">
+  <meta property="og:description" content="タイミングよく画面を長押しして棒を伸ばし、足場から足場へ橋を架け渡す爽快ミニゲーム。">
+  <meta property="og:image" content="https://akariyachan.github.io/grok-gemini-games/bridge-jump/thumbnail.png">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://akariyachan.github.io/grok-gemini-games/bridge-jump/">
+  <meta name="twitter:title" content="ワンタップ・ジャンプ橋">
+  <meta name="twitter:description" content="タイミングよく画面を長押しして棒を伸ばし、足場から足場へ橋を架け渡す爽快ミニゲーム。">
+  <meta name="twitter:image" content="https://akariyachan.github.io/grok-gemini-games/bridge-jump/thumbnail.png">
+
   <!-- Favicon: Inline SVG data-URI to avoid 404 -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23090d16'/%3E%3Crect x='4' y='21' width='8' height='11' fill='%2338bdf8' rx='2'/%3E%3Crect x='20' y='21' width='8' height='11' fill='%2338bdf8' rx='2'/%3E%3Crect x='11' y='20' width='10' height='3' fill='%23f43f5e' rx='1'/%3E%3Cpath d='M12 21 L20 21' stroke='%23ffffff' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='9' cy='15' r='2.5' fill='%2338bdf8'/%3E%3C/svg%3E">
 
@@ -94,11 +108,47 @@
       right: calc(env(safe-area-inset-right, 12px) + 62px);
       display: none;
     }
+
+    #back-games-btn {
+      position: absolute;
+      top: calc(env(safe-area-inset-top, 12px) + 14px);
+      left: calc(env(safe-area-inset-left, 12px) + 12px);
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-decoration: none;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 16px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.2;
+      transition: transform 0.1s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+      touch-action: manipulation;
+    }
+
+    #back-games-btn:hover {
+      background: rgba(30, 41, 59, 0.9);
+      color: #38bdf8;
+      border-color: rgba(56, 189, 248, 0.5);
+    }
+
+    #back-games-btn:active {
+      transform: scale(0.94);
+    }
   </style>
 </head>
 <body>
   <div id="game-container">
     <canvas id="game-canvas"></canvas>
+
+    <!-- Games index back button (top-left on title screen) -->
+    <a id="back-games-btn" href="../../" title="ゲーム一覧へ">← ゲーム一覧</a>
 
     <!-- Pause button (next to mute in HUD, thumb-safe top-right) -->
     <button id="pause-btn" class="hud-circle-btn" title="一時停止" aria-label="一時停止">
@@ -321,12 +371,36 @@
       const PERFECT_MARKER_W = 8;   // 足場上端の赤マーカー幅 (px)
 
       // ==========================================
-      // Audio System (Web Audio API)
+      // Audio & BGM System (Web Audio API)
       // ==========================================
       let audioCtx = null;
       let isMuted = safeGetStorage('bridgeJumpMuted', 'false') === 'true';
+      let settingSfx = safeGetStorage('bridgeJumpSfx', 'true') === 'true';
+      let settingBgm = safeGetStorage('bridgeJumpBgm', 'true') === 'true';
       let growOsc = null;
       let growGain = null;
+
+      // BGM State & Gain
+      let bgmGainNode = null;
+      let bgmStep = 0;
+      let nextBgmStepTime = 0;
+      let isBgmRunning = false;
+
+      // BGM Loop: C -> G -> Am -> F (4 bars = 64 steps, 16 steps per bar)
+      const BGM_TOTAL_STEPS = 64;
+      const BGM_BASS_ROOTS = [65.41, 48.99, 55.00, 43.65]; // C2, G1, A1, F1
+
+      // 爽快で親しみやすいゲームメロディ（30本以上で重なる）
+      const BGM_MELODY_NOTES = [
+        // Bar 1 (C)
+        523.25, 0, 659.25, 0, 783.99, 0, 880.00, 0,  1046.50, 0, 783.99, 0, 659.25, 0, 0, 0,
+        // Bar 2 (G)
+        587.33, 0, 783.99, 0, 987.77, 0, 1174.66, 0, 987.77, 0, 783.99, 0, 587.33, 0, 0, 0,
+        // Bar 3 (Am)
+        523.25, 0, 659.25, 0, 880.00, 0, 1046.50, 0, 880.00, 0, 659.25, 0, 523.25, 0, 0, 0,
+        // Bar 4 (F)
+        698.46, 0, 880.00, 0, 1046.50, 0, 1396.91, 0, 1318.51, 0, 1174.66, 0, 1046.50, 0, 0, 0
+      ];
 
       function initAudio() {
         if (!audioCtx) {
@@ -358,12 +432,176 @@
         safeSetStorage('bridgeJumpMuted', isMuted ? 'true' : 'false');
         if (isMuted) {
           stopGrowSound();
+          stopBgm();
+        } else {
+          if (settingBgm && gameState === 'play' && !isPaused && !isCountingDown) {
+            startBgm();
+          }
         }
         updateMuteButtonUI();
       }
 
+      function toggleSettingSfx() {
+        settingSfx = !settingSfx;
+        safeSetStorage('bridgeJumpSfx', settingSfx ? 'true' : 'false');
+        if (settingSfx && !isMuted) {
+          playSuccessSound();
+        }
+      }
+
+      function toggleSettingBgm() {
+        settingBgm = !settingBgm;
+        safeSetStorage('bridgeJumpBgm', settingBgm ? 'true' : 'false');
+        if (settingBgm && !isMuted && gameState === 'play' && !isPaused && !isCountingDown) {
+          startBgm();
+        } else {
+          stopBgm();
+        }
+      }
+
+      function startBgm() {
+        if (isMuted || !settingBgm || !audioCtx) return;
+        try {
+          if (!bgmGainNode) {
+            bgmGainNode = audioCtx.createGain();
+            bgmGainNode.connect(audioCtx.destination);
+          }
+          bgmGainNode.gain.setValueAtTime(0.26, audioCtx.currentTime);
+        } catch (e) {}
+        isBgmRunning = true;
+        nextBgmStepTime = Math.max(nextBgmStepTime, audioCtx.currentTime + 0.05);
+      }
+
+      function stopBgm() {
+        isBgmRunning = false;
+        if (bgmGainNode && audioCtx) {
+          try {
+            bgmGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+          } catch (e) {}
+        }
+      }
+
+      function scheduleBgmStep(step, time) {
+        if (!audioCtx || !bgmGainNode) return;
+
+        const bar = Math.floor(step / 16);
+        const beatInBar = step % 16;
+        const isDownbeat = (beatInBar % 4 === 0);
+
+        // 1. ドラム（0本〜: キック & スネア/タップ）
+        if (isDownbeat) {
+          try {
+            const oscK = audioCtx.createOscillator();
+            const gainK = audioCtx.createGain();
+            oscK.type = 'sine';
+            oscK.frequency.setValueAtTime(135, time);
+            oscK.frequency.exponentialRampToValueAtTime(36, time + 0.075);
+            gainK.gain.setValueAtTime(0.18, time);
+            gainK.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+            oscK.connect(gainK);
+            gainK.connect(bgmGainNode);
+            oscK.start(time);
+            oscK.stop(time + 0.08);
+          } catch (e) {}
+        }
+        if (beatInBar === 4 || beatInBar === 12) {
+          try {
+            const oscS = audioCtx.createOscillator();
+            const gainS = audioCtx.createGain();
+            oscS.type = 'triangle';
+            oscS.frequency.setValueAtTime(210, time);
+            oscS.frequency.exponentialRampToValueAtTime(70, time + 0.05);
+            gainS.gain.setValueAtTime(0.08, time);
+            gainS.gain.exponentialRampToValueAtTime(0.001, time + 0.055);
+            oscS.connect(gainS);
+            gainS.connect(bgmGainNode);
+            oscS.start(time);
+            oscS.stop(time + 0.055);
+          } catch (e) {}
+        }
+
+        // 2. ベース（10本ごと: 渡った本数が10本以上で重なる）
+        if (count >= 10) {
+          if (beatInBar % 2 === 0) {
+            try {
+              const root = BGM_BASS_ROOTS[bar];
+              let f = root;
+              if (beatInBar === 6 || beatInBar === 14) f = root * 1.5;
+              else if (beatInBar === 10) f = root * 2.0;
+
+              const oscB = audioCtx.createOscillator();
+              const gainB = audioCtx.createGain();
+              oscB.type = 'triangle';
+              oscB.frequency.setValueAtTime(f, time);
+              gainB.gain.setValueAtTime(0.15, time);
+              gainB.gain.exponentialRampToValueAtTime(0.001, time + 0.11);
+              oscB.connect(gainB);
+              gainB.connect(bgmGainNode);
+              oscB.start(time);
+              oscB.stop(time + 0.11);
+            } catch (e) {}
+          }
+        }
+
+        // 3. ハイハット（20本以上で重なる）
+        if (count >= 20) {
+          if (beatInBar % 2 === 1) {
+            try {
+              const oscH = audioCtx.createOscillator();
+              const gainH = audioCtx.createGain();
+              oscH.type = 'square';
+              oscH.frequency.setValueAtTime(3600 + (step % 4) * 600, time);
+              gainH.gain.setValueAtTime(0.022, time);
+              gainH.gain.exponentialRampToValueAtTime(0.0001, time + 0.025);
+              oscH.connect(gainH);
+              gainH.connect(bgmGainNode);
+              oscH.start(time);
+              oscH.stop(time + 0.025);
+            } catch (e) {}
+          }
+        }
+
+        // 4. メロディ（30本以上で重なる）
+        if (count >= 30) {
+          const melFreq = BGM_MELODY_NOTES[step];
+          if (melFreq > 0) {
+            try {
+              const oscM = audioCtx.createOscillator();
+              const gainM = audioCtx.createGain();
+              oscM.type = 'triangle';
+              oscM.frequency.setValueAtTime(melFreq, time);
+              gainM.gain.setValueAtTime(0.09, time);
+              gainM.gain.exponentialRampToValueAtTime(0.001, time + 0.13);
+              oscM.connect(gainM);
+              gainM.connect(bgmGainNode);
+              oscM.start(time);
+              oscM.stop(time + 0.13);
+            } catch (e) {}
+          }
+        }
+      }
+
+      function updateBgmScheduler() {
+        if (!audioCtx || isMuted || !settingBgm || gameState !== 'play' || isPaused || isCountingDown) {
+          return;
+        }
+
+        if (!isBgmRunning) {
+          startBgm();
+        }
+
+        const currentBpm = isRush ? 158 : 122; // ラッシュ中はテンポアップ
+        const stepDur = 60.0 / currentBpm / 4.0;
+
+        while (nextBgmStepTime < audioCtx.currentTime + 0.12) {
+          scheduleBgmStep(bgmStep, nextBgmStepTime);
+          nextBgmStepTime += stepDur;
+          bgmStep = (bgmStep + 1) % BGM_TOTAL_STEPS;
+        }
+      }
+
       function playGrowSound() {
-        if (isMuted || !audioCtx) return;
+        if (isMuted || !settingSfx || !audioCtx) return;
         try {
           stopGrowSound();
           growOsc = audioCtx.createOscillator();
@@ -395,7 +633,7 @@
       }
 
       function playStickLandSound() {
-        if (isMuted || !audioCtx) return;
+        if (isMuted || !settingSfx || !audioCtx) return;
         try {
           const now = audioCtx.currentTime;
           const osc = audioCtx.createOscillator();
@@ -414,29 +652,28 @@
         } catch (e) {}
       }
 
+      // 指示1: GOOD判定は短く丸い音
       function playSuccessSound() {
-        if (isMuted || !audioCtx) return;
+        if (isMuted || !settingSfx || !audioCtx) return;
         try {
           const now = audioCtx.currentTime;
-          const freqs = [523.25, 659.25]; // C5, E5
-          freqs.forEach((freq, idx) => {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sine';
-            const t = now + idx * 0.04;
-            osc.frequency.setValueAtTime(freq, t);
-            gain.gain.setValueAtTime(0.12, t);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start(t);
-            osc.stop(t + 0.12);
-          });
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(523.25, now);
+          osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.06);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.08);
         } catch (e) {}
       }
 
+      // 指示1: GREAT判定は短くキレのある2音
       function playGreatSound() {
-        if (isMuted || !audioCtx) return;
+        if (isMuted || !settingSfx || !audioCtx) return;
         try {
           const now = audioCtx.currentTime;
           const freqs = [659.25, 880.00]; // E5, A5
@@ -444,64 +681,78 @@
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.type = 'triangle';
-            const t = now + idx * 0.04;
+            const t = now + idx * 0.035;
             osc.frequency.setValueAtTime(freq, t);
-            gain.gain.setValueAtTime(0.14, t);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+            gain.gain.setValueAtTime(0.13, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.start(t);
-            osc.stop(t + 0.16);
+            osc.stop(t + 0.09);
           });
         } catch (e) {}
       }
 
+      // 指示1: ギリギリ判定は緊張感のある鋭い不協音
       function playGirigiriSound() {
-        if (isMuted || !audioCtx) return;
+        if (isMuted || !settingSfx || !audioCtx) return;
         try {
           const now = audioCtx.currentTime;
           const osc = audioCtx.createOscillator();
           const gain = audioCtx.createGain();
           osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(280, now);
-          osc.frequency.linearRampToValueAtTime(360, now + 0.1);
-
-          gain.gain.setValueAtTime(0.13, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.linearRampToValueAtTime(390, now + 0.12);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
           osc.connect(gain);
           gain.connect(audioCtx.destination);
           osc.start(now);
-          osc.stop(now + 0.12);
+          osc.stop(now + 0.14);
+
+          // デチューン音で心拍の緊張感を表現
+          const osc2 = audioCtx.createOscillator();
+          const gain2 = audioCtx.createGain();
+          osc2.type = 'sawtooth';
+          osc2.frequency.setValueAtTime(233.08, now);
+          osc2.frequency.linearRampToValueAtTime(415.30, now + 0.12);
+          gain2.gain.setValueAtTime(0.09, now);
+          gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+          osc2.connect(gain2);
+          gain2.connect(audioCtx.destination);
+          osc2.start(now);
+          osc2.stop(now + 0.14);
         } catch (e) {}
       }
 
+      // 指示1: PERFECT判定はキラッとした和音
       function playPerfectSound(comboCount) {
-        if (isMuted || !audioCtx) return;
+        if (isMuted || !settingSfx || !audioCtx) return;
         try {
           const now = audioCtx.currentTime;
-          const scale = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51, 1567.98, 1760.00];
-          const baseIndex = Math.min(scale.length - 3, Math.max(0, (comboCount - 1) % scale.length));
-          const freqs = [scale[baseIndex], scale[baseIndex + 1], scale[baseIndex + 2]];
+          const roots = [523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77, 1046.50];
+          const root = roots[Math.min(roots.length - 1, Math.max(0, (comboCount - 1) % roots.length))];
+          // キラッとしたメジャー7th和音 (Root, 3rd, 5th, Maj7, 9th)
+          const freqs = [root, root * 1.25, root * 1.50, root * 1.875, root * 2.50];
 
           freqs.forEach((freq, idx) => {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = 'triangle';
-            const t = now + idx * 0.035;
+            osc.type = idx >= 3 ? 'sine' : 'triangle';
+            const t = now + idx * 0.014; // わずかなきらめきマイクロディレイ
             osc.frequency.setValueAtTime(freq, t);
-            gain.gain.setValueAtTime(0.18, t);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
+            gain.gain.setValueAtTime(0.12, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.start(t);
-            osc.stop(t + 0.24);
+            osc.stop(t + 0.28);
           });
         } catch (e) {}
       }
 
       function playMilestoneSound() {
-        if (isMuted || !audioCtx) return;
+        if (isMuted || !settingSfx || !audioCtx) return;
         try {
           const now = audioCtx.currentTime;
           const notes = [523.25, 659.25, 783.99, 1046.50]; // C5 - E5 - G5 - C6
@@ -522,7 +773,7 @@
       }
 
       function playFallSound() {
-        if (isMuted || !audioCtx) return;
+        if (isMuted || !settingSfx || !audioCtx) return;
         try {
           const now = audioCtx.currentTime;
           const osc = audioCtx.createOscillator();
@@ -541,16 +792,16 @@
         } catch (e) {}
       }
 
-      // ボーナスコイン取得音（キラッと鳴る高音チャイム）
+      // 指示1: ボーナスコイン取得音（キラッと鳴る高音チャイム）
       function playCoinSound() {
-        if (isMuted || !audioCtx) return;
+        if (isMuted || !settingSfx || !audioCtx) return;
         try {
           const now = audioCtx.currentTime;
           const freqs = [987.77, 1318.51, 1567.98]; // B5, E6, G6
           freqs.forEach((f, idx) => {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = 'triangle';
+            osc.type = 'sine';
             const t = now + idx * 0.045;
             osc.frequency.setValueAtTime(f, t);
             gain.gain.setValueAtTime(0.15, t);
@@ -563,17 +814,50 @@
         } catch (e) {}
       }
 
-      // 自己ベスト更新時のファンファーレ
+      // 指示1: ラッシュ突入音（駆け上がる爽快パワーアルペジオ）
+      function playRushEnterSound() {
+        if (isMuted || !settingSfx || !audioCtx) return;
+        try {
+          const now = audioCtx.currentTime;
+          const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+          notes.forEach((f, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            const t = now + idx * 0.03;
+            osc.frequency.setValueAtTime(f, t);
+            gain.gain.setValueAtTime(0.18, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.22);
+          });
+          const oscS = audioCtx.createOscillator();
+          const gainS = audioCtx.createGain();
+          oscS.type = 'sawtooth';
+          oscS.frequency.setValueAtTime(300, now);
+          oscS.frequency.exponentialRampToValueAtTime(1600, now + 0.24);
+          gainS.gain.setValueAtTime(0.10, now);
+          gainS.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+          oscS.connect(gainS);
+          gainS.connect(audioCtx.destination);
+          oscS.start(now);
+          oscS.stop(now + 0.24);
+        } catch (e) {}
+      }
+
+      // 指示1: 自己ベスト更新時のファンファーレ
       function playFanfareSound() {
-        if (isMuted || !audioCtx) return;
+        if (isMuted || !settingSfx || !audioCtx) return;
         try {
           const now = audioCtx.currentTime;
           const notes = [
             { f: 523.25, t: 0.00, d: 0.10 }, // C5
             { f: 659.25, t: 0.09, d: 0.10 }, // E5
             { f: 783.99, t: 0.18, d: 0.12 }, // G5
-            { f: 1046.50, t: 0.30, d: 0.48 }, // C6
-            { f: 1318.51, t: 0.30, d: 0.48 }  // E6 和音
+            { f: 1046.50, t: 0.30, d: 0.50 }, // C6
+            { f: 1318.51, t: 0.30, d: 0.50 }  // E6 和音
           ];
           notes.forEach(n => {
             const osc = audioCtx.createOscillator();
@@ -581,7 +865,7 @@
             osc.type = 'triangle';
             const st = now + n.t;
             osc.frequency.setValueAtTime(n.f, st);
-            gain.gain.setValueAtTime(0.19, st);
+            gain.gain.setValueAtTime(0.20, st);
             gain.gain.exponentialRampToValueAtTime(0.001, st + n.d);
             osc.connect(gain);
             gain.connect(audioCtx.destination);
@@ -591,40 +875,8 @@
         } catch (e) {}
       }
 
-      // ラッシュモード中のビート音（BGM代わりの軽快なキック＆パルス）
-      function playRushBeat() {
-        if (isMuted || !audioCtx) return;
-        try {
-          const now = audioCtx.currentTime;
-          // Kick sound
-          const oscK = audioCtx.createOscillator();
-          const gainK = audioCtx.createGain();
-          oscK.type = 'sine';
-          oscK.frequency.setValueAtTime(140, now);
-          oscK.frequency.exponentialRampToValueAtTime(42, now + 0.08);
-          gainK.gain.setValueAtTime(0.18, now);
-          gainK.gain.exponentialRampToValueAtTime(0.001, now + 0.10);
-          oscK.connect(gainK);
-          gainK.connect(audioCtx.destination);
-          oscK.start(now);
-          oscK.stop(now + 0.10);
-
-          // Synth Hat / Shimmer
-          const oscH = audioCtx.createOscillator();
-          const gainH = audioCtx.createGain();
-          oscH.type = 'triangle';
-          oscH.frequency.setValueAtTime(1046.5, now);
-          gainH.gain.setValueAtTime(0.05, now);
-          gainH.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-          oscH.connect(gainH);
-          gainH.connect(audioCtx.destination);
-          oscH.start(now);
-          oscH.stop(now + 0.04);
-        } catch (e) {}
-      }
-
       function playCountdownSound(isGo) {
-        if (isMuted || !audioCtx) return;
+        if (isMuted || !settingSfx || !audioCtx) return;
         try {
           initAudio();
           const osc = audioCtx.createOscillator();
@@ -664,7 +916,7 @@
       }
 
       function toggleSettingSound() {
-        toggleMute();
+        toggleSettingSfx();
       }
 
       // スマホのバイブレーション安全トリガー
@@ -727,6 +979,7 @@
           playSubState = 'ready';
         }
 
+        stopBgm();
         isPaused = true;
         isCountingDown = false;
         updatePauseButtonUI();
@@ -1103,21 +1356,22 @@
       let rankUpTitleName = '';
 
       // Title screen button layout bounds
-      const btnStart = { x: 75, y: 206, w: 240, h: 40 };
-      const btnDaily = { x: 75, y: 252, w: 240, h: 38 };
-      const btnHowToPlay = { x: 55, y: 298, w: 130, h: 32 };
-      const btnDressUp = { x: 205, y: 298, w: 130, h: 32 };
+      const btnStart = { x: 75, y: 236, w: 240, h: 40 };
+      const btnDaily = { x: 75, y: 282, w: 240, h: 38 };
+      const btnHowToPlay = { x: 55, y: 328, w: 130, h: 32 };
+      const btnDressUp = { x: 205, y: 328, w: 130, h: 32 };
 
       // Results screen button layout bounds
       const btnCopyResult = { x: 95, y: 420, w: 200, h: 32 };
 
       // Pause modal layout bounds
-      const pauseCard = { x: 35, y: 190, w: 320, h: 330 };
-      const btnSettingShake = { x: 55, y: 254, w: 280, h: 38 };
-      const btnSettingVibrate = { x: 55, y: 298, w: 280, h: 38 };
-      const btnSettingSound = { x: 55, y: 342, w: 280, h: 38 };
-      const btnResumeGame = { x: 65, y: 396, w: 260, h: 42 };
-      const btnToTitle = { x: 95, y: 448, w: 200, h: 32 };
+      const pauseCard = { x: 35, y: 168, w: 320, h: 360 };
+      const btnSettingShake = { x: 55, y: 226, w: 280, h: 36 };
+      const btnSettingVibrate = { x: 55, y: 268, w: 280, h: 36 };
+      const btnSettingBgm = { x: 55, y: 310, w: 280, h: 36 };
+      const btnSettingSound = { x: 55, y: 352, w: 280, h: 36 };
+      const btnResumeGame = { x: 65, y: 402, w: 260, h: 42 };
+      const btnToTitle = { x: 95, y: 456, w: 200, h: 32 };
 
       function getPointerVirtualPos(e) {
         if (!e) return { x: -999, y: -999 };
@@ -1169,7 +1423,9 @@
             configurable: true
           },
           isPaused: { get: () => isPaused, set: (v) => {}, enumerable: true, configurable: true },
-          isDailyMode: { get: () => isDailyMode, set: (v) => {}, enumerable: true, configurable: true }
+          isDailyMode: { get: () => isDailyMode, set: (v) => {}, enumerable: true, configurable: true },
+          bgm: { get: () => settingBgm, set: (v) => {}, enumerable: true, configurable: true },
+          sfx: { get: () => settingSfx, set: (v) => {}, enumerable: true, configurable: true }
         });
       } catch (e) {}
 
@@ -1398,12 +1654,24 @@
         if (startImmediately) {
           gameState = 'play';
           playSubState = 'ready';
+          startBgm();
         } else {
           gameState = 'title';
           playSubState = 'ready';
+          stopBgm();
+          initDemo();
         }
 
+        updatePauseButtonUI();
+        updateBackGamesBtnUI();
         updateGameHook();
+      }
+
+      function updateBackGamesBtnUI() {
+        const btn = document.getElementById('back-games-btn');
+        if (btn) {
+          btn.style.display = gameState === 'title' ? 'flex' : 'none';
+        }
       }
 
       function startGame() {
@@ -1413,12 +1681,157 @@
         isCountingDown = false;
         countdownRemaining = 0;
         updatePauseButtonUI();
+        updateBackGamesBtnUI();
+        startBgm();
         updateGameHook();
       }
 
       // ==========================================
-      // Particle & Juice System
+      // Title Screen Background Demo (Brush-up #5)
       // ==========================================
+      let demoPillars = [];
+      let demoPlayerX = 0;
+      let demoPlayerY = groundY;
+      let demoStickLength = 0;
+      let demoStickAngle = 0;
+      let demoStickStartX = 0;
+      let demoSubState = 'ready';
+      let demoStateTimer = 0.5;
+      let demoWalkCycle = 0;
+      let demoCameraX = 0;
+      let demoTargetCameraX = 0;
+      let demoTargetLength = 0;
+
+      function initDemo() {
+        demoCameraX = 0;
+        demoTargetCameraX = 0;
+        demoPillars = [
+          { x: 25, w: 75, perfectX: 25 + 37.5 },
+          { x: 165, w: 70, perfectX: 165 + 35 },
+          { x: 295, w: 68, perfectX: 295 + 34 }
+        ];
+        demoPlayerX = demoPillars[0].x + demoPillars[0].w - 16;
+        demoPlayerY = groundY;
+        demoStickLength = 0;
+        demoStickAngle = 0;
+        demoStickStartX = demoPillars[0].x + demoPillars[0].w;
+        demoSubState = 'ready';
+        demoStateTimer = 0.5;
+        demoWalkCycle = 0;
+        demoTargetLength = (demoPillars[1].x + demoPillars[1].w * 0.5) - demoStickStartX;
+      }
+
+      function updateDemo(dt) {
+        if (!demoPillars || demoPillars.length < 2) {
+          initDemo();
+          return;
+        }
+
+        // Camera smooth follow
+        demoCameraX += (demoTargetCameraX - demoCameraX) * Math.min(1, dt * 5);
+
+        if (demoSubState === 'ready') {
+          demoStateTimer -= dt;
+          if (demoStateTimer <= 0) {
+            demoSubState = 'growing';
+            demoStickLength = 0;
+            demoStickAngle = 0;
+            demoStickStartX = demoPillars[0].x + demoPillars[0].w;
+            demoTargetLength = (demoPillars[1].x + demoPillars[1].w * 0.5) - demoStickStartX;
+          }
+        } else if (demoSubState === 'growing') {
+          demoStickLength += GROW_SPEED * dt;
+          if (demoStickLength >= demoTargetLength) {
+            demoStickLength = demoTargetLength;
+            demoSubState = 'falling_stick';
+            demoStateTimer = 0;
+          }
+        } else if (demoSubState === 'falling_stick') {
+          demoStateTimer += dt;
+          const prog = Math.min(1, demoStateTimer / FALL_STICK_TIME);
+          demoStickAngle = (prog * prog) * (Math.PI / 2);
+          if (prog >= 1) {
+            demoStickAngle = Math.PI / 2;
+            demoSubState = 'walking';
+          }
+        } else if (demoSubState === 'walking') {
+          const targetX = demoPillars[1].x + demoPillars[1].w - 16;
+          const walkSpd = 160;
+          demoPlayerX += walkSpd * dt;
+          demoWalkCycle += dt * 14;
+          if (demoPlayerX >= targetX) {
+            demoPlayerX = targetX;
+            demoWalkCycle = 0;
+            demoPillars.shift();
+            const lastP = demoPillars[demoPillars.length - 1];
+            const gap = 55 + Math.random() * 55;
+            const w = 62 + Math.random() * 26;
+            const newX = lastP.x + lastP.w + gap;
+            demoPillars.push({ x: newX, w: w, perfectX: newX + w / 2 });
+
+            demoStickLength = 0;
+            demoStickAngle = 0;
+            demoStickStartX = demoPillars[0].x + demoPillars[0].w;
+            demoTargetCameraX = demoPillars[0].x - 25;
+            demoSubState = 'ready';
+            demoStateTimer = 0.5;
+          }
+        }
+      }
+
+      function drawDemoGame(theme) {
+        ctx.save();
+        // 指示2: 半透明のデモ（自動で棒を伸ばして渡り続ける）
+        ctx.globalAlpha = 0.40;
+        ctx.translate(-demoCameraX, 0);
+
+        // Pillars
+        for (let i = 0; i < demoPillars.length; i++) {
+          const p = demoPillars[i];
+          const pH = virtualH - groundY;
+          const grad = ctx.createLinearGradient(p.x, groundY, p.x + p.w, groundY);
+          grad.addColorStop(0, theme.pillarGrad1);
+          grad.addColorStop(1, theme.pillarGrad2);
+          ctx.fillStyle = grad;
+          drawRoundRect(ctx, p.x, groundY, p.w, pH, 4);
+          ctx.fill();
+
+          ctx.fillStyle = theme.pillarTop;
+          ctx.fillRect(p.x, groundY, p.w, 3);
+
+          ctx.fillStyle = '#f43f5e';
+          ctx.fillRect(p.perfectX - PERFECT_MARKER_W / 2, groundY, PERFECT_MARKER_W, 3);
+        }
+
+        // Stick
+        if (demoStickLength > 0) {
+          ctx.save();
+          ctx.translate(demoStickStartX, groundY);
+          ctx.rotate(demoStickAngle);
+          ctx.strokeStyle = '#f8fafc';
+          ctx.lineWidth = 3.2;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(0, -demoStickLength);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Player
+        ctx.save();
+        ctx.translate(demoPlayerX, demoPlayerY);
+        renderStickmanFigure(ctx, demoSubState, demoWalkCycle, equippedSkin);
+        ctx.restore();
+
+        ctx.restore();
+      }
+
+      // ==========================================
+      // Particle & Juice System (with Limits for Long Play)
+      // ==========================================
+      const MAX_PARTICLES = 100;
+      const MAX_RING_EFFECTS = 10;
       function spawnParticles(x, y, pCount, type) {
         for (let i = 0; i < pCount; i++) {
           if (type === 'perfect') {
@@ -1504,6 +1917,9 @@
             });
           }
         }
+        if (particles.length > MAX_PARTICLES) {
+          particles.splice(0, particles.length - MAX_PARTICLES);
+        }
       }
 
       function spawnLandDust(x, y) {
@@ -1520,6 +1936,9 @@
             life: 0.35 + Math.random() * 0.2,
             maxLife: 0.45
           });
+        }
+        if (particles.length > MAX_PARTICLES) {
+          particles.splice(0, particles.length - MAX_PARTICLES);
         }
       }
 
@@ -1619,10 +2038,16 @@
           toggleSettingVibrate();
           return;
         }
-        // 設定トグル3: 効果音
+        // 設定トグル3: BGM
+        if (vx >= btnSettingBgm.x && vx <= btnSettingBgm.x + btnSettingBgm.w &&
+            vy >= btnSettingBgm.y && vy <= btnSettingBgm.y + btnSettingBgm.h) {
+          toggleSettingBgm();
+          return;
+        }
+        // 設定トグル4: 効果音
         if (vx >= btnSettingSound.x && vx <= btnSettingSound.x + btnSettingSound.w &&
             vy >= btnSettingSound.y && vy <= btnSettingSound.y + btnSettingSound.h) {
-          toggleSettingSound();
+          toggleSettingSfx();
           return;
         }
         // 再開ボタン
@@ -1635,10 +2060,12 @@
         if (vx >= btnToTitle.x && vx <= btnToTitle.x + btnToTitle.w &&
             vy >= btnToTitle.y && vy <= btnToTitle.y + btnToTitle.h) {
           isPaused = false;
+          stopBgm();
           gameState = 'title';
           playSubState = 'ready';
           resetGame(false);
           updatePauseButtonUI();
+          updateBackGamesBtnUI();
           return;
         }
       }
@@ -1876,9 +2303,18 @@
           if (countdownRemaining <= 0) {
             isCountingDown = false;
             playCountdownSound(true);
+            startBgm();
           }
           return;
         }
+
+        // タイトル画面時はデモを更新
+        if (gameState === 'title') {
+          updateDemo(dt);
+        }
+
+        // BGMスケジューラーの定期更新
+        updateBgmScheduler();
 
         // 一時停止中はゲーム進行をストップ
         if (isPaused) {
@@ -1902,7 +2338,9 @@
           rushBeatTimer -= dt;
           if (rushBeatTimer <= 0) {
             rushBeatTimer = 0.28; // ~107 BPMのビート
-            playRushBeat();
+            if (!settingBgm || isMuted) {
+              playRushBeat();
+            }
           }
           if (rushTimer <= 0) {
             isRush = false;
@@ -1929,37 +2367,37 @@
           }
         }
 
-        // Particles
+        // 指示3: 軽量化 - 画面外または寿命切れのパーティクルを破棄
         for (let i = particles.length - 1; i >= 0; i--) {
           const p = particles[i];
           p.x += p.vx * dt;
           p.y += p.vy * dt;
-          p.vy += (p.isConfetti ? 180 : 320) * dt; // 紙吹雪はふわりと舞う
+          p.vy += (p.isConfetti ? 180 : 320) * dt;
           if (p.rotSpd) {
             p.rot += p.rotSpd * dt;
           }
           p.life -= dt;
-          if (p.life <= 0) {
+          if (p.life <= 0 || p.x < cameraX - 120 || p.x > cameraX + virtualW + 120 || p.y > groundY + 180) {
             particles.splice(i, 1);
           }
         }
 
-        // Ring Effects (PERFECT)
+        // 指示3: 軽量化 - リングエフェクトの破棄
         for (let i = ringEffects.length - 1; i >= 0; i--) {
           const r = ringEffects[i];
           r.life -= dt;
           const prog = 1.0 - (r.life / r.maxLife);
           r.r = 4 + prog * (r.maxR - 4);
-          if (r.life <= 0) {
+          if (r.life <= 0 || r.x < cameraX - 120 || r.x > cameraX + virtualW + 120) {
             ringEffects.splice(i, 1);
           }
         }
 
-        // Popups
+        // 指示3: 軽量化 - ポップアップの画面外・寿命破棄
         if (currentJudgePopup) {
           currentJudgePopup.y += currentJudgePopup.vy * dt;
           currentJudgePopup.life -= dt;
-          if (currentJudgePopup.life <= 0) {
+          if (currentJudgePopup.life <= 0 || currentJudgePopup.y < -60) {
             currentJudgePopup = null;
           }
         }
@@ -1967,7 +2405,7 @@
         if (comboEndPopup) {
           comboEndPopup.y += comboEndPopup.vy * dt;
           comboEndPopup.life -= dt;
-          if (comboEndPopup.life <= 0) {
+          if (comboEndPopup.life <= 0 || comboEndPopup.y < -60) {
             comboEndPopup = null;
           }
         }
@@ -1982,7 +2420,7 @@
         if (nearMissPopup) {
           nearMissPopup.life -= dt;
           nearMissPopup.y += nearMissPopup.vy * dt;
-          if (nearMissPopup.life <= 0) {
+          if (nearMissPopup.life <= 0 || nearMissPopup.y < -60) {
             nearMissPopup = null;
           }
         }
@@ -2130,6 +2568,7 @@
                     runRushes++;
                     rushTimer = 5.0;
                     rushBeatTimer = 0.05;
+                    playRushEnterSound();
                     setMilestonePopup('🔥 RUSH MODE! 得点2倍 🔥');
                   }
                 } else {
@@ -2280,6 +2719,7 @@
                 }
               } else {
                 playSubState = 'falling_player';
+                stopBgm();
                 fallTimer = 0;
                 playerVy = 60;
                 playFallSound();
@@ -2307,8 +2747,10 @@
 
             if (fallTimer >= 0.58 || playerY > virtualH + 90) {
               gameState = 'over';
+              stopBgm();
               gameOverTime = performance.now();
               updatePauseButtonUI();
+              updateBackGamesBtnUI();
 
               if (isDailyMode) {
                 const curDailyBest = getDailyBest();
@@ -2381,9 +2823,22 @@
         const currentCamSpeed = CAMERA_SPEED * speedMult;
         cameraX += camDiff * Math.min(1, dt * currentCamSpeed);
 
-        // Remove out-of-screen coins
-        if (coins.length > 30) {
-          coins = coins.filter(c => c.x > cameraX - 120);
+        // 指示3: 軽量化 - 画面外のコイン破棄 & 上限
+        coins = coins.filter(c => c.x > cameraX - 120 && c.x < cameraX + virtualW + 600);
+        if (coins.length > 20) {
+          coins.splice(0, coins.length - 20);
+        }
+
+        // 指示3: 軽量化 - 画面外（左側遠方）の足場を安全に刈り取り（長時間プレイ対策）
+        if (currentPillarIndex > 10 && pillars.length > 25) {
+          let removeCount = 0;
+          while (removeCount < currentPillarIndex - 3 && pillars[removeCount].x + pillars[removeCount].w < cameraX - 220) {
+            removeCount++;
+          }
+          if (removeCount > 0) {
+            pillars.splice(0, removeCount);
+            currentPillarIndex -= removeCount;
+          }
         }
       }
 
@@ -2434,35 +2889,40 @@
         // Background Parallax
         drawBackgroundEnvironment(theme);
 
-        // World coordinates translation (Camera)
-        ctx.save();
-        ctx.translate(-cameraX, 0);
+        if (gameState === 'title') {
+          // 指示2: タイトル画面の背景で半透明デモを流す
+          drawDemoGame(theme);
+        } else {
+          // World coordinates translation (Camera)
+          ctx.save();
+          ctx.translate(-cameraX, 0);
 
-        // Draw Pillars (種類ごとの色・アイコン・BEST旗)
-        drawPillars(theme);
+          // Draw Pillars (種類ごとの色・アイコン・BEST旗)
+          drawPillars(theme);
 
-        // Draw Coins (浮遊ボーナスコイン)
-        drawCoins();
+          // Draw Coins (浮遊ボーナスコイン)
+          drawCoins();
 
-        // Draw Stick
-        drawStick();
+          // Draw Stick
+          drawStick();
 
-        // Draw Guide Ghost (初回プレイの最初の3本案内)
-        drawGuideGhost();
+          // Draw Guide Ghost (初回プレイの最初の3本案内)
+          drawGuideGhost();
 
-        // Draw Player
-        drawPlayer();
+          // Draw Player
+          drawPlayer();
 
-        // Draw Ring Effects
-        drawRingEffects();
+          // Draw Ring Effects
+          drawRingEffects();
 
-        // Draw Particles
-        drawParticles();
+          // Draw Particles
+          drawParticles();
 
-        // Draw Popups
-        drawPopups();
+          // Draw Popups
+          drawPopups();
 
-        ctx.restore(); // Restore camera
+          ctx.restore(); // Restore camera
+        }
 
         // Screen Flash (PERFECT hit)
         if (screenFlash > 0) {
@@ -3736,15 +4196,21 @@
             ctx.restore();
           }
         } else if (gameState === 'title') {
+          // 指示2: デモ背景上でも文字やボタンがクッキリ読めるよう薄い保護ベールを敷く
+          ctx.save();
+          ctx.fillStyle = 'rgba(5, 7, 13, 0.32)';
+          ctx.fillRect(0, 0, virtualW, virtualH);
+          ctx.restore();
+
           ctx.textAlign = 'center';
 
           // Main Title
-          ctx.font = '900 23px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.font = '900 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           ctx.fillStyle = '#f8fafc';
           ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
           ctx.shadowBlur = 12;
           ctx.shadowOffsetY = 2;
-          ctx.fillText('ワンタップ・ジャンプ橋', virtualW / 2, 56);
+          ctx.fillText('ワンタップ・ジャンプ橋', virtualW / 2, 86);
 
           // 指示4: 称号をタイトルに小さく表示
           ctx.save();
@@ -3753,7 +4219,7 @@
           const tbW = ctx.measureText(titleBadgeText).width + 20;
           const tbH = 22;
           const tbX = (virtualW - tbW) / 2;
-          const tbY = 72;
+          const tbY = 102;
 
           ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
           ctx.strokeStyle = currentTitle.color;
@@ -3770,7 +4236,7 @@
 
           // 指示2: タイトルに常に3つのミッションを表示
           const mCardX = 35;
-          const mCardY = 102;
+          const mCardY = 132;
           const mCardW = 320;
           const mCardH = 96;
 
@@ -3883,7 +4349,7 @@
           const bBadgeW = bestW + 24;
           const bBadgeH = 24;
           const bBadgeX = (virtualW - bBadgeW) / 2;
-          const bBadgeY = 338;
+          const bBadgeY = 368;
 
           ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
@@ -3907,7 +4373,7 @@
           const tipBadgeW = tipW + 20;
           const tipBadgeH = 24;
           const tipBadgeX = (virtualW - tipBadgeW) / 2;
-          const tipBadgeY = 368;
+          const tipBadgeY = 398;
 
           ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
@@ -4475,7 +4941,8 @@
 
           drawSettingRow(btnSettingShake, '📳', '画面の揺れ', settingShake);
           drawSettingRow(btnSettingVibrate, '📱', '振動 (バイブ)', settingVibrate);
-          drawSettingRow(btnSettingSound, '🔊', '効果音', !isMuted);
+          drawSettingRow(btnSettingBgm, '🎵', 'BGM (音楽)', settingBgm);
+          drawSettingRow(btnSettingSound, '🔊', '効果音', settingSfx);
 
           // 「再開する」ボタン
           ctx.save();
