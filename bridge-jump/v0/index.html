@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>ワンタップ・ジャンプ橋</title>
+  <meta name="description" content="タイミングよく画面を長押しして棒を伸ばし、足場から足場へ橋を架け渡す爽快ミニゲーム。">
+  <meta name="theme-color" content="#090d16">
+
+  <!-- Favicon: Inline SVG data-URI to avoid 404 -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23090d16'/%3E%3Crect x='4' y='21' width='8' height='11' fill='%2338bdf8' rx='2'/%3E%3Crect x='20' y='21' width='8' height='11' fill='%2338bdf8' rx='2'/%3E%3Crect x='11' y='20' width='10' height='3' fill='%23f43f5e' rx='1'/%3E%3Cpath d='M12 21 L20 21' stroke='%23ffffff' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='9' cy='15' r='2.5' fill='%2338bdf8'/%3E%3C/svg%3E">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #05070d;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      background: #05070d;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #game-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    /* Mute button in top right */
+    #mute-btn {
+      position: absolute;
+      top: calc(env(safe-area-inset-top, 12px) + 12px);
+      right: calc(env(safe-area-inset-right, 12px) + 12px);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 50;
+      transition: transform 0.1s ease, background 0.2s ease, border-color 0.2s ease;
+      touch-action: manipulation;
+    }
+
+    #mute-btn:hover {
+      background: rgba(30, 41, 59, 0.85);
+      border-color: rgba(56, 189, 248, 0.5);
+    }
+
+    #mute-btn:active {
+      transform: scale(0.92);
+    }
+
+    #mute-btn svg {
+      width: 22px;
+      height: 22px;
+      fill: currentColor;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+    
+    <button id="mute-btn" title="ミュート切替" aria-label="ミュート切替">
+      <!-- Sound ON icon -->
+      <svg id="icon-sound-on" viewBox="0 0 24 24">
+        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+      </svg>
+      <!-- Sound OFF icon (hidden by default) -->
+      <svg id="icon-sound-off" style="display:none;" viewBox="0 0 24 24">
+        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+      </svg>
+    </button>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // Polyfill Canvas roundRect for older browser / headless compatibility
+      if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+        CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+          let radius = typeof r === 'number' ? r : 0;
+          if (Array.isArray(r) && r.length > 0) radius = r[0] || 0;
+          if (radius * 2 > Math.abs(w)) radius = Math.abs(w) / 2;
+          if (radius * 2 > Math.abs(h)) radius = Math.abs(h) / 2;
+          if (radius < 0) radius = 0;
+
+          if (radius === 0) {
+            this.rect(x, y, w, h);
+            return this;
+          }
+          this.moveTo(x + radius, y);
+          this.arcTo(x + w, y, x + w, y + h, radius);
+          this.arcTo(x + w, y + h, x, y + h, radius);
+          this.arcTo(x, y + h, x, y, radius);
+          this.arcTo(x, y, x + w, y, radius);
+          this.closePath();
+          return this;
+        };
+      }
+
+      function safeGetStorage(key, def) {
+        try {
+          const v = localStorage.getItem(key);
+          return v !== null ? v : def;
+        } catch (e) {
+          return def;
+        }
+      }
+
+      function safeSetStorage(key, val) {
+        try {
+          localStorage.setItem(key, val);
+        } catch (e) {}
+      }
+
+      // ==========================================
+      // Constants & Tuning
+      // ==========================================
+      const GROW_SPEED = 380;       // 棒が伸びる速度 (px/秒)
+      const FALL_STICK_TIME = 0.16; // 棒が倒れる時間 (秒) - 超高速でテンポ重視
+      const RUN_SPEED = 640;        // 棒人間の走る速度 (px/秒)
+      const CAMERA_SPEED = 12;      // カメラスムーズ追従係数
+      const PERFECT_TOLERANCE = 5.0;// PERFECT判定の許容半幅 (px)
+      const PERFECT_MARKER_W = 8;   // 足場上端の赤マーカー幅 (px)
+
+      // ==========================================
+      // Audio System (Web Audio API)
+      // ==========================================
+      let audioCtx = null;
+      let isMuted = safeGetStorage('bridgeJumpMuted', 'false') === 'true';
+      let growOsc = null;
+      let growGain = null;
+
+      function initAudio() {
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            audioCtx = new AudioContextClass();
+          }
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      }
+
+      function updateMuteButtonUI() {
+        const iconOn = document.getElementById('icon-sound-on');
+        const iconOff = document.getElementById('icon-sound-off');
+        if (isMuted) {
+          iconOn.style.display = 'none';
+          iconOff.style.display = 'block';
+        } else {
+          iconOn.style.display = 'block';
+          iconOff.style.display = 'none';
+        }
+      }
+
+      function toggleMute() {
+        initAudio();
+        isMuted = !isMuted;
+        safeSetStorage('bridgeJumpMuted', isMuted ? 'true' : 'false');
+        if (isMuted) {
+          stopGrowSound();
+        }
+        updateMuteButtonUI();
+      }
+
+      function playGrowSound() {
+        if (isMuted || !audioCtx) return;
+        try {
+          stopGrowSound();
+          growOsc = audioCtx.createOscillator();
+          growGain = audioCtx.createGain();
+          growOsc.type = 'triangle';
+          const now = audioCtx.currentTime;
+          growOsc.frequency.setValueAtTime(240, now);
+          growOsc.frequency.exponentialRampToValueAtTime(800, now + 2.5);
+
+          growGain.gain.setValueAtTime(0.08, now);
+          growOsc.connect(growGain);
+          growGain.connect(audioCtx.destination);
+          growOsc.start(now);
+        } catch (e) {}
+      }
+
+      function stopGrowSound() {
+        if (growOsc) {
+          try {
+            const now = audioCtx ? audioCtx.currentTime : 0;
+            if (growGain) {
+              growGain.gain.setTargetAtTime(0, now, 0.02);
+            }
+            growOsc.stop(now + 0.04);
+          } catch (e) {}
+          growOsc = null;
+          growGain = null;
+        }
+      }
+
+      function playStickLandSound() {
+        if (isMuted || !audioCtx) return;
+        try {
+          const now = audioCtx.currentTime;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(160, now);
+          osc.frequency.exponentialRampToValueAtTime(40, now + 0.08);
+
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.linearRampToValueAtTime(0.001, now + 0.08);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.08);
+        } catch (e) {}
+      }
+
+      function playSuccessSound() {
+        if (isMuted || !audioCtx) return;
+        try {
+          const now = audioCtx.currentTime;
+          const freqs = [523.25, 659.25]; // C5, E5
+          freqs.forEach((freq, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            const t = now + idx * 0.05;
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.12, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.12);
+          });
+        } catch (e) {}
+      }
+
+      function playPerfectSound(comboCount) {
+        if (isMuted || !audioCtx) return;
+        try {
+          const now = audioCtx.currentTime;
+          const scale = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51, 1567.98];
+          const baseIndex = Math.min(scale.length - 2, Math.max(0, comboCount - 1));
+          const freqs = [scale[baseIndex], scale[baseIndex + 1]];
+
+          freqs.forEach((freq, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            const t = now + idx * 0.04;
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.16, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.22);
+          });
+        } catch (e) {}
+      }
+
+      function playFallSound() {
+        if (isMuted || !audioCtx) return;
+        try {
+          const now = audioCtx.currentTime;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(360, now);
+          osc.frequency.exponentialRampToValueAtTime(65, now + 0.32);
+
+          gain.gain.setValueAtTime(0.14, now);
+          gain.gain.linearRampToValueAtTime(0.001, now + 0.32);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.32);
+        } catch (e) {}
+      }
+
+      // ==========================================
+      // Canvas & Viewport Sizing
+      // ==========================================
+      const canvas = document.getElementById('game-canvas');
+      const ctx = canvas.getContext('2d');
+      const muteBtn = document.getElementById('mute-btn');
+
+      let screenW = window.innerWidth;
+      let screenH = window.innerHeight;
+      let dpr = window.devicePixelRatio || 1;
+
+      // Virtual logical coordinates
+      let viewScale = 1;
+      let viewOffsetX = 0;
+      let virtualW = 390;
+      let virtualH = 844;
+      let groundY = 530; // 画面下から約37%
+
+      function resize() {
+        screenW = window.innerWidth;
+        screenH = window.innerHeight;
+        dpr = window.devicePixelRatio || 1;
+
+        canvas.width = Math.round(screenW * dpr);
+        canvas.height = Math.round(screenH * dpr);
+
+        const aspect = screenW / screenH;
+        if (aspect > 0.65) {
+          // PC or wide landscape: center a column of 390x844
+          viewScale = screenH / 844;
+          virtualW = 390;
+          virtualH = 844;
+          viewOffsetX = (screenW - virtualW * viewScale) / 2;
+        } else {
+          // Phone portrait: fit width 390, expand height to match screen
+          viewScale = screenW / 390;
+          virtualW = 390;
+          virtualH = screenH / viewScale;
+          viewOffsetX = 0;
+        }
+
+        // 足場の上端: 画面下から約37%（親指で隠れず操作しやすい高さ）
+        groundY = virtualH * 0.63;
+      }
+
+      window.addEventListener('resize', resize);
+      resize();
+
+      // ==========================================
+      // Game State
+      // ==========================================
+      let gameState = 'title'; // 'title' | 'play' | 'over'
+      let playSubState = 'ready'; // 'ready' | 'growing' | 'falling_stick' | 'walking' | 'falling_player'
+
+      let score = 0;
+      let best = parseInt(safeGetStorage('bridgeJumpBest', '0'), 10) || 0;
+      let combo = 0;
+      let count = 0; // 渡った足場の数
+      let isNewBest = false;
+      let gameOverTime = 0;
+
+      // Camera
+      let cameraX = 0;
+      let targetCameraX = 0;
+
+      // Pillars
+      let pillars = [];
+      let currentPillarIndex = 0;
+
+      // Stick
+      let stickLength = 0;
+      let stickAngle = 0; // 0 = straight UP, PI/2 = fallen flat RIGHT
+      let stickFallTimer = 0;
+      let stickStartX = 0;
+
+      // Player
+      let playerX = 0;
+      let playerY = 0;
+      let playerWalkTargetX = 0;
+      let playerVy = 0;
+      let playerFallRot = 0;
+      let playerWalkCycle = 0;
+
+      // Visual Juice
+      let screenShake = 0;
+      let screenFlash = 0;
+      let particles = [];
+      let perfectPopups = [];
+
+      // Input flags
+      let isInputHeld = false;
+
+      // Bot Automation (?bot=1) state
+      const urlParams = new URLSearchParams(window.location.search);
+      const isBot = urlParams.get('bot') === '1';
+      let botTimer = null;
+      let botHolding = false;
+
+      // Test hook exposure (Always kept in sync with live properties & getter/setter)
+      if (!window.__game) {
+        window.__game = {};
+      }
+      try {
+        Object.defineProperties(window.__game, {
+          state: { get: () => gameState, set: (v) => { gameState = v; }, enumerable: true, configurable: true },
+          score: { get: () => score, set: (v) => { score = v; }, enumerable: true, configurable: true },
+          best: { get: () => best, set: (v) => { best = v; }, enumerable: true, configurable: true },
+          combo: { get: () => combo, set: (v) => { combo = v; }, enumerable: true, configurable: true },
+          count: { get: () => count, set: (v) => { count = v; }, enumerable: true, configurable: true }
+        });
+      } catch (e) {}
+
+      function updateGameHook() {
+        if (!window.__game) window.__game = {};
+        window.__game.state = gameState;
+        window.__game.score = score;
+        window.__game.best = best;
+        window.__game.combo = combo;
+        window.__game.count = count;
+      }
+      updateGameHook();
+
+      // ==========================================
+      // Pillar Generation
+      // ==========================================
+      function createPillar(x, w) {
+        return {
+          x: x,
+          w: w,
+          perfectX: x + w / 2
+        };
+      }
+
+      function getNextPillarParams(countIndex) {
+        // 序盤はやさしめ、進むほど幅が狭く間隔が広くばらつく
+        let w, gap;
+        if (countIndex < 4) {
+          w = 70 + Math.random() * 25; // 70〜95
+          gap = 75 + Math.random() * 55; // 75〜130
+        } else if (countIndex < 12) {
+          w = 48 + Math.random() * 28; // 48〜76
+          gap = 90 + Math.random() * 85; // 90〜175
+        } else {
+          w = 34 + Math.random() * 26; // 34〜60
+          gap = 100 + Math.random() * 125; // 100〜225
+        }
+        return { w: Math.round(w), gap: Math.round(gap) };
+      }
+
+      function ensurePillarsAhead() {
+        const targetRight = cameraX + virtualW + 400;
+        let lastP = pillars[pillars.length - 1];
+        while (lastP.x + lastP.w < targetRight) {
+          const nextCount = pillars.length - 1;
+          const { w, gap } = getNextPillarParams(nextCount);
+          const newX = lastP.x + lastP.w + gap;
+          const newP = createPillar(newX, w);
+          pillars.push(newP);
+          lastP = newP;
+        }
+      }
+
+      function resetGame(startImmediately) {
+        if (botTimer) {
+          clearTimeout(botTimer);
+          botTimer = null;
+        }
+        botHolding = false;
+
+        score = 0;
+        combo = 0;
+        count = 0;
+        isNewBest = false;
+        particles = [];
+        perfectPopups = [];
+        screenShake = 0;
+        screenFlash = 0;
+
+        // 初期足場
+        pillars = [];
+        const p0 = createPillar(20, 85);
+        const p1 = createPillar(190, 75);
+        pillars.push(p0, p1);
+
+        currentPillarIndex = 0;
+        cameraX = 0;
+        targetCameraX = 0;
+
+        // プレイヤー初期位置
+        playerX = p0.x + p0.w - 16;
+        playerY = groundY;
+        playerVy = 0;
+        playerFallRot = 0;
+        playerWalkCycle = 0;
+
+        // 棒初期化
+        stickLength = 0;
+        stickAngle = 0;
+        stickFallTimer = 0;
+        stickStartX = p0.x + p0.w;
+
+        ensurePillarsAhead();
+
+        if (startImmediately) {
+          gameState = 'play';
+          playSubState = 'ready';
+        } else {
+          gameState = 'title';
+          playSubState = 'ready';
+        }
+
+        updateGameHook();
+      }
+
+      function startGame() {
+        gameState = 'play';
+        playSubState = 'ready';
+        updateGameHook();
+      }
+
+      // ==========================================
+      // Particle System
+      // ==========================================
+      function spawnParticles(x, y, pCount, type) {
+        for (let i = 0; i < pCount; i++) {
+          if (type === 'perfect') {
+            const angle = Math.random() * Math.PI * 2;
+            const spd = 60 + Math.random() * 180;
+            particles.push({
+              x: x,
+              y: y,
+              vx: Math.cos(angle) * spd,
+              vy: Math.sin(angle) * spd - 60,
+              size: 2.5 + Math.random() * 3,
+              color: ['#f43f5e', '#fbbf24', '#38bdf8', '#ffffff', '#a855f7'][Math.floor(Math.random() * 5)],
+              life: 0.6 + Math.random() * 0.3,
+              maxLife: 0.8
+            });
+          } else if (type === 'land') {
+            const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.4;
+            const spd = 30 + Math.random() * 80;
+            particles.push({
+              x: x,
+              y: y,
+              vx: Math.cos(angle) * spd,
+              vy: Math.sin(angle) * spd,
+              size: 2 + Math.random() * 2,
+              color: 'rgba(255, 255, 255, 0.7)',
+              life: 0.25 + Math.random() * 0.15,
+              maxLife: 0.35
+            });
+          } else if (type === 'dust') {
+            particles.push({
+              x: x - 4,
+              y: y,
+              vx: -20 - Math.random() * 20,
+              vy: -10 - Math.random() * 20,
+              size: 1.5 + Math.random() * 1.5,
+              color: 'rgba(255, 255, 255, 0.4)',
+              life: 0.15 + Math.random() * 0.1,
+              maxLife: 0.2
+            });
+          }
+        }
+      }
+
+      function spawnPerfectPopup(x, y, bonusText) {
+        perfectPopups.push({
+          x: x,
+          y: y - 10,
+          vy: -70,
+          text: 'PERFECT!',
+          subText: bonusText,
+          life: 0.7,
+          maxLife: 0.7
+        });
+      }
+
+      // ==========================================
+      // Input Handling
+      // ==========================================
+      function handleInputDown() {
+        initAudio();
+
+        if (gameState === 'title') {
+          startGame();
+          // 長押しでのシームレスなスタート
+          isInputHeld = true;
+          startGrowing();
+          return;
+        }
+
+        if (gameState === 'over') {
+          // ゲームオーバー後0.5秒は入力を無視
+          if (performance.now() - gameOverTime < 500) {
+            return;
+          }
+          // ワンタップで即リトライ（タイトルに戻らず即プレイ開始）
+          resetGame(true);
+          return;
+        }
+
+        if (gameState === 'play' && playSubState === 'ready') {
+          startGrowing();
+        }
+      }
+
+      function startGrowing() {
+        playSubState = 'growing';
+        stickLength = 0;
+        stickAngle = 0;
+        const curP = pillars[currentPillarIndex];
+        stickStartX = curP.x + curP.w;
+        isInputHeld = true;
+        playGrowSound();
+      }
+
+      function handleInputUp() {
+        if (!isInputHeld) return;
+        isInputHeld = false;
+
+        if (gameState === 'play' && playSubState === 'growing') {
+          stopGrowSound();
+          // タップ（30px未満）の場合は棒を倒さずにリセットし、ready状態を維持
+          // これによりタイトル画面やプレイ中の誤タップでの即落下を防止
+          if (stickLength < 30) {
+            stickLength = 0;
+            stickAngle = 0;
+            playSubState = 'ready';
+            return;
+          }
+          playSubState = 'falling_stick';
+          stickFallTimer = 0;
+        }
+      }
+
+      // Setup listeners
+      canvas.addEventListener('pointerdown', (e) => {
+        if (e.button !== undefined && e.button !== 0) return;
+        e.preventDefault();
+        handleInputDown();
+      }, { passive: false });
+
+      window.addEventListener('pointerup', (e) => {
+        e.preventDefault();
+        handleInputUp();
+      }, { passive: false });
+
+      window.addEventListener('pointercancel', () => {
+        handleInputUp();
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+          if (!e.repeat) {
+            e.preventDefault();
+            handleInputDown();
+          }
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          handleInputUp();
+        }
+      });
+
+      // Mute button click
+      muteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        toggleMute();
+      });
+      muteBtn.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+      });
+
+      // Context menu disable
+      window.addEventListener('contextmenu', (e) => e.preventDefault());
+
+      // ==========================================
+      // Main Game Logic Update
+      // ==========================================
+      let lastTime = performance.now();
+
+      function update(dt) {
+        // Clamp dt to avoid huge steps on tab switch
+        if (dt > 0.08) dt = 0.08;
+
+        // Visual effects decay
+        if (screenShake > 0) {
+          screenShake = Math.max(0, screenShake - dt * 25);
+        }
+        if (screenFlash > 0) {
+          screenFlash = Math.max(0, screenFlash - dt * 3.5);
+        }
+
+        // Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.vy += 320 * dt; // gravity
+          p.life -= dt;
+          if (p.life <= 0) {
+            particles.splice(i, 1);
+          }
+        }
+
+        // Popups
+        for (let i = perfectPopups.length - 1; i >= 0; i--) {
+          const pop = perfectPopups[i];
+          pop.y += pop.vy * dt;
+          pop.life -= dt;
+          if (pop.life <= 0) {
+            perfectPopups.splice(i, 1);
+          }
+        }
+
+        // Substate logic
+        if (gameState === 'play') {
+          const curP = pillars[currentPillarIndex];
+          const nxtP = pillars[currentPillarIndex + 1];
+
+          if (playSubState === 'growing') {
+            stickLength += GROW_SPEED * dt;
+          } else if (playSubState === 'falling_stick') {
+            stickFallTimer += dt;
+            const progress = Math.min(1, stickFallTimer / FALL_STICK_TIME);
+            // Ease-in quad for gravity acceleration
+            stickAngle = (progress * progress) * (Math.PI / 2);
+
+            if (progress >= 1) {
+              stickAngle = Math.PI / 2;
+              playStickLandSound();
+              screenShake = 2.5;
+
+              // Tip of stick world coordinates
+              const tipX = stickStartX + stickLength;
+              spawnParticles(tipX, groundY, 8, 'land');
+
+              // Check hit on next pillar
+              const isOnNextPillar = tipX >= nxtP.x && tipX <= (nxtP.x + nxtP.w);
+
+              if (isOnNextPillar) {
+                // SUCCESS
+                playSubState = 'walking';
+                playerWalkTargetX = nxtP.x + nxtP.w - 16;
+
+                // Check PERFECT
+                const targetCenter = nxtP.perfectX;
+                const isPerfect = Math.abs(tipX - targetCenter) <= PERFECT_TOLERANCE;
+
+                count++;
+                if (isPerfect) {
+                  combo++;
+                  const bonus = 1 + combo;
+                  score += bonus;
+                  playPerfectSound(combo);
+                  screenFlash = 0.35;
+                  screenShake = 4.0;
+                  spawnParticles(tipX, groundY, 24, 'perfect');
+                  spawnPerfectPopup(tipX, groundY - 20, `+${bonus} (COMBO x${combo})`);
+                } else {
+                  combo = 0;
+                  score += 1;
+                  playSuccessSound();
+                }
+
+                if (score > best) {
+                  best = score;
+                  safeSetStorage('bridgeJumpBest', best.toString());
+                  isNewBest = true;
+                }
+                updateGameHook();
+
+                // Camera starts tracking ahead towards the next pillar immediately
+                targetCameraX = nxtP.x - 45;
+              } else {
+                // FAIL: walk to the tip of stick then fall
+                playSubState = 'walking';
+                combo = 0;
+                playerWalkTargetX = tipX;
+                updateGameHook();
+              }
+            }
+          } else if (playSubState === 'walking') {
+            // Player runs along the stick
+            playerWalkCycle += dt * 28;
+            const dx = playerWalkTargetX - playerX;
+            const step = RUN_SPEED * dt;
+
+            if (Math.abs(dx) <= step) {
+              playerX = playerWalkTargetX;
+              const tipX = stickStartX + stickLength;
+              const isOnNextPillar = tipX >= nxtP.x && tipX <= (nxtP.x + nxtP.w);
+
+              if (isOnNextPillar) {
+                // Arrived safely on next pillar!
+                currentPillarIndex++;
+                stickLength = 0;
+                stickAngle = 0;
+                stickStartX = nxtP.x + nxtP.w;
+
+                ensurePillarsAhead();
+
+                // 渡り終わった瞬間から次の長押しを受け付ける！
+                playSubState = 'ready';
+                if (isInputHeld) {
+                  startGrowing();
+                }
+              } else {
+                // Arrived at the end of the stick and falls into abyss!
+                playSubState = 'falling_player';
+                playerVy = 60;
+                playFallSound();
+              }
+            } else {
+              playerX += Math.sign(dx) * step;
+              if (Math.random() < 0.4) {
+                spawnParticles(playerX, groundY, 1, 'dust');
+              }
+            }
+          } else if (playSubState === 'falling_player') {
+            // Player & stick fall down
+            playerVy += 980 * dt;
+            playerY += playerVy * dt;
+            playerFallRot += dt * 7;
+
+            // Stick continues rotating down
+            if (stickAngle < Math.PI) {
+              stickAngle += dt * 7;
+            }
+
+            if (playerY > virtualH + 100) {
+              gameState = 'over';
+              gameOverTime = performance.now();
+              if (score > best) {
+                best = score;
+                safeSetStorage('bridgeJumpBest', best.toString());
+              }
+              updateGameHook();
+            }
+          }
+        }
+
+        // Camera smoothly follows targetCameraX
+        const camDiff = targetCameraX - cameraX;
+        cameraX += camDiff * Math.min(1, dt * CAMERA_SPEED);
+      }
+
+      // ==========================================
+      // Rendering
+      // ==========================================
+      function render() {
+        ctx.save();
+
+        // High DPI clear
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Apply devicePixelRatio & virtual viewport transform
+        ctx.scale(dpr, dpr);
+
+        // Fill entire background (even outside letterbox)
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, screenH);
+        bgGrad.addColorStop(0, '#090d19');
+        bgGrad.addColorStop(0.55, '#111728');
+        bgGrad.addColorStop(1, '#1b1b36');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, screenW, screenH);
+
+        // Letterbox border on wide screens
+        if (viewOffsetX > 0) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(viewOffsetX, 0, virtualW * viewScale, screenH);
+          ctx.restore();
+        }
+
+        // Clip to active play area
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(viewOffsetX, 0, virtualW * viewScale, screenH);
+        ctx.clip();
+
+        // Translate to play area coordinates
+        ctx.translate(viewOffsetX, 0);
+        ctx.scale(viewScale, viewScale);
+
+        // Apply screen shake
+        if (screenShake > 0) {
+          const sx = (Math.random() - 0.5) * screenShake;
+          const sy = (Math.random() - 0.5) * screenShake;
+          ctx.translate(sx, sy);
+        }
+
+        // Background subtle mountains & stars
+        drawBackgroundEnvironment();
+
+        // World coordinates translation (Camera)
+        ctx.save();
+        ctx.translate(-cameraX, 0);
+
+        // Draw Pillars
+        drawPillars();
+
+        // Draw Stick (Bridge)
+        drawStick();
+
+        // Draw Player (Stickman)
+        drawPlayer();
+
+        // Draw In-world Particles
+        drawParticles();
+
+        // Draw Perfect Popups
+        drawPopups();
+
+        ctx.restore(); // Restore camera
+
+        // Screen Flash (PERFECT hit)
+        if (screenFlash > 0) {
+          ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, screenFlash)})`;
+          ctx.fillRect(0, 0, virtualW, virtualH);
+        }
+
+        // HUD & Overlays
+        drawHUD();
+
+        ctx.restore(); // Restore clip
+        ctx.restore(); // Restore root
+      }
+
+      function drawBackgroundEnvironment() {
+        ctx.save();
+        // Subtle stars
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+        for (let i = 0; i < 20; i++) {
+          const starX = ((i * 47) + cameraX * 0.05) % virtualW;
+          const starY = (i * 29) % (groundY * 0.7);
+          ctx.fillRect(starX, starY, 1.5, 1.5);
+        }
+
+        // Distant gentle mountain silhouettes
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
+        ctx.beginPath();
+        ctx.moveTo(0, groundY);
+        for (let x = 0; x <= virtualW; x += 30) {
+          const worldX = x + cameraX * 0.15;
+          const y = groundY - 70 - Math.sin(worldX * 0.008) * 35 - Math.cos(worldX * 0.02) * 15;
+          ctx.lineTo(x, y);
+        }
+        ctx.lineTo(virtualW, groundY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawPillars() {
+        const viewLeft = cameraX - 50;
+        const viewRight = cameraX + virtualW + 50;
+
+        for (let i = 0; i < pillars.length; i++) {
+          const p = pillars[i];
+          if (p.x + p.w < viewLeft || p.x > viewRight) continue;
+
+          // Pillar Body
+          const pillarH = virtualH - groundY;
+          const grad = ctx.createLinearGradient(p.x, groundY, p.x + p.w, groundY);
+          grad.addColorStop(0, '#1e293b');
+          grad.addColorStop(0.5, '#334155');
+          grad.addColorStop(1, '#1e293b');
+          ctx.fillStyle = grad;
+          ctx.fillRect(p.x, groundY, p.w, pillarH);
+
+          // Top highlight line
+          ctx.fillStyle = '#64748b';
+          ctx.fillRect(p.x, groundY, p.w, 3);
+
+          // Red PERFECT marker at the top center of each pillar
+          const markerW = Math.min(PERFECT_MARKER_W, p.w * 0.3);
+          const markerX = p.perfectX - markerW / 2;
+          
+          // Red glowing marker
+          ctx.fillStyle = '#f43f5e';
+          ctx.fillRect(markerX, groundY, markerW, 4);
+
+          // Center bright dot
+          ctx.fillStyle = '#ffe4e6';
+          ctx.fillRect(p.perfectX - 1, groundY, 2, 4);
+        }
+      }
+
+      function drawStick() {
+        if (stickLength <= 0) return;
+
+        ctx.save();
+        ctx.translate(stickStartX, groundY);
+        // Angle 0: straight UP (subtract PI/2 from canvas 0 rad)
+        ctx.rotate(stickAngle - Math.PI / 2);
+
+        // Stick body
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(stickLength, 0);
+        ctx.stroke();
+
+        // Tip highlight
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(stickLength, 0, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      function drawPlayer() {
+        ctx.save();
+        ctx.translate(playerX, playerY);
+
+        if (playSubState === 'falling_player') {
+          ctx.rotate(playerFallRot);
+        }
+
+        // Stickman dimensions
+        const headR = 4.5;
+        const hipY = -6;
+        const shoulderY = -14;
+        const headY = -20;
+
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#f8fafc';
+
+        let legAngle1 = 0;
+        let legAngle2 = 0;
+        let armAngle1 = 0;
+        let armAngle2 = 0;
+
+        if (playSubState === 'walking') {
+          legAngle1 = Math.sin(playerWalkCycle) * 0.7;
+          legAngle2 = -Math.sin(playerWalkCycle) * 0.7;
+          armAngle1 = -Math.sin(playerWalkCycle) * 0.7;
+          armAngle2 = Math.sin(playerWalkCycle) * 0.7;
+        } else if (playSubState === 'growing') {
+          armAngle1 = -1.1;
+          armAngle2 = 0.2;
+        } else if (playSubState === 'falling_player') {
+          armAngle1 = -2.2;
+          armAngle2 = -2.0;
+          legAngle1 = 0.6;
+          legAngle2 = -0.5;
+        }
+
+        // Torso
+        ctx.beginPath();
+        ctx.moveTo(0, shoulderY);
+        ctx.lineTo(0, hipY);
+        ctx.stroke();
+
+        // Legs
+        // Left Leg
+        ctx.beginPath();
+        ctx.moveTo(0, hipY);
+        const l1x = Math.sin(legAngle1) * 7;
+        const l1y = hipY + Math.cos(legAngle1) * 6;
+        ctx.lineTo(l1x, l1y);
+        ctx.lineTo(l1x + Math.sin(legAngle1 + 0.3) * 5, 0);
+        ctx.stroke();
+
+        // Right Leg
+        ctx.beginPath();
+        ctx.moveTo(0, hipY);
+        const l2x = Math.sin(legAngle2) * 7;
+        const l2y = hipY + Math.cos(legAngle2) * 6;
+        ctx.lineTo(l2x, l2y);
+        ctx.lineTo(l2x + Math.sin(legAngle2 + 0.3) * 5, 0);
+        ctx.stroke();
+
+        // Arms
+        // Left Arm
+        ctx.beginPath();
+        ctx.moveTo(0, shoulderY);
+        ctx.lineTo(Math.sin(armAngle1) * 8, shoulderY + Math.cos(armAngle1) * 8);
+        ctx.stroke();
+
+        // Right Arm
+        ctx.beginPath();
+        ctx.moveTo(0, shoulderY);
+        ctx.lineTo(Math.sin(armAngle2) * 8, shoulderY + Math.cos(armAngle2) * 8);
+        ctx.stroke();
+
+        // Head
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.arc(0, headY, headR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Face eye
+        ctx.fillStyle = '#090d16';
+        ctx.beginPath();
+        ctx.arc(2, headY - 0.5, 1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Cute Scarf trailing behind
+        ctx.fillStyle = '#f43f5e';
+        ctx.beginPath();
+        ctx.arc(0, shoulderY, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        const scarfSwing = playSubState === 'walking' ? Math.sin(playerWalkCycle * 1.5) * 4 : 0;
+        ctx.strokeStyle = '#f43f5e';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(0, shoulderY);
+        ctx.quadraticCurveTo(-6, shoulderY - 2 + scarfSwing, -12, shoulderY + scarfSwing);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      function drawParticles() {
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          const alpha = Math.max(0, p.life / p.maxLife);
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      function drawPopups() {
+        for (let i = 0; i < perfectPopups.length; i++) {
+          const pop = perfectPopups[i];
+          const progress = pop.life / pop.maxLife;
+          const alpha = Math.min(1, progress * 1.5);
+          const scale = 1.0 + (1.0 - progress) * 0.3;
+
+          ctx.save();
+          ctx.translate(pop.x, pop.y);
+          ctx.scale(scale, scale);
+          ctx.globalAlpha = alpha;
+
+          ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#fbbf24';
+          ctx.shadowColor = 'rgba(251, 191, 36, 0.6)';
+          ctx.shadowBlur = 8;
+          ctx.fillText(pop.text, 0, 0);
+
+          if (pop.subText) {
+            ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowBlur = 4;
+            ctx.fillText(pop.subText, 0, 14);
+          }
+
+          ctx.restore();
+        }
+      }
+
+      function drawHUD() {
+        ctx.save();
+
+        if (gameState === 'play') {
+          // Large main score at top center
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '800 52px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+          ctx.shadowBlur = 10;
+          ctx.shadowOffsetY = 2;
+          ctx.fillText(score.toString(), virtualW / 2, 78);
+
+          // Small Best
+          ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#94a3b8';
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetY = 0;
+          ctx.fillText(`BEST: ${best}`, virtualW / 2, 102);
+
+          // Combo badge if combo >= 1
+          if (combo >= 1) {
+            ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillStyle = combo >= 3 ? '#fbbf24' : '#f43f5e';
+            ctx.shadowColor = 'rgba(244, 63, 94, 0.4)';
+            ctx.shadowBlur = 6;
+            ctx.fillText(`COMBO x${combo}`, virtualW / 2, 124);
+          }
+        } else if (gameState === 'title') {
+          ctx.textAlign = 'center';
+          
+          // Main Title
+          ctx.font = '900 34px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#f8fafc';
+          ctx.shadowColor = 'rgba(56, 189, 248, 0.5)';
+          ctx.shadowBlur = 16;
+          ctx.fillText('ワンタップ・ジャンプ橋', virtualW / 2, virtualH * 0.24);
+
+          // 1-line Instruction
+          ctx.font = '500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#cbd5e1';
+          ctx.shadowBlur = 0;
+          ctx.fillText('画面長押しで棒を伸ばし、離して橋を架けよう！', virtualW / 2, virtualH * 0.29);
+
+          // Red dot tip
+          ctx.font = '400 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#f43f5e';
+          ctx.fillText('★ 足場中央の赤い印に着地するとPERFECTボーナス！', virtualW / 2, virtualH * 0.33);
+
+          // Start prompt with gentle pulse
+          const pulse = 0.85 + Math.sin(performance.now() * 0.005) * 0.15;
+          ctx.save();
+          ctx.globalAlpha = pulse;
+          ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#38bdf8';
+          ctx.shadowColor = 'rgba(56, 189, 248, 0.8)';
+          ctx.shadowBlur = 12;
+          ctx.fillText('長押しでスタート', virtualW / 2, virtualH * 0.45);
+          ctx.restore();
+
+          // Best score badge
+          if (best > 0) {
+            ctx.font = '600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText(`BEST RECORD: ${best}`, virtualW / 2, virtualH * 0.50);
+          }
+        } else if (gameState === 'over') {
+          // Semi-dark background curtain
+          ctx.fillStyle = 'rgba(9, 13, 22, 0.72)';
+          ctx.fillRect(0, 0, virtualW, virtualH);
+
+          ctx.textAlign = 'center';
+
+          // GAME OVER
+          ctx.font = '900 36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#f87171';
+          ctx.shadowColor = 'rgba(239, 68, 68, 0.6)';
+          ctx.shadowBlur = 14;
+          ctx.fillText('GAME OVER', virtualW / 2, virtualH * 0.28);
+
+          // Score card box
+          const cardW = 260;
+          const cardH = 140;
+          const cardX = (virtualW - cardW) / 2;
+          const cardY = virtualH * 0.33;
+
+          ctx.fillStyle = 'rgba(30, 41, 59, 0.85)';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+          ctx.lineWidth = 1;
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+          ctx.shadowBlur = 16;
+          drawRoundRect(ctx, cardX, cardY, cardW, cardH, 16);
+          ctx.fill();
+          ctx.stroke();
+
+          // Score text
+          ctx.shadowBlur = 0;
+          ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillText('SCORE', virtualW / 2, cardY + 32);
+
+          ctx.font = '800 44px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(score.toString(), virtualW / 2, cardY + 74);
+
+          // Best & New Best badge
+          ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillText(`BEST: ${best}`, virtualW / 2, cardY + 110);
+
+          if (isNewBest && score > 0) {
+            ctx.save();
+            ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillStyle = '#fbbf24';
+            ctx.shadowColor = 'rgba(251, 191, 36, 0.7)';
+            ctx.shadowBlur = 8;
+            ctx.fillText('★ NEW BEST! ★', virtualW / 2, cardY + 128);
+            ctx.restore();
+          }
+
+          // Retry Prompt (0.5s lockout check)
+          const elapsedSinceOver = performance.now() - gameOverTime;
+          if (elapsedSinceOver >= 500) {
+            const retryPulse = 0.85 + Math.sin(performance.now() * 0.007) * 0.15;
+            ctx.save();
+            ctx.globalAlpha = retryPulse;
+            ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillStyle = '#38bdf8';
+            ctx.shadowColor = 'rgba(56, 189, 248, 0.8)';
+            ctx.shadowBlur = 10;
+            ctx.fillText('タップでリトライ', virtualW / 2, cardY + 185);
+            ctx.restore();
+          }
+        }
+
+        ctx.restore();
+      }
+
+      function drawRoundRect(c, x, y, w, h, r) {
+        let radius = typeof r === 'number' ? r : 0;
+        if (radius * 2 > Math.abs(w)) radius = Math.abs(w) / 2;
+        if (radius * 2 > Math.abs(h)) radius = Math.abs(h) / 2;
+        if (radius < 0) radius = 0;
+
+        if (typeof c.roundRect === 'function') {
+          c.beginPath();
+          c.roundRect(x, y, w, h, radius);
+          return;
+        }
+
+        // Fallback using arcTo with all 5 required arguments: (x1, y1, x2, y2, radius)
+        c.beginPath();
+        if (radius === 0) {
+          c.rect(x, y, w, h);
+          return;
+        }
+        c.moveTo(x + radius, y);
+        c.arcTo(x + w, y, x + w, y + h, radius);
+        c.arcTo(x + w, y + h, x, y + h, radius);
+        c.arcTo(x, y + h, x, y, radius);
+        c.arcTo(x, y, x + w, y, radius);
+        c.closePath();
+      }
+
+      // ==========================================
+      // Bot Automation (?bot=1)
+      // ==========================================
+      function runBotLogic() {
+        if (!isBot) return;
+
+        if (gameState === 'title') {
+          if (!botTimer) {
+            botTimer = setTimeout(() => {
+              botTimer = null;
+              if (gameState === 'title') {
+                startGame();
+              }
+            }, 500);
+          }
+          return;
+        }
+
+        if (gameState === 'over') {
+          // ゲームオーバー後は結果を2秒見せてからリトライ
+          if (!botTimer) {
+            const elapsed = performance.now() - gameOverTime;
+            const waitTime = Math.max(0, 2000 - elapsed);
+            botTimer = setTimeout(() => {
+              botTimer = null;
+              if (gameState === 'over') {
+                resetGame(true);
+              }
+            }, waitTime);
+          }
+          return;
+        }
+
+        if (gameState === 'play' && playSubState === 'ready' && !botHolding) {
+          // Calculate needed length to next pillar
+          const curP = pillars[currentPillarIndex];
+          const nxtP = pillars[currentPillarIndex + 1];
+          if (!nxtP) return;
+
+          const startX = curP.x + curP.w;
+          const targetCenter = nxtP.perfectX;
+          const idealLength = targetCenter - startX;
+          const halfW = nxtP.w / 2;
+
+          // Error scaling:
+          // だいたい15〜50回で失敗するように、回数が増えるほど誤差が大きくなる確率を上げる。
+          // 48回以上は確実に失敗するようにする。
+          let pMiss = 0;
+          if (count >= 48) {
+            pMiss = 1.0;
+          } else if (count >= 14) {
+            pMiss = Math.pow((count - 13) / 35, 1.8) * 0.45;
+          }
+
+          let errorPx = 0;
+          if (Math.random() < pMiss) {
+            // 足場から確実に外れる誤差を与える（タイマージッターに負けない十分な量）
+            const dir = Math.random() < 0.5 ? -1 : 1;
+            errorPx = dir * (halfW + 16 + Math.random() * 20);
+          } else {
+            // 通常誤差（進行とともにわずかに広がる）
+            const sigma = 1.2 + Math.pow(count / 24, 2) * 3.5;
+            const u1 = Math.max(1e-6, Math.random());
+            const u2 = Math.random();
+            const normalRand = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+            errorPx = normalRand * sigma;
+          }
+
+          const chosenLength = Math.max(35, idealLength + errorPx);
+          const holdTimeMs = (chosenLength / GROW_SPEED) * 1000;
+
+          botHolding = true;
+          setTimeout(() => {
+            if (gameState === 'play' && playSubState === 'ready') {
+              handleInputDown();
+              setTimeout(() => {
+                handleInputUp();
+                botHolding = false;
+              }, holdTimeMs);
+            } else {
+              botHolding = false;
+            }
+          }, 80);
+        }
+      }
+
+      // ==========================================
+      // Main Game Loop
+      // ==========================================
+      function gameLoop(now) {
+        const dt = (now - lastTime) / 1000;
+        lastTime = now;
+
+        update(dt);
+        render();
+        updateGameHook(); // 毎フレーム window.__game を更新
+
+        if (isBot) {
+          runBotLogic();
+        }
+
+        requestAnimationFrame(gameLoop);
+      }
+
+      // Initial game setup
+      updateMuteButtonUI();
+      resetGame(false);
+      requestAnimationFrame(gameLoop);
+
+    })();
+  </script>
+</body>
+</html>

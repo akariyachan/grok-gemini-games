@@ -1,5 +1,13 @@
 [
   {
+    "id": "bridge-jump",
+    "folder": "bridge-jump",
+    "title": "ワンタップ・ジャンプ橋",
+    "description": "長押しで棒を伸ばし、離して倒して橋を架ける。テンポよく連続で渡り続ける縦持ち片手ゲーム。初回版から完成版まで全6バージョンを遊び比べ",
+    "thumbnail": "bridge-jump/thumbnail.png",
+    "date": "2026-10-20"
+  },
+  {
     "id": "stack-tower",
     "folder": "stack-tower",
     "title": "積み上げタワー",
