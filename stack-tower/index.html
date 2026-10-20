@@ -169,6 +169,23 @@
       line-height: 1.6;
     }
 
+
+    /* Grok self review */
+    .self-review-section { margin-bottom: 2rem; }
+    .self-review-card { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 1.25rem; }
+    .sr-head { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .sr-title { font-size: 1.1rem; font-weight: 700; margin: 0; }
+    .sr-score { font-size: 2rem; font-weight: 800; color: #ffd166; line-height: 1; }
+    .sr-score small { font-size: 0.9rem; color: #c9d1e0; font-weight: 500; margin-left: 2px; }
+    .sr-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .sr-col h3 { font-size: 0.95rem; margin: 0 0 0.5rem; }
+    .sr-col.good h3 { color: #6ee7b7; }
+    .sr-col.bad h3 { color: #fca5a5; }
+    .sr-col ul { margin: 0; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.6; }
+    .sr-col li { margin-bottom: 0.35rem; }
+    .sr-comment { margin: 1rem 0 0; padding-top: 0.75rem; border-top: 1px solid var(--border-subtle); font-size: 0.92rem; }
+    @media (max-width: 640px) { .sr-cols { grid-template-columns: 1fr; } }
+
     /* Timeline Section */
     .timeline-section {
       margin-bottom: 2rem;
@@ -1020,6 +1037,8 @@
       <p class="subtitle">初回版から完成版まで、全6バージョンを遊び比べ</p>
     </header>
 
+    <section id="self-review" class="self-review-section" aria-label="Grokの自己評価" hidden></section>
+
     <section class="timeline-section" aria-label="バージョンタイムライン">
       <div class="timeline-card">
         <div class="timeline-container">
@@ -1657,6 +1676,33 @@
       `;
     }
 
+
+    async function renderSelfReview() {
+      const el = document.getElementById('self-review');
+      if (!el) return;
+      try {
+        const res = await fetch('../games.json');
+        if (!res.ok) return;
+        const games = await res.json();
+        const id = location.pathname.split('/').filter(Boolean).pop();
+        const g = games.find(x => x.id === id || x.folder === id);
+        const sr = g && g.selfReview;
+        if (!sr) return;
+        const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const li = a => (a || []).map(x => `<li>${esc(x)}</li>`).join('');
+        el.innerHTML = `
+          <div class="self-review-card">
+            <div class="sr-head"><h2 class="sr-title">Grokの自己評価</h2><div class="sr-score">${esc(sr.score)}<small>/100</small></div></div>
+            <div class="sr-cols">
+              <div class="sr-col good"><h3>よかったところ</h3><ul>${li(sr.strengths)}</ul></div>
+              <div class="sr-col bad"><h3>物足りないところ</h3><ul>${li(sr.weaknesses)}</ul></div>
+            </div>
+            <p class="sr-comment"><strong>ひとこと：</strong>${esc(sr.comment)}</p>
+          </div>`;
+        el.hidden = false;
+      } catch (e) { /* 自己評価が読めなくてもページは動かす */ }
+    }
+
     async function init() {
       const mainEl = document.getElementById('main-content');
       if (mainEl) {
@@ -1715,6 +1761,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       init();
+      renderSelfReview();
       setupKeyboardNavigation();
     });
   </script>
