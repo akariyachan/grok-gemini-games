@@ -1205,6 +1205,7 @@
       let currentJudgePopup = null;
       let comboEndPopup = null;
       let milestonePopup = null;
+      let rushEnterPopup = null;
 
       // Input flags
       let isInputHeld = false;
@@ -1608,6 +1609,7 @@
         currentJudgePopup = null;
         comboEndPopup = null;
         milestonePopup = null;
+        rushEnterPopup = null;
         nearMissPopup = null;
         lastNearMiss = null;
         screenShake = 0;
@@ -1969,7 +1971,19 @@
         };
       }
 
+      function setRushEnterPopup(text) {
+        rushEnterPopup = {
+          text: text,
+          life: 1.3,
+          maxLife: 1.3
+        };
+      }
+
       function setMilestonePopup(text) {
+        if (typeof text === 'string' && text.includes('RUSH MODE')) {
+          setRushEnterPopup(text);
+          return;
+        }
         milestonePopup = {
           text: text,
           life: 1.3,
@@ -2417,6 +2431,13 @@
           }
         }
 
+        if (rushEnterPopup) {
+          rushEnterPopup.life -= dt;
+          if (rushEnterPopup.life <= 0) {
+            rushEnterPopup = null;
+          }
+        }
+
         if (nearMissPopup) {
           nearMissPopup.life -= dt;
           nearMissPopup.y += nearMissPopup.vy * dt;
@@ -2569,7 +2590,7 @@
                     rushTimer = 5.0;
                     rushBeatTimer = 0.05;
                     playRushEnterSound();
-                    setMilestonePopup('🔥 RUSH MODE! 得点2倍 🔥');
+                    setRushEnterPopup('🔥 RUSH MODE! 得点2倍 🔥');
                   }
                 } else {
                   if (combo > 0) {
@@ -3963,13 +3984,32 @@
           ctx.restore();
         }
 
+        if (rushEnterPopup) {
+          const rPop = rushEnterPopup;
+          const alpha = Math.min(1, (rPop.life / rPop.maxLife) * 1.5);
+          const scale = 0.95 + (1.0 - rPop.life / rPop.maxLife) * 0.15;
+
+          ctx.save();
+          ctx.translate(virtualW / 2 + cameraX, Math.round(virtualH * 0.24));
+          ctx.scale(scale, scale);
+          ctx.globalAlpha = alpha;
+          ctx.textAlign = 'center';
+
+          ctx.font = '900 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#ffedd5';
+          ctx.shadowColor = 'rgba(249, 115, 22, 0.95)';
+          ctx.shadowBlur = 14;
+          ctx.fillText(rPop.text, 0, 0);
+          ctx.restore();
+        }
+
         if (milestonePopup) {
           const mPop = milestonePopup;
           const alpha = Math.min(1, (mPop.life / mPop.maxLife) * 1.5);
           const scale = 0.9 + (1.0 - mPop.life / mPop.maxLife) * 0.2;
 
           ctx.save();
-          ctx.translate(virtualW / 2 + cameraX, virtualH * 0.22);
+          ctx.translate(virtualW / 2 + cameraX, Math.round(virtualH * 0.32));
           ctx.scale(scale, scale);
           ctx.globalAlpha = alpha;
           ctx.textAlign = 'center';
