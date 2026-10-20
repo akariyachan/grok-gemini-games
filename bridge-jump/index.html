@@ -264,7 +264,6 @@
       function updateThemeTransition(dt) {
         const themeIndex = Math.min(THEMES.length - 1, Math.floor(count / 10));
         targetThemeT = themeIndex;
-        // スムーズに空の色を補間
         currentThemeT += (targetThemeT - currentThemeT) * Math.min(1, dt * 2.0);
       }
 
@@ -353,7 +352,6 @@
           growGain = audioCtx.createGain();
           growOsc.type = 'triangle';
           const now = audioCtx.currentTime;
-          // 伸びる間に音程が滑らかに上昇！
           growOsc.frequency.setValueAtTime(220, now);
           growOsc.frequency.exponentialRampToValueAtTime(880, now + 2.0);
 
@@ -464,7 +462,6 @@
         if (isMuted || !audioCtx) return;
         try {
           const now = audioCtx.currentTime;
-          // コンボで音程がステップアップ！
           const scale = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51, 1567.98, 1760.00];
           const baseIndex = Math.min(scale.length - 3, Math.max(0, (comboCount - 1) % scale.length));
           const freqs = [scale[baseIndex], scale[baseIndex + 1], scale[baseIndex + 2]];
@@ -526,6 +523,88 @@
         } catch (e) {}
       }
 
+      // ボーナスコイン取得音（キラッと鳴る高音チャイム）
+      function playCoinSound() {
+        if (isMuted || !audioCtx) return;
+        try {
+          const now = audioCtx.currentTime;
+          const freqs = [987.77, 1318.51, 1567.98]; // B5, E6, G6
+          freqs.forEach((f, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            const t = now + idx * 0.045;
+            osc.frequency.setValueAtTime(f, t);
+            gain.gain.setValueAtTime(0.15, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.18);
+          });
+        } catch (e) {}
+      }
+
+      // 自己ベスト更新時のファンファーレ
+      function playFanfareSound() {
+        if (isMuted || !audioCtx) return;
+        try {
+          const now = audioCtx.currentTime;
+          const notes = [
+            { f: 523.25, t: 0.00, d: 0.10 }, // C5
+            { f: 659.25, t: 0.09, d: 0.10 }, // E5
+            { f: 783.99, t: 0.18, d: 0.12 }, // G5
+            { f: 1046.50, t: 0.30, d: 0.48 }, // C6
+            { f: 1318.51, t: 0.30, d: 0.48 }  // E6 和音
+          ];
+          notes.forEach(n => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            const st = now + n.t;
+            osc.frequency.setValueAtTime(n.f, st);
+            gain.gain.setValueAtTime(0.19, st);
+            gain.gain.exponentialRampToValueAtTime(0.001, st + n.d);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(st);
+            osc.stop(st + n.d);
+          });
+        } catch (e) {}
+      }
+
+      // ラッシュモード中のビート音（BGM代わりの軽快なキック＆パルス）
+      function playRushBeat() {
+        if (isMuted || !audioCtx) return;
+        try {
+          const now = audioCtx.currentTime;
+          // Kick sound
+          const oscK = audioCtx.createOscillator();
+          const gainK = audioCtx.createGain();
+          oscK.type = 'sine';
+          oscK.frequency.setValueAtTime(140, now);
+          oscK.frequency.exponentialRampToValueAtTime(42, now + 0.08);
+          gainK.gain.setValueAtTime(0.18, now);
+          gainK.gain.exponentialRampToValueAtTime(0.001, now + 0.10);
+          oscK.connect(gainK);
+          gainK.connect(audioCtx.destination);
+          oscK.start(now);
+          oscK.stop(now + 0.10);
+
+          // Synth Hat / Shimmer
+          const oscH = audioCtx.createOscillator();
+          const gainH = audioCtx.createGain();
+          oscH.type = 'triangle';
+          oscH.frequency.setValueAtTime(1046.5, now);
+          gainH.gain.setValueAtTime(0.05, now);
+          gainH.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+          oscH.connect(gainH);
+          gainH.connect(audioCtx.destination);
+          oscH.start(now);
+          oscH.stop(now + 0.04);
+        } catch (e) {}
+      }
+
       // スマホのバイブレーション安全トリガー
       let userHasInteracted = false;
       function triggerVibrate(ms) {
@@ -564,20 +643,17 @@
 
         const aspect = screenW / screenH;
         if (aspect > 0.65) {
-          // PC or wide landscape: center a column of 390x844
           viewScale = screenH / 844;
           virtualW = 390;
           virtualH = 844;
           viewOffsetX = (screenW - virtualW * viewScale) / 2;
         } else {
-          // Phone portrait: fit width 390, expand height to match screen
           viewScale = screenW / 390;
           virtualW = 390;
           virtualH = screenH / viewScale;
           viewOffsetX = 0;
         }
 
-        // 足場の上端: 画面下から約37%（親指で隠れず操作しやすい高さ）
         groundY = virtualH * 0.63;
       }
 
@@ -592,23 +668,40 @@
 
       let score = 0;
       let best = parseInt(safeGetStorage('bridgeJumpBest', '0'), 10) || 0;
+      let previousBestScore = best;
+      let bestCount = parseInt(safeGetStorage('bridgeJumpBestCount', '0'), 10) || (best > 0 ? Math.max(1, Math.round(best / 2)) : 0);
+      let previousBestCount = bestCount;
+      let hasCelebratedBest = false;
+
       let combo = 0;
+      let maxCombo = 0;
       let count = 0; // 渡った足場の数
+      let runPerfects = 0; // 今回のPERFECT回数
+      let totalCoins = parseInt(safeGetStorage('bridgeJumpCoins', '0'), 10) || 0;
+      let runCoins = 0; // 今回取ったコイン
+
+      // ラッシュモード
+      let isRush = false;
+      let rushTimer = 0;
+      let rushBeatTimer = 0;
+
       let isNewBest = false;
       let gameOverTime = 0;
-      let fallTimer = 0; // 落下演出タイマー（0.6秒程度で結果パネル）
+      let fallTimer = 0;
 
       // Camera
       let cameraX = 0;
       let targetCameraX = 0;
 
-      // Pillars
+      // Pillars & Coins
       let pillars = [];
+      let coins = [];
       let currentPillarIndex = 0;
 
       // Stick
       let stickLength = 0;
-      let stickAngle = 0; // 0 = straight UP, PI/2 = fallen flat RIGHT
+      let stickAngle = 0;
+      let prevStickAngle = 0;
       let stickFallTimer = 0;
       let stickStartX = 0;
 
@@ -619,16 +712,16 @@
       let playerVy = 0;
       let playerFallRot = 0;
       let playerWalkCycle = 0;
-      let playerJumpY = 0; // 到着直前の軽快なジャンプ
+      let playerJumpY = 0;
 
       // Visual Juice
       let screenShake = 0;
       let screenFlash = 0;
       let particles = [];
-      let ringEffects = []; // PERFECT時の赤印から広がるリング
-      let currentJudgePopup = null; // 新しい判定が出たら古いものは消す
-      let comboEndPopup = null; // コンボ途切れ時の「コンボ終了」
-      let milestonePopup = null; // 10本ごとのマイルストーン表示
+      let ringEffects = [];
+      let currentJudgePopup = null;
+      let comboEndPopup = null;
+      let milestonePopup = null;
 
       // Input flags
       let isInputHeld = false;
@@ -649,7 +742,13 @@
           score: { get: () => score, set: (v) => { score = v; }, enumerable: true, configurable: true },
           best: { get: () => best, set: (v) => { best = v; }, enumerable: true, configurable: true },
           combo: { get: () => combo, set: (v) => { combo = v; }, enumerable: true, configurable: true },
-          count: { get: () => count, set: (v) => { count = v; }, enumerable: true, configurable: true }
+          count: { get: () => count, set: (v) => { count = v; }, enumerable: true, configurable: true },
+          coins: { get: () => runCoins, set: (v) => { runCoins = v; }, enumerable: true, configurable: true },
+          totalCoins: { get: () => totalCoins, set: (v) => { totalCoins = v; }, enumerable: true, configurable: true },
+          perfectCount: { get: () => runPerfects, set: (v) => { runPerfects = v; }, enumerable: true, configurable: true },
+          maxCombo: { get: () => maxCombo, set: (v) => { maxCombo = v; }, enumerable: true, configurable: true },
+          isRush: { get: () => isRush, set: (v) => { isRush = v; }, enumerable: true, configurable: true },
+          rushTimer: { get: () => rushTimer, set: (v) => { rushTimer = v; }, enumerable: true, configurable: true }
         });
       } catch (e) {}
 
@@ -660,65 +759,118 @@
         window.__game.best = best;
         window.__game.combo = combo;
         window.__game.count = count;
+        window.__game.coins = runCoins;
+        window.__game.totalCoins = totalCoins;
+        window.__game.perfectCount = runPerfects;
+        window.__game.maxCombo = maxCombo;
+        window.__game.isRush = isRush;
+        window.__game.rushTimer = rushTimer;
       }
       updateGameHook();
 
       // ==========================================
       // Pillar Generation & Difficulty Curve
       // ==========================================
-      function createPillar(x, w, isNarrow = false) {
+      function createPillar(x, w, type = 'normal') {
         return {
           x: x,
           w: w,
+          baseX: x,
           perfectX: x + w / 2,
-          isNarrow: isNarrow,
+          type: type, // 'normal' | 'gold' | 'moving' | 'distant'
+          isNarrow: false,
           bounceY: 0,
-          bounceVy: 0
+          bounceVy: 0,
+          // 動く足場パラメータ
+          moveAmp: 26 + Math.random() * 14, // 26〜40px 振幅
+          moveSpeed: 1.6 + Math.random() * 0.5, // 往復速度 (rad/s)
+          movePhase: Math.random() * Math.PI * 2,
+          isStopped: false,
+          hasBestFlag: false
         };
       }
 
       function getNextPillarParams(countIndex) {
-        // 難しさのカーブ:
-        // 最初の5本はやさしく、20本以降は足場が細く間隔のばらつきが大。
-        // たまに極細の足場（幅は狭いが赤印に入ればボーナス+3）
-        let w, gap, isNarrow = false;
+        // 指示6: 最初の2本は必ず近くて広い足場にして、始めた直後の事故死を減らす
+        if (countIndex < 2) {
+          const w = 82 + Math.random() * 10; // 82〜92
+          const gap = 52 + Math.random() * 8; // 52〜60
+          return {
+            w: Math.round(w),
+            gap: Math.round(gap),
+            type: 'normal'
+          };
+        }
 
-        if (countIndex < 5) {
-          // 最初の5本はやさしく
-          w = 75 + Math.random() * 22; // 75〜97
-          gap = 70 + Math.random() * 50; // 70〜120
+        // 2本目以降の難易度カーブと足場バリエーション（10本以降に出現）
+        let w, gap;
+        let type = 'normal';
+
+        if (countIndex < 10) {
+          // 2〜9本: 徐々に間隔が広がるがノーマル足場
+          w = 54 + Math.random() * 26; // 54〜80
+          gap = 70 + Math.random() * 55; // 70〜125
         } else if (countIndex < 20) {
-          // 5〜19本: 中程度
-          w = 46 + Math.random() * 28; // 46〜74
-          gap = 85 + Math.random() * 85; // 85〜170
+          // 10〜19本: ゴールド足場・遠い足場が時々出現
+          w = 42 + Math.random() * 24; // 42〜66
+          gap = 85 + Math.random() * 70; // 85〜155
+
+          const roll = Math.random();
+          if (roll < 0.22) {
+            type = 'gold'; // ゴールド足場 (赤印で+5 & 金色紙吹雪)
+          } else if (roll < 0.44) {
+            type = 'distant'; // 遠い足場 (間隔が広め、届けば+2)
+            gap = 160 + Math.random() * 60; // 160〜220
+          }
         } else {
-          // 20本以降: 細く、間隔のばらつき大
-          // たまに極細足場 (確率 約15%)
-          if (Math.random() < 0.15) {
-            isNarrow = true;
-            w = 18 + Math.random() * 5; // 18〜23 (極細!)
-            gap = 85 + Math.random() * 115; // 85〜200
-          } else {
-            w = 28 + Math.random() * 24; // 28〜52
-            gap = 70 + Math.random() * 170; // 70〜240
+          // 20本以降: 動く足場（20本以降）・ゴールド・遠い足場
+          w = 34 + Math.random() * 24; // 34〜58
+          gap = 85 + Math.random() * 85; // 85〜170
+
+          const roll = Math.random();
+          if (roll < 0.24) {
+            type = 'moving'; // 動く足場
+          } else if (roll < 0.44) {
+            type = 'gold'; // ゴールド足場
+          } else if (roll < 0.64) {
+            type = 'distant'; // 遠い足場
+            gap = 175 + Math.random() * 75; // 175〜250
           }
         }
 
         return {
           w: Math.round(w),
           gap: Math.round(gap),
-          isNarrow: isNarrow
+          type: type
         };
       }
 
       function ensurePillarsAhead() {
-        const targetRight = cameraX + virtualW + 400;
+        const targetRight = cameraX + virtualW + 450;
         let lastP = pillars[pillars.length - 1];
         while (lastP.x + lastP.w < targetRight) {
           const nextCount = pillars.length - 1;
-          const { w, gap, isNarrow } = getNextPillarParams(nextCount);
+          const { w, gap, type } = getNextPillarParams(nextCount);
           const newX = lastP.x + lastP.w + gap;
-          const newP = createPillar(newX, w, isNarrow);
+          const newP = createPillar(newX, w, type);
+
+          // 自己ベストの位置に「BEST」の旗を足場の上に立てる
+          if (bestCount > 0 && nextCount === bestCount) {
+            newP.hasBestFlag = true;
+          }
+
+          // ボーナスコイン: 足場の間の空中にたまにコインが浮かぶ（確率約40%）
+          if (nextCount >= 2 && Math.random() < 0.40) {
+            coins.push({
+              x: lastP.x + lastP.w + gap * (0.35 + Math.random() * 0.3),
+              baseY: groundY - (42 + Math.random() * 46),
+              y: groundY - 50,
+              r: 9,
+              collected: false,
+              phase: Math.random() * Math.PI * 2
+            });
+          }
+
           pillars.push(newP);
           lastP = newP;
         }
@@ -733,10 +885,22 @@
 
         score = 0;
         combo = 0;
+        maxCombo = 0;
         count = 0;
+        runPerfects = 0;
+        runCoins = 0;
+        isRush = false;
+        rushTimer = 0;
+        rushBeatTimer = 0;
+        hasCelebratedBest = false;
         isNewBest = false;
+
+        previousBestScore = best;
+        previousBestCount = bestCount;
+
         particles = [];
         ringEffects = [];
+        coins = [];
         currentJudgePopup = null;
         comboEndPopup = null;
         milestonePopup = null;
@@ -747,11 +911,18 @@
         currentThemeT = 0;
         targetThemeT = 0;
 
-        // 初期足場
+        // 指示6: 最初の2本は必ず近くて広い足場にして、始めた直後の事故死を減らす
         pillars = [];
-        const p0 = createPillar(20, 85, false);
-        const p1 = createPillar(190, 75, false);
-        pillars.push(p0, p1);
+        const p0 = createPillar(20, 88, 'normal');
+        const p1 = createPillar(160, 84, 'normal'); // gap: 52px, width: 84px
+        const p2 = createPillar(298, 82, 'normal'); // gap: 54px, width: 82px
+
+        if (bestCount > 0) {
+          if (bestCount === 1) p1.hasBestFlag = true;
+          if (bestCount === 2) p2.hasBestFlag = true;
+        }
+
+        pillars.push(p0, p1, p2);
 
         currentPillarIndex = 0;
         cameraX = 0;
@@ -767,6 +938,7 @@
         // 棒初期化
         stickLength = 0;
         stickAngle = 0;
+        prevStickAngle = 0;
         stickFallTimer = 0;
         stickStartX = p0.x + p0.w;
 
@@ -806,6 +978,37 @@
               color: ['#f43f5e', '#fbbf24', '#38bdf8', '#ffffff', '#a855f7'][Math.floor(Math.random() * 5)],
               life: 0.65 + Math.random() * 0.35,
               maxLife: 0.85
+            });
+          } else if (type === 'gold_confetti') {
+            // ゴールド足場・ベスト更新用の金色の紙吹雪
+            const angle = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
+            const spd = 120 + Math.random() * 240;
+            particles.push({
+              x: x,
+              y: y,
+              vx: Math.cos(angle) * spd,
+              vy: Math.sin(angle) * spd - 50,
+              size: 3.5 + Math.random() * 4,
+              color: ['#fbbf24', '#f59e0b', '#fef08a', '#ffffff', '#ffd700'][Math.floor(Math.random() * 5)],
+              life: 0.9 + Math.random() * 0.45,
+              maxLife: 1.35,
+              rot: Math.random() * Math.PI * 2,
+              rotSpd: (Math.random() - 0.5) * 14,
+              isConfetti: true
+            });
+          } else if (type === 'coin') {
+            // コイン獲得時のキラキラ金星
+            const angle = Math.random() * Math.PI * 2;
+            const spd = 50 + Math.random() * 120;
+            particles.push({
+              x: x,
+              y: y,
+              vx: Math.cos(angle) * spd,
+              vy: Math.sin(angle) * spd - 30,
+              size: 2.5 + Math.random() * 3.0,
+              color: ['#fbbf24', '#fef08a', '#ffffff'][Math.floor(Math.random() * 3)],
+              life: 0.45 + Math.random() * 0.25,
+              maxLife: 0.70
             });
           } else if (type === 'great') {
             const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.8;
@@ -848,7 +1051,6 @@
         }
       }
 
-      // 着地点の粉塵パーティクル（着地時に左右にフワッと広がる）
       function spawnLandDust(x, y) {
         for (let i = 0; i < 14; i++) {
           const dir = i % 2 === 0 ? -1 : 1;
@@ -866,18 +1068,19 @@
         }
       }
 
-      // 判定ポップアップ（新しいものが出たら古いものは消す）
-      function setJudgePopup(type, x, y, pts, comboNum, isNarrow) {
+      function setJudgePopup(type, x, y, pts, comboNum, isDistant = false, isGold = false, rushActive = false) {
         currentJudgePopup = {
-          type: type, // 'PERFECT' | 'GREAT' | 'GOOD' | 'GIRIGIRI'
+          type: type, // 'PERFECT' | 'GREAT' | 'GOOD' | 'GIRIGIRI' | 'COIN'
           x: x,
           y: y,
           vy: -65,
-          life: 0.85,
-          maxLife: 0.85,
+          life: 0.90,
+          maxLife: 0.90,
           pts: pts,
           combo: comboNum,
-          isNarrow: isNarrow,
+          isDistant: isDistant,
+          isGold: isGold,
+          rushActive: rushActive,
           shake: type === 'GIRIGIRI' ? 1.0 : 0
         };
       }
@@ -895,8 +1098,8 @@
       function setMilestonePopup(text) {
         milestonePopup = {
           text: text,
-          life: 1.2,
-          maxLife: 1.2
+          life: 1.3,
+          maxLife: 1.3
         };
       }
 
@@ -909,18 +1112,16 @@
 
         if (gameState === 'title') {
           startGame();
-          // 長押しでのシームレスなスタート
           isInputHeld = true;
           startGrowing();
           return;
         }
 
         if (gameState === 'over') {
-          // 落下演出0.6秒後の結果パネル表示から120ms経過で即リトライ
+          // 指示5: リトライはワンタップ即開始のまま
           if (performance.now() - gameOverTime < 120) {
             return;
           }
-          // ワンタップで即リトライ（タイトルに戻らない！）
           resetGame(true);
           return;
         }
@@ -934,6 +1135,7 @@
         playSubState = 'growing';
         stickLength = 0;
         stickAngle = 0;
+        prevStickAngle = 0;
         const curP = pillars[currentPillarIndex];
         stickStartX = curP.x + curP.w;
         isInputHeld = true;
@@ -946,16 +1148,24 @@
 
         if (gameState === 'play' && playSubState === 'growing') {
           stopGrowSound();
-          // タップ（30px未満）の場合は棒を倒さずにリセットし、ready状態を維持
-          // これによりタイトル画面やプレイ中の誤タップでの即落下を防止
+
           if (stickLength < 30) {
             stickLength = 0;
             stickAngle = 0;
+            prevStickAngle = 0;
             playSubState = 'ready';
             return;
           }
+
+          // 指示1: 動く足場: 棒を離した瞬間に足場は停止して判定
+          const nxtP = pillars[currentPillarIndex + 1];
+          if (nxtP && nxtP.type === 'moving') {
+            nxtP.isStopped = true;
+          }
+
           playSubState = 'falling_stick';
           stickFallTimer = 0;
+          prevStickAngle = 0;
         }
       }
 
@@ -1010,7 +1220,6 @@
       let lastTime = performance.now();
 
       function update(dt) {
-        // Clamp dt to avoid huge steps on tab switch
         if (dt > 0.08) dt = 0.08;
 
         // Background theme transition
@@ -1024,12 +1233,48 @@
           screenFlash = Math.max(0, screenFlash - dt * 3.5);
         }
 
+        // 指示3: テンポのご褒美「ラッシュ」のタイマー & ビート音
+        if (isRush) {
+          rushTimer -= dt;
+          rushBeatTimer -= dt;
+          if (rushBeatTimer <= 0) {
+            rushBeatTimer = 0.28; // ~107 BPMのビート
+            playRushBeat();
+          }
+          if (rushTimer <= 0) {
+            isRush = false;
+            rushTimer = 0;
+          }
+        }
+
+        // 動く足場の更新（停止していなければゆっくり左右に往復）
+        for (let i = 0; i < pillars.length; i++) {
+          const p = pillars[i];
+          if (p.type === 'moving' && !p.isStopped) {
+            p.movePhase += p.moveSpeed * dt;
+            p.x = p.baseX + Math.sin(p.movePhase) * p.moveAmp;
+            p.perfectX = p.x + p.w / 2;
+          }
+        }
+
+        // コインのふわふわ上下アニメーション
+        const nowMs = performance.now();
+        for (let i = 0; i < coins.length; i++) {
+          const c = coins[i];
+          if (!c.collected) {
+            c.y = c.baseY + Math.sin(nowMs * 0.005 + c.phase) * 5;
+          }
+        }
+
         // Particles
         for (let i = particles.length - 1; i >= 0; i--) {
           const p = particles[i];
           p.x += p.vx * dt;
           p.y += p.vy * dt;
-          p.vy += 320 * dt; // gravity
+          p.vy += (p.isConfetti ? 180 : 320) * dt; // 紙吹雪はふわりと舞う
+          if (p.rotSpd) {
+            p.rot += p.rotSpd * dt;
+          }
           p.life -= dt;
           if (p.life <= 0) {
             particles.splice(i, 1);
@@ -1047,7 +1292,7 @@
           }
         }
 
-        // Current Judge Popup
+        // Popups
         if (currentJudgePopup) {
           currentJudgePopup.y += currentJudgePopup.vy * dt;
           currentJudgePopup.life -= dt;
@@ -1056,7 +1301,6 @@
           }
         }
 
-        // Combo End Popup
         if (comboEndPopup) {
           comboEndPopup.y += comboEndPopup.vy * dt;
           comboEndPopup.life -= dt;
@@ -1065,7 +1309,6 @@
           }
         }
 
-        // Milestone Popup
         if (milestonePopup) {
           milestonePopup.life -= dt;
           if (milestonePopup.life <= 0) {
@@ -1078,8 +1321,8 @@
           const p = pillars[i];
           if (p.bounceY !== 0 || p.bounceVy !== 0) {
             p.bounceY += p.bounceVy * dt;
-            p.bounceVy -= p.bounceY * 360 * dt; // Spring force
-            p.bounceVy *= Math.pow(0.12, dt); // Damping
+            p.bounceVy -= p.bounceY * 360 * dt;
+            p.bounceVy *= Math.pow(0.12, dt);
             if (Math.abs(p.bounceY) < 0.1 && Math.abs(p.bounceVy) < 1) {
               p.bounceY = 0;
               p.bounceVy = 0;
@@ -1100,17 +1343,39 @@
           } else if (playSubState === 'falling_stick') {
             stickFallTimer += dt;
             const progress = Math.min(1, stickFallTimer / FALL_STICK_TIME);
-            // Ease-in quad for gravity acceleration
+            prevStickAngle = stickAngle;
             stickAngle = (progress * progress) * (Math.PI / 2);
+
+            // 指示2: ボーナスコイン: 倒れる棒がそこを通過すると取得（+1、キラッと音）
+            for (let i = 0; i < coins.length; i++) {
+              const c = coins[i];
+              if (!c.collected) {
+                const cdx = c.x - stickStartX;
+                const cdy = groundY - c.y; // 上方向正
+                if (cdx > 0 && cdy > 0) {
+                  const dist = Math.hypot(cdx, cdy);
+                  if (dist <= stickLength + c.r + 6 && dist >= 8) {
+                    const coinAngle = Math.atan2(cdx, cdy); // 0: 真上, PI/2: 水平
+                    if (stickAngle >= coinAngle - 0.12 && prevStickAngle <= coinAngle + 0.35) {
+                      c.collected = true;
+                      runCoins++;
+                      totalCoins++;
+                      safeSetStorage('bridgeJumpCoins', totalCoins.toString());
+                      playCoinSound();
+                      spawnParticles(c.x, c.y, 14, 'coin');
+                      setJudgePopup('COIN', c.x, c.y - 12, 1, 0, false, false, false);
+                    }
+                  }
+                }
+              }
+            }
 
             if (progress >= 1) {
               stickAngle = Math.PI / 2;
               playStickLandSound();
 
-              // Tip of stick world coordinates
               const tipX = stickStartX + stickLength;
 
-              // 着地した瞬間に足場が少し沈んで戻るバウンス & 画面シェイク & 粉塵パーティクル
               nxtP.bounceVy = 55;
               screenShake = 3.2;
               spawnLandDust(tipX, groundY);
@@ -1124,13 +1389,7 @@
                 playerWalkTargetX = nxtP.x + nxtP.w - 16;
                 count++;
 
-                // 10本ごとのマイルストーン表示
-                if (count > 0 && count % 10 === 0) {
-                  setMilestonePopup(`${count}本突破!`);
-                  playMilestoneSound();
-                }
-
-                // 4段階の判定算出: PERFECT / GREAT / GOOD / ギリギリ!
+                // 4段階判定
                 const targetCenter = nxtP.perfectX;
                 const distToCenter = Math.abs(tipX - targetCenter);
                 const distToLeft = tipX - nxtP.x;
@@ -1148,19 +1407,33 @@
                   judgeType = 'GOOD';
                 }
 
+                // 指示1: 遠い足場: 間隔がいつもより広いが、届けば +2
+                const isDistant = nxtP.type === 'distant';
+                const distantBonus = isDistant ? 2 : 0;
+                const isGold = nxtP.type === 'gold';
+
                 if (judgeType === 'PERFECT') {
                   combo++;
-                  // PERFECT: +2 x combo (上限 +20) + (極細なら +3)
-                  const comboBonus = Math.min(20, combo * 2);
-                  const narrowBonus = nxtP.isNarrow ? 3 : 0;
-                  const pts = 1 + comboBonus + narrowBonus;
+                  runPerfects++;
+                  if (combo > maxCombo) maxCombo = combo;
+
+                  // 指示1: ゴールド足場: 赤印に入れると +5 と金色の紙吹雪
+                  const goldBonus = isGold ? 5 : 0;
+                  const comboBonus = Math.min(10, combo * 2); // PERFECTのコンボボーナスは +2×コンボ で上限 +10
+                  let baseAndCombo = 1 + comboBonus;
+
+                  // 指示3: ラッシュ2倍は基本点とPERFECTボーナスのみに掛ける
+                  if (isRush) {
+                    baseAndCombo *= 2;
+                  }
+
+                  let pts = baseAndCombo + goldBonus + distantBonus;
                   score += pts;
 
                   playPerfectSound(combo);
                   screenFlash = 0.42;
                   screenShake = 4.2;
 
-                  // 白フラッシュ + 赤印からリング
                   ringEffects.push({
                     x: targetCenter,
                     y: groundY,
@@ -1168,44 +1441,67 @@
                     maxR: 44,
                     life: 0.42,
                     maxLife: 0.42,
-                    color: '#f43f5e'
+                    color: isGold ? '#fbbf24' : '#f43f5e'
                   });
 
-                  spawnParticles(tipX, groundY, 26, 'perfect');
+                  if (isGold) {
+                    spawnParticles(tipX, groundY, 36, 'gold_confetti');
+                  } else {
+                    spawnParticles(tipX, groundY, 26, 'perfect');
+                  }
                   triggerVibrate(15);
-                  setJudgePopup('PERFECT', tipX, groundY - 65, pts, combo, narrowBonus > 0);
+                  setJudgePopup('PERFECT', tipX, groundY - 65, pts, combo, isDistant, isGold, isRush);
+
+                  // 指示3: テンポのご褒美「ラッシュ」: PERFECT が5連続するとラッシュモード突入（5秒きっかり）
+                  if (combo === 5 || (combo > 5 && !isRush)) {
+                    isRush = true;
+                    rushTimer = 5.0;
+                    rushBeatTimer = 0.05;
+                    setMilestonePopup('🔥 RUSH MODE! 得点2倍 🔥');
+                  }
                 } else {
-                  // コンボ途切れチェック
                   if (combo > 0) {
                     spawnComboEndPopup(tipX, groundY - 88);
                   }
                   combo = 0;
 
+                  let basePts = 1;
+                  if (judgeType === 'GREAT') basePts = 2;
+                  if (isRush) basePts *= 2; // 基本点のみ2倍
+
+                  let pts = basePts + distantBonus;
+                  score += pts;
+
                   if (judgeType === 'GREAT') {
-                    // GREAT: +1 ボーナス（計+2）
-                    const pts = 2;
-                    score += pts;
                     playGreatSound();
                     screenShake = 2.2;
                     spawnParticles(tipX, groundY, 12, 'great');
-                    setJudgePopup('GREAT', tipX, groundY - 62, pts, 0, false);
+                    setJudgePopup('GREAT', tipX, groundY - 62, pts, 0, isDistant, false, isRush);
                   } else if (judgeType === 'GIRIGIRI') {
-                    // ギリギリ!: 基本+1、赤く震える文字
-                    const pts = 1;
-                    score += pts;
                     playGirigiriSound();
                     screenShake = 3.6;
                     spawnParticles(tipX, groundY, 8, 'land');
-                    setJudgePopup('GIRIGIRI', tipX, groundY - 62, pts, 0, false);
+                    setJudgePopup('GIRIGIRI', tipX, groundY - 62, pts, 0, isDistant, false, isRush);
                   } else {
-                    // GOOD: 基本+1
-                    const pts = 1;
-                    score += pts;
                     playSuccessSound();
                     screenShake = 1.8;
                     spawnParticles(tipX, groundY, 6, 'land');
-                    setJudgePopup('GOOD', tipX, groundY - 62, pts, 0, false);
+                    setJudgePopup('GOOD', tipX, groundY - 62, pts, 0, isDistant, false, isRush);
                   }
+                }
+
+                // 指示4: 自己ベストの位置に「BEST」の旗を足場の上に立て、超えた瞬間に「ベスト更新!」とファンファーレ
+                if (!hasCelebratedBest && (
+                  (bestCount > 0 && count >= bestCount) ||
+                  (previousBestScore > 0 && score > previousBestScore)
+                )) {
+                  hasCelebratedBest = true;
+                  playFanfareSound();
+                  setMilestonePopup('👑 ベスト更新! 👑');
+                  spawnParticles(playerX, groundY - 45, 36, 'gold_confetti');
+                } else if (count > 0 && count % 10 === 0) {
+                  setMilestonePopup(`${count}本突破!`);
+                  playMilestoneSound();
                 }
 
                 if (score > best) {
@@ -1213,12 +1509,15 @@
                   safeSetStorage('bridgeJumpBest', best.toString());
                   isNewBest = true;
                 }
-                updateGameHook();
+                if (count > bestCount) {
+                  bestCount = count;
+                  safeSetStorage('bridgeJumpBestCount', bestCount.toString());
+                }
 
-                // Camera starts tracking ahead towards the next pillar immediately
+                updateGameHook();
                 targetCameraX = nxtP.x - 45;
               } else {
-                // FAIL: walk to the tip of stick then fall
+                // FAIL
                 playSubState = 'walking';
                 if (combo > 0) {
                   spawnComboEndPopup(tipX, groundY - 88);
@@ -1229,7 +1528,6 @@
               }
             }
           } else if (playSubState === 'walking') {
-            // Player runs along the stick (speed increases with combo)
             playerWalkCycle += dt * 28 * speedMult;
             const dx = playerWalkTargetX - playerX;
             const step = RUN_SPEED * speedMult * dt;
@@ -1237,10 +1535,9 @@
             const tipX = stickStartX + stickLength;
             const isOnNextPillar = tipX >= nxtP.x && tipX <= (nxtP.x + nxtP.w);
 
-            // 棒人間は渡り終わる時に軽くジャンプして着地
             const remainingDist = Math.abs(playerWalkTargetX - playerX);
             if (isOnNextPillar && remainingDist < 42) {
-              const jumpT = (42 - remainingDist) / 42; // 0 -> 1
+              const jumpT = (42 - remainingDist) / 42;
               playerJumpY = -Math.sin(jumpT * Math.PI) * 13;
             } else {
               playerJumpY = 0;
@@ -1251,22 +1548,23 @@
               playerJumpY = 0;
 
               if (isOnNextPillar) {
-                // Arrived safely on next pillar!
-                spawnParticles(playerX, groundY, 5, 'land'); // 着地ダスト
+                spawnParticles(playerX, groundY, 5, 'land');
                 currentPillarIndex++;
                 stickLength = 0;
                 stickAngle = 0;
+                prevStickAngle = 0;
                 stickStartX = nxtP.x + nxtP.w;
+
+                // 渡りきった足場は停止を維持（足場が揺れないように）
+                nxtP.isStopped = true;
 
                 ensurePillarsAhead();
 
-                // 渡り終わった瞬間から次の長押しを受け付ける！
                 playSubState = 'ready';
                 if (isInputHeld) {
                   startGrowing();
                 }
               } else {
-                // Arrived at the end of the stick and falls into abyss!
                 playSubState = 'falling_player';
                 fallTimer = 0;
                 playerVy = 60;
@@ -1279,18 +1577,15 @@
               }
             }
           } else if (playSubState === 'falling_player') {
-            // Player & stick fall down
             fallTimer += dt;
             playerVy += 1200 * dt;
             playerY += playerVy * dt;
-            playerFallRot += dt * 9.5; // 回転しながら画面外へ
+            playerFallRot += dt * 9.5;
 
-            // Stick continues rotating down
             if (stickAngle < Math.PI) {
               stickAngle += dt * 8.0;
             }
 
-            // 落下演出は0.6秒程度で結果パネルを表示
             if (fallTimer >= 0.58 || playerY > virtualH + 90) {
               gameState = 'over';
               gameOverTime = performance.now();
@@ -1299,15 +1594,24 @@
                 safeSetStorage('bridgeJumpBest', best.toString());
                 isNewBest = true;
               }
+              if (count > bestCount) {
+                bestCount = count;
+                safeSetStorage('bridgeJumpBestCount', bestCount.toString());
+              }
               updateGameHook();
             }
           }
         }
 
-        // Camera smoothly follows targetCameraX (sped up during combo)
+        // Camera smoothly follows targetCameraX
         const camDiff = targetCameraX - cameraX;
         const currentCamSpeed = CAMERA_SPEED * speedMult;
         cameraX += camDiff * Math.min(1, dt * currentCamSpeed);
+
+        // Remove out-of-screen coins
+        if (coins.length > 30) {
+          coins = coins.filter(c => c.x > cameraX - 120);
+        }
       }
 
       // ==========================================
@@ -1318,13 +1622,11 @@
 
         // High DPI clear
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Apply devicePixelRatio & virtual viewport transform
         ctx.scale(dpr, dpr);
 
         const theme = getInterpolatedTheme();
 
-        // Fill entire background (even outside letterbox)
+        // Fill background
         const bgGrad = ctx.createLinearGradient(0, 0, 0, screenH);
         bgGrad.addColorStop(0, theme.skyTop);
         bgGrad.addColorStop(1, theme.skyBottom);
@@ -1346,40 +1648,42 @@
         ctx.rect(viewOffsetX, 0, virtualW * viewScale, screenH);
         ctx.clip();
 
-        // Translate to play area coordinates
         ctx.translate(viewOffsetX, 0);
         ctx.scale(viewScale, viewScale);
 
-        // Apply screen shake
+        // Screen shake
         if (screenShake > 0) {
           const sx = (Math.random() - 0.5) * screenShake;
           const sy = (Math.random() - 0.5) * screenShake;
           ctx.translate(sx, sy);
         }
 
-        // Background Parallax Environment (Mountains, City, Clouds/Stars)
+        // Background Parallax
         drawBackgroundEnvironment(theme);
 
         // World coordinates translation (Camera)
         ctx.save();
         ctx.translate(-cameraX, 0);
 
-        // Draw Pillars
+        // Draw Pillars (種類ごとの色・アイコン・BEST旗)
         drawPillars(theme);
 
-        // Draw Stick (Bridge)
+        // Draw Coins (浮遊ボーナスコイン)
+        drawCoins();
+
+        // Draw Stick
         drawStick();
 
-        // Draw Player (Stickman)
+        // Draw Player
         drawPlayer();
 
-        // Draw Ring Effects (PERFECT ring)
+        // Draw Ring Effects
         drawRingEffects();
 
-        // Draw In-world Particles
+        // Draw Particles
         drawParticles();
 
-        // Draw Judge & Combo Popups
+        // Draw Popups
         drawPopups();
 
         ctx.restore(); // Restore camera
@@ -1390,6 +1694,11 @@
           ctx.fillRect(0, 0, virtualW, virtualH);
         }
 
+        // 指示3: ラッシュモード突入時の画面端の光り（ネオン枠線発光）
+        if (isRush) {
+          drawRushBorderGlow();
+        }
+
         // HUD & Overlays
         drawHUD();
 
@@ -1398,14 +1707,13 @@
       }
 
       // ==========================================
-      // Parallax Environment (2〜3層 + 天体・雲)
+      // Parallax Environment
       // ==========================================
       function drawBackgroundEnvironment(theme) {
         ctx.save();
 
-        // Layer 1: 天体 & 雲 / 星 / オーロラ / 宇宙 (パララックス 0.04)
+        // Layer 1: 天体 & 雲 / 星 / オーロラ / 宇宙
         if (theme.isNight) {
-          // 星空
           ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
           for (let i = 0; i < 35; i++) {
             const sx = ((i * 37) + cameraX * 0.03) % virtualW;
@@ -1417,7 +1725,6 @@
           ctx.globalAlpha = 1.0;
 
           if (theme.isCosmos) {
-            // 宇宙の巨大惑星
             ctx.save();
             const px = ((virtualW * 0.8) - cameraX * 0.02) % (virtualW + 100);
             const py = 120;
@@ -1430,7 +1737,6 @@
             ctx.arc(px, py, 32, 0, Math.PI * 2);
             ctx.fill();
 
-            // 惑星のリング
             ctx.strokeStyle = 'rgba(244, 114, 182, 0.4)';
             ctx.lineWidth = 3;
             ctx.beginPath();
@@ -1438,7 +1744,6 @@
             ctx.stroke();
             ctx.restore();
           } else if (theme.isAurora) {
-            // オーロラの揺らめく波
             ctx.save();
             const nowTime = performance.now() * 0.0015;
             for (let a = 0; a < 2; a++) {
@@ -1455,7 +1760,6 @@
             }
             ctx.restore();
           } else {
-            // 三日月
             ctx.save();
             const mx = ((virtualW * 0.82) - cameraX * 0.02) % (virtualW + 80);
             const my = 90;
@@ -1463,7 +1767,6 @@
             ctx.beginPath();
             ctx.arc(mx, my, 18, 0, Math.PI * 2);
             ctx.fill();
-            // 影で三日月に
             ctx.fillStyle = theme.skyTop;
             ctx.beginPath();
             ctx.arc(mx + 7, my - 3, 16, 0, Math.PI * 2);
@@ -1471,7 +1774,6 @@
             ctx.restore();
           }
         } else {
-          // 昼または夕方の太陽
           ctx.save();
           const sunX = ((virtualW * 0.8) - cameraX * 0.02) % (virtualW + 80);
           const sunY = theme.skyBottom.includes('fb923c') ? 140 : 85;
@@ -1484,7 +1786,6 @@
           ctx.arc(sunX, sunY, 32, 0, Math.PI * 2);
           ctx.fill();
 
-          // 雲
           ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
           for (let c = 0; c < 3; c++) {
             const cx = ((c * 150 + 40) - cameraX * 0.05) % (virtualW + 120);
@@ -1494,7 +1795,7 @@
           ctx.restore();
         }
 
-        // Layer 2: 遠景の山並み (パララックス 0.12) - タイル状に途切れなく画面全幅を覆う
+        // Layer 2: 遠景の山並み
         const MOUNTAIN_TILE_W = 400;
         const mountainParallax = 0.12;
         const mountainOffset = -((cameraX * mountainParallax) % MOUNTAIN_TILE_W);
@@ -1519,7 +1820,7 @@
         ctx.closePath();
         ctx.fill();
 
-        // Layer 3: 中景のビル群 (パララックス 0.22) - ビル群のスカイラインをタイル状に配置
+        // Layer 3: 中景のビル群
         const CITY_TILE_W = 360;
         const cityParallax = 0.22;
         const cityOffset = -((cameraX * cityParallax) % CITY_TILE_W);
@@ -1537,11 +1838,9 @@
           { x: 318, w: 40, h: 70 }
         ];
 
-        // ビルの隙間から空が見えないよう地平線ベース（足場の上端まで埋める）
         ctx.fillStyle = theme.city;
         ctx.fillRect(0, groundY - 25, virtualW, 25);
 
-        // タイル状にビルを描画
         const startTileX = cityOffset <= 0 ? cityOffset : cityOffset - CITY_TILE_W;
         for (let tx = startTileX; tx < virtualW + CITY_TILE_W; tx += CITY_TILE_W) {
           for (let i = 0; i < CITY_BUILDINGS.length; i++) {
@@ -1553,7 +1852,6 @@
             ctx.fillStyle = theme.city;
             ctx.fillRect(bx, by, b.w, b.h);
 
-            // アンテナ
             if (b.antenna) {
               ctx.lineWidth = 1.5;
               ctx.strokeStyle = theme.city;
@@ -1563,7 +1861,6 @@
               ctx.stroke();
             }
 
-            // 尖塔
             if (b.spire) {
               ctx.fillStyle = theme.city;
               ctx.beginPath();
@@ -1574,7 +1871,6 @@
               ctx.fill();
             }
 
-            // ビルの窓（昼・夕・夜すべてでビル群とわかるように表示）
             const winColor = (theme.isNight || theme.skyBottom.includes('fb923c'))
               ? theme.windowColor
               : 'rgba(255, 255, 255, 0.3)';
@@ -1590,7 +1886,7 @@
           }
         }
 
-        // 足場の上端（groundY）より下を暗い谷・地面で埋める（空の水色が見えないようにする）
+        // 足場の上端（groundY）より下を暗い谷で埋める
         const valleyGrad = ctx.createLinearGradient(0, groundY, 0, virtualH);
         if (theme.isNight) {
           valleyGrad.addColorStop(0, '#060a12');
@@ -1618,89 +1914,213 @@
       }
 
       // ==========================================
-      // Pillars Rendering (立体感・極細足場・バウンス)
+      // Pillars Rendering (足場のバリエーション & BEST旗)
       // ==========================================
       function drawPillars(theme) {
-        const viewLeft = cameraX - 50;
-        const viewRight = cameraX + virtualW + 50;
+        const viewLeft = cameraX - 60;
+        const viewRight = cameraX + virtualW + 60;
+        const timeNow = performance.now();
 
         for (let i = 0; i < pillars.length; i++) {
           const p = pillars[i];
           if (p.x + p.w < viewLeft || p.x > viewRight) continue;
 
-          // 足場着地時の沈み込みバウンス
           const currentGroundY = groundY + p.bounceY;
           const pillarH = virtualH - currentGroundY;
 
-          if (p.isNarrow) {
-            // 極細足場: ゴールド/アンバー基調で光る！
+          // 指示1: 足場のバリエーション（色と小さなアイコンで一目で分かるように）
+          if (p.type === 'gold') {
+            // ゴールド足場: 金色グラデーション＋光沢
             const grad = ctx.createLinearGradient(p.x, currentGroundY, p.x + p.w, currentGroundY);
             grad.addColorStop(0, '#b45309');
-            grad.addColorStop(0.5, '#f59e0b');
+            grad.addColorStop(0.4, '#f59e0b');
+            grad.addColorStop(0.8, '#fbbf24');
             grad.addColorStop(1, '#b45309');
             ctx.fillStyle = grad;
             ctx.fillRect(p.x, currentGroundY, p.w, pillarH);
 
-            // 金色の光沢枠線
-            ctx.strokeStyle = '#fbbf24';
-            ctx.lineWidth = 1.5;
+            // 金色の上面ハイライト
+            ctx.fillStyle = '#fef08a';
+            ctx.fillRect(p.x, currentGroundY, p.w, 4);
+
+            // 側面の金色の輝き枠線
+            ctx.strokeStyle = '#fde68a';
+            ctx.lineWidth = 1;
             ctx.strokeRect(p.x, currentGroundY, p.w, pillarH);
 
-            // 上面ハイライト
-            ctx.fillStyle = '#fef08a';
-            ctx.fillRect(p.x, currentGroundY, p.w, 3);
-
-            // 頭上に「★+3」アイコン
+            // 小さなアイコン「👑 +5」
             ctx.save();
             ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillStyle = '#fbbf24';
-            ctx.shadowColor = 'rgba(251, 191, 36, 0.8)';
+            ctx.fillStyle = '#fef08a';
+            ctx.shadowColor = 'rgba(251, 191, 36, 0.9)';
             ctx.shadowBlur = 6;
-            ctx.fillText('★+3', p.perfectX, currentGroundY - 8);
+            ctx.fillText('👑 +5', p.perfectX, currentGroundY - 8);
+            ctx.restore();
+          } else if (p.type === 'moving') {
+            // 動く足場: ネオンシアン/エレクトリックブルー調＋矢印パターン
+            const grad = ctx.createLinearGradient(p.x, currentGroundY, p.x + p.w, currentGroundY);
+            grad.addColorStop(0, '#0369a1');
+            grad.addColorStop(0.5, '#06b6d4');
+            grad.addColorStop(1, '#0284c7');
+            ctx.fillStyle = grad;
+            ctx.fillRect(p.x, currentGroundY, p.w, pillarH);
+
+            // シアン上面ハイライト
+            ctx.fillStyle = '#67e8f9';
+            ctx.fillRect(p.x, currentGroundY, p.w, 4);
+
+            // 停止中と移動中の区別
+            ctx.save();
+            ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#a5f3fc';
+            ctx.shadowColor = 'rgba(6, 182, 212, 0.8)';
+            ctx.shadowBlur = 6;
+            ctx.fillText(p.isStopped ? '⏹ STOP' : '↔ MOVE', p.perfectX, currentGroundY - 8);
+            ctx.restore();
+          } else if (p.type === 'distant') {
+            // 遠い足場: ネオンマゼンタ/バイオレット調＋「≫ +2」
+            const grad = ctx.createLinearGradient(p.x, currentGroundY, p.x + p.w, currentGroundY);
+            grad.addColorStop(0, '#581c87');
+            grad.addColorStop(0.5, '#9333ea');
+            grad.addColorStop(1, '#c026d3');
+            ctx.fillStyle = grad;
+            ctx.fillRect(p.x, currentGroundY, p.w, pillarH);
+
+            // バイオレット上面ハイライト
+            ctx.fillStyle = '#f5d0fe';
+            ctx.fillRect(p.x, currentGroundY, p.w, 4);
+
+            // 小さなアイコン「≫ +2」
+            ctx.save();
+            ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#f0abfc';
+            ctx.shadowColor = 'rgba(192, 38, 211, 0.9)';
+            ctx.shadowBlur = 6;
+            ctx.fillText('≫ +2', p.perfectX, currentGroundY - 8);
             ctx.restore();
           } else {
-            // 通常足場: 立体感・色味のあるグラデーション
+            // 通常足場
             const grad = ctx.createLinearGradient(p.x, currentGroundY, p.x + p.w, currentGroundY);
             grad.addColorStop(0, theme.pillarGrad1);
             grad.addColorStop(0.4, theme.pillarGrad2);
             grad.addColorStop(0.85, theme.pillarGrad2);
-            grad.addColorStop(1, '#090d16'); // 右端のシャドウで立体感
+            grad.addColorStop(1, '#090d16');
             ctx.fillStyle = grad;
             ctx.fillRect(p.x, currentGroundY, p.w, pillarH);
 
-            // 上面ハイライトライン
             ctx.fillStyle = theme.pillarTop;
             ctx.fillRect(p.x, currentGroundY, p.w, 3.5);
 
-            // 側面の薄いエッジライン
             ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
             ctx.fillRect(p.x, currentGroundY, 1, pillarH);
           }
 
-          // Red PERFECT marker at the top center of each pillar
-          const markerW = p.isNarrow ? Math.max(5, p.w * 0.45) : Math.min(PERFECT_MARKER_W, p.w * 0.28);
+          // Red PERFECT marker at the top center
+          const markerW = Math.min(PERFECT_MARKER_W, p.w * 0.28);
           const markerX = p.perfectX - markerW / 2;
 
-          // Red glowing marker
           ctx.fillStyle = '#f43f5e';
           ctx.fillRect(markerX, currentGroundY, markerW, 4);
 
-          // Center bright dot
           ctx.fillStyle = '#ffe4e6';
           ctx.fillRect(p.perfectX - 1, currentGroundY, 2, 4);
+
+          // 指示4: 自己ベストの位置に「BEST」の旗を足場の上に立てる
+          if (p.hasBestFlag) {
+            ctx.save();
+            const poleX = p.x + p.w - 8;
+            const poleBaseY = currentGroundY;
+            const poleH = 34;
+            const poleTopY = poleBaseY - poleH;
+
+            // 旗竿（メタリックシルバー）
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(poleX, poleBaseY);
+            ctx.lineTo(poleX, poleTopY);
+            ctx.stroke();
+
+            // 竿先の金玉
+            ctx.fillStyle = '#fbbf24';
+            ctx.beginPath();
+            ctx.arc(poleX, poleTopY, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 風になびく旗（三角ペナント）
+            const flutter = Math.sin(timeNow * 0.006 + p.x) * 3;
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.moveTo(poleX, poleTopY);
+            ctx.lineTo(poleX + 22, poleTopY + 7 + flutter);
+            ctx.lineTo(poleX, poleTopY + 15);
+            ctx.closePath();
+            ctx.fill();
+
+            // 「BEST」の文字
+            ctx.font = '900 8px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText('BEST', poleX + 2, poleTopY + 10 + flutter * 0.4);
+
+            ctx.restore();
+          }
         }
       }
 
       // ==========================================
-      // Stick (Bridge) Rendering (先端グロー & 音程)
+      // Bonus Coins Rendering
+      // ==========================================
+      function drawCoins() {
+        const viewLeft = cameraX - 20;
+        const viewRight = cameraX + virtualW + 20;
+        const timeNow = performance.now();
+
+        for (let i = 0; i < coins.length; i++) {
+          const c = coins[i];
+          if (c.collected || c.x < viewLeft || c.x > viewRight) continue;
+
+          ctx.save();
+          ctx.translate(c.x, c.y);
+
+          // コインの輝き回転（少し横方向にスケールして回転感を出す）
+          const rotScale = Math.cos(timeNow * 0.004 + c.phase);
+          ctx.scale(Math.max(0.2, Math.abs(rotScale)), 1.0);
+
+          // 外枠ゴールド
+          ctx.fillStyle = '#d97706';
+          ctx.beginPath();
+          ctx.arc(0, 0, c.r, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 内側ブライトゴールド
+          ctx.fillStyle = '#fbbf24';
+          ctx.beginPath();
+          ctx.arc(0, 0, c.r - 2, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 中央のキラ星
+          ctx.fillStyle = '#fef08a';
+          ctx.font = '900 9px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('★', 0, 0);
+
+          ctx.restore();
+        }
+      }
+
+      // ==========================================
+      // Stick (Bridge) Rendering
       // ==========================================
       function drawStick() {
         if (stickLength <= 0) return;
 
         ctx.save();
         ctx.translate(stickStartX, groundY);
-        // Angle 0: straight UP (subtract PI/2 from canvas 0 rad)
         ctx.rotate(stickAngle - Math.PI / 2);
 
         // Stick body
@@ -1712,22 +2132,19 @@
         ctx.lineTo(stickLength, 0);
         ctx.stroke();
 
-        // 棒が伸びる間は先端が光る（パルス＆グロー）
+        // 棒が伸びる間は先端が光る
         if (playSubState === 'growing') {
           const pulse = 1.0 + Math.sin(performance.now() * 0.02) * 0.3;
-          // 外側の光輪
           ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
           ctx.beginPath();
           ctx.arc(stickLength, 0, 8 * pulse, 0, Math.PI * 2);
           ctx.fill();
 
-          // 内側の強いハイライト
           ctx.fillStyle = '#ffffff';
           ctx.beginPath();
           ctx.arc(stickLength, 0, 3.5, 0, Math.PI * 2);
           ctx.fill();
         } else {
-          // Tip highlight
           ctx.fillStyle = '#38bdf8';
           ctx.beginPath();
           ctx.arc(stickLength, 0, 2.5, 0, Math.PI * 2);
@@ -1748,7 +2165,6 @@
           ctx.rotate(playerFallRot);
         }
 
-        // Stickman dimensions
         const headR = 4.5;
         const hipY = -6;
         const shoulderY = -14;
@@ -1786,7 +2202,6 @@
         ctx.stroke();
 
         // Legs
-        // Left Leg
         ctx.beginPath();
         ctx.moveTo(0, hipY);
         const l1x = Math.sin(legAngle1) * 7;
@@ -1795,7 +2210,6 @@
         ctx.lineTo(l1x + Math.sin(legAngle1 + 0.3) * 5, 0);
         ctx.stroke();
 
-        // Right Leg
         ctx.beginPath();
         ctx.moveTo(0, hipY);
         const l2x = Math.sin(legAngle2) * 7;
@@ -1805,13 +2219,11 @@
         ctx.stroke();
 
         // Arms
-        // Left Arm
         ctx.beginPath();
         ctx.moveTo(0, shoulderY);
         ctx.lineTo(Math.sin(armAngle1) * 8, shoulderY + Math.cos(armAngle1) * 8);
         ctx.stroke();
 
-        // Right Arm
         ctx.beginPath();
         ctx.moveTo(0, shoulderY);
         ctx.lineTo(Math.sin(armAngle2) * 8, shoulderY + Math.cos(armAngle2) * 8);
@@ -1823,13 +2235,13 @@
         ctx.arc(0, headY, headR, 0, Math.PI * 2);
         ctx.fill();
 
-        // Face eye
+        // Eye
         ctx.fillStyle = '#090d16';
         ctx.beginPath();
         ctx.arc(2, headY - 0.5, 1, 0, Math.PI * 2);
         ctx.fill();
 
-        // Cute Scarf trailing behind
+        // Scarf
         ctx.fillStyle = '#f43f5e';
         ctx.beginPath();
         ctx.arc(0, shoulderY, 2.5, 0, Math.PI * 2);
@@ -1868,18 +2280,24 @@
           ctx.save();
           ctx.globalAlpha = alpha;
           ctx.fillStyle = p.color;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-          ctx.fill();
+
+          if (p.isConfetti) {
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot || 0);
+            ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+          } else {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+          }
           ctx.restore();
         }
       }
 
       // ==========================================
-      // Popups (PERFECT / GREAT / GOOD / ギリギリ!)
+      // Popups
       // ==========================================
       function drawPopups() {
-        // Active Judge Popup
         if (currentJudgePopup) {
           const pop = currentJudgePopup;
           const progress = pop.life / pop.maxLife;
@@ -1890,14 +2308,111 @@
           let posX = pop.x;
           let posY = pop.y;
 
-          // ギリギリ! は赤く震える文字
           if (pop.shake > 0) {
             posX += (Math.random() - 0.5) * 6;
             posY += (Math.random() - 0.5) * 4;
           }
 
-          // 画面内に収まるよう左右をクランプ
-          const margin = 78;
+          // 判定ごとの情報定義
+          let titleText = '';
+          let titleFont = '900 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          let titleColor = '#ffffff';
+          let titleShadowColor = 'rgba(0, 0, 0, 0.6)';
+          let titleShadowBlur = 8;
+          let subTextColor = '#ffffff';
+          let subLines = [];
+          let subFontSize = 11;
+
+          if (pop.type === 'COIN') {
+            titleText = '+1 🪙';
+            titleFont = '900 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            titleColor = '#fbbf24';
+            titleShadowColor = 'rgba(251, 191, 36, 0.9)';
+            titleShadowBlur = 8;
+          } else {
+            const detailParts = [];
+            if (pop.isGold) detailParts.push('金+5');
+            if (pop.isDistant) detailParts.push('遠距離+2');
+            if (pop.rushActive) detailParts.push('×2');
+
+            let baseScoreText = `+${pop.pts}`;
+            if (pop.type === 'PERFECT') {
+              titleText = pop.isGold ? 'GOLD PERFECT!' : 'PERFECT!';
+              titleFont = '900 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              titleColor = pop.isGold ? '#fef08a' : '#fbbf24';
+              titleShadowColor = pop.isGold ? 'rgba(251, 191, 36, 1.0)' : 'rgba(251, 191, 36, 0.8)';
+              titleShadowBlur = pop.isGold ? 16 : 12;
+              subTextColor = '#ffffff';
+              baseScoreText = `+${pop.pts} (x${pop.combo})`;
+            } else if (pop.type === 'GREAT') {
+              titleText = 'GREAT!';
+              titleFont = '800 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              titleColor = '#38bdf8';
+              titleShadowColor = 'rgba(56, 189, 248, 0.8)';
+              titleShadowBlur = 8;
+              subTextColor = '#e0f2fe';
+            } else if (pop.type === 'GIRIGIRI') {
+              titleText = 'ギリギリ!';
+              titleFont = '900 19px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              titleColor = '#ef4444';
+              titleShadowColor = 'rgba(239, 68, 68, 0.9)';
+              titleShadowBlur = 10;
+              subTextColor = '#fecaca';
+            } else {
+              titleText = 'GOOD';
+              titleFont = '700 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              titleColor = '#34d399';
+              titleShadowColor = 'rgba(52, 211, 153, 0.7)';
+              titleShadowBlur = 6;
+              subTextColor = '#d1fae5';
+            }
+
+            // 内訳テキストの構築（短縮形: 例「+32 (x15) 遠距離+2 ×2」）
+            const detailsStr = detailParts.join(' ');
+            const singleLineText = detailsStr ? `${baseScoreText} ${detailsStr}` : baseScoreText;
+
+            // テキスト幅チェック＆必要に応じて折り返しまたはフォント縮小
+            ctx.font = `bold ${subFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+            const singleW = ctx.measureText(singleLineText).width;
+
+            // 1行で 170px を超え、内訳パーツがある場合は2行に分割
+            if (singleW > 170 && detailParts.length > 0) {
+              subLines = [baseScoreText, detailsStr];
+            } else {
+              subLines = [singleLineText];
+            }
+
+            // サブライン幅が画面最大許容幅を超える場合はフォントを縮小
+            const maxAllowedSubW = (virtualW - 36) / scale;
+            let currentMaxSubW = 0;
+            for (let i = 0; i < subLines.length; i++) {
+              const w = ctx.measureText(subLines[i]).width;
+              if (w > currentMaxSubW) currentMaxSubW = w;
+            }
+
+            while (currentMaxSubW > maxAllowedSubW && subFontSize > 8) {
+              subFontSize--;
+              ctx.font = `bold ${subFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+              currentMaxSubW = 0;
+              for (let i = 0; i < subLines.length; i++) {
+                const w = ctx.measureText(subLines[i]).width;
+                if (w > currentMaxSubW) currentMaxSubW = w;
+              }
+            }
+          }
+
+          // タイトル幅とサブライン幅の最大値を計測
+          ctx.font = titleFont;
+          let maxTotalW = ctx.measureText(titleText).width;
+          ctx.font = `bold ${subFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          for (let i = 0; i < subLines.length; i++) {
+            const w = ctx.measureText(subLines[i]).width;
+            if (w > maxTotalW) maxTotalW = w;
+          }
+
+          // 画面両端から絶対に切れないよう動的マージンでクランプ
+          const halfW = (maxTotalW / 2) * scale;
+          const margin = Math.ceil(halfW + 8);
           const screenX = posX - cameraX;
           const clampedScreenX = Math.max(margin, Math.min(virtualW - margin, screenX));
           posX = clampedScreenX + cameraX;
@@ -1907,60 +2422,31 @@
           ctx.globalAlpha = alpha;
           ctx.textAlign = 'center';
 
-          if (pop.type === 'PERFECT') {
-            ctx.font = '900 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillStyle = '#fbbf24';
-            ctx.shadowColor = 'rgba(251, 191, 36, 0.8)';
-            ctx.shadowBlur = 12;
-            ctx.fillText('PERFECT!', 0, 0);
+          // タイトル描画
+          ctx.font = titleFont;
+          ctx.fillStyle = titleColor;
+          ctx.shadowColor = titleShadowColor;
+          ctx.shadowBlur = titleShadowBlur;
+          ctx.fillText(titleText, 0, 0);
 
-            // Bonus and Combo SubText
-            ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillStyle = '#ffffff';
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+          // サブライン描画
+          if (subLines.length > 0) {
+            ctx.font = `bold ${subFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+            ctx.fillStyle = subTextColor;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
             ctx.shadowBlur = 4;
-            const extraStr = pop.isNarrow ? ' ★極細ボーナス+3' : '';
-            ctx.fillText(`+${pop.pts} (COMBO x${pop.combo})${extraStr}`, 0, 16);
-          } else if (pop.type === 'GREAT') {
-            ctx.font = '800 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillStyle = '#38bdf8';
-            ctx.shadowColor = 'rgba(56, 189, 248, 0.8)';
-            ctx.shadowBlur = 8;
-            ctx.fillText('GREAT!', 0, 0);
 
-            ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillStyle = '#ffffff';
-            ctx.shadowBlur = 4;
-            ctx.fillText('+2 (ボーナス+1)', 0, 15);
-          } else if (pop.type === 'GIRIGIRI') {
-            ctx.font = '900 19px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillStyle = '#ef4444';
-            ctx.shadowColor = 'rgba(239, 68, 68, 0.9)';
-            ctx.shadowBlur = 10;
-            ctx.fillText('ギリギリ!', 0, 0);
-
-            ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillStyle = '#fecaca';
-            ctx.shadowBlur = 4;
-            ctx.fillText('+1', 0, 14);
-          } else {
-            // GOOD
-            ctx.font = '700 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillStyle = '#34d399';
-            ctx.shadowColor = 'rgba(52, 211, 153, 0.7)';
-            ctx.shadowBlur = 6;
-            ctx.fillText('GOOD', 0, 0);
-
-            ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillStyle = '#d1fae5';
-            ctx.shadowBlur = 4;
-            ctx.fillText('+1', 0, 14);
+            if (subLines.length === 1) {
+              ctx.fillText(subLines[0], 0, 16);
+            } else {
+              ctx.fillText(subLines[0], 0, 15);
+              ctx.fillText(subLines[1], 0, 27);
+            }
           }
 
           ctx.restore();
         }
 
-        // Combo End Popup
         if (comboEndPopup) {
           const cPop = comboEndPopup;
           const alpha = Math.max(0, cPop.life / cPop.maxLife);
@@ -1979,7 +2465,6 @@
           ctx.restore();
         }
 
-        // Milestone Popup (10本ごとのマイルストーン)
         if (milestonePopup) {
           const mPop = milestonePopup;
           const alpha = Math.min(1, (mPop.life / mPop.maxLife) * 1.5);
@@ -2001,6 +2486,23 @@
       }
 
       // ==========================================
+      // Rush Mode Glowing Border Effect
+      // ==========================================
+      function drawRushBorderGlow() {
+        ctx.save();
+        const pulse = 0.7 + Math.sin(performance.now() * 0.012) * 0.3;
+        ctx.strokeStyle = `rgba(251, 191, 36, ${0.85 * pulse})`;
+        ctx.lineWidth = 6;
+        ctx.strokeRect(3, 3, virtualW - 6, virtualH - 6);
+
+        // 内側の赤いネオン線
+        ctx.strokeStyle = `rgba(244, 63, 94, ${0.65 * pulse})`;
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(6, 6, virtualW - 12, virtualH - 12);
+        ctx.restore();
+      }
+
+      // ==========================================
       // HUD & Overlays
       // ==========================================
       function drawHUD() {
@@ -2017,7 +2519,7 @@
           ctx.shadowOffsetY = 2;
           ctx.fillText(score.toString(), virtualW / 2, 78);
 
-          // その下に小さく渡った本数とベスト（半透明の暗い帯 & 濃い縁取り/影でどの空でも鮮明に）
+          // その下に小さく渡った本数とベスト
           const hudText = `渡った本数 ${count}   /   BEST ${best}`;
           ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           const textW = ctx.measureText(hudText).width;
@@ -2044,11 +2546,62 @@
           ctx.fillText(hudText, virtualW / 2, 108);
           ctx.restore();
 
-          // PERFECT 連続でコンボ数を大きく表示
-          if (combo >= 2) {
+          // 指示2: コイン数は HUD 右上に小さく表示
+          ctx.save();
+          const coinText = `🪙 ${totalCoins}`;
+          ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          const cTextW = ctx.measureText(coinText).width;
+          const cBadgeW = cTextW + 18;
+          const cBadgeH = 26;
+          const cBadgeX = virtualW - cBadgeW - 65; // ミュートボタンの左隣
+          const cBadgeY = 18;
+
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+          ctx.strokeStyle = 'rgba(251, 191, 36, 0.45)';
+          ctx.lineWidth = 1;
+          drawRoundRect(ctx, cBadgeX, cBadgeY, cBadgeW, cBadgeH, 13);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#fef08a';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 4;
+          ctx.textAlign = 'center';
+          ctx.fillText(coinText, cBadgeX + cBadgeW / 2, cBadgeY + 17);
+          ctx.restore();
+
+          // 指示3: ラッシュモード中インジケータ（残り秒数）
+          if (isRush) {
+            ctx.save();
+            const rushSec = Math.max(0, rushTimer).toFixed(1);
+            const rushText = `🔥 RUSH x2! (${rushSec}s)`;
+            ctx.font = '900 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            const rTextW = ctx.measureText(rushText).width;
+            const rBadgeW = rTextW + 20;
+            const rBadgeH = 24;
+            const rBadgeX = (virtualW - rBadgeW) / 2;
+            const rBadgeY = 124;
+
+            ctx.fillStyle = 'rgba(180, 83, 9, 0.85)';
+            ctx.strokeStyle = '#fef08a';
+            ctx.lineWidth = 1.2;
+            drawRoundRect(ctx, rBadgeX, rBadgeY, rBadgeW, rBadgeH, 12);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = 'rgba(251, 191, 36, 0.9)';
+            ctx.shadowBlur = 6;
+            ctx.textAlign = 'center';
+            ctx.fillText(rushText, virtualW / 2, rBadgeY + 16);
+            ctx.restore();
+          }
+
+          // コンボ表示
+          if (combo >= 2 && !isRush) {
             ctx.save();
             const pulse = 1.0 + Math.sin(performance.now() * 0.01) * 0.08;
-            ctx.translate(virtualW / 2, 132);
+            ctx.translate(virtualW / 2, 134);
             ctx.scale(pulse, pulse);
             ctx.font = '900 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.fillStyle = combo >= 4 ? '#fbbf24' : '#f43f5e';
@@ -2076,7 +2629,7 @@
           ctx.shadowOffsetY = 1;
           ctx.fillText('画面長押しで棒を伸ばし、離して橋を架けよう！', virtualW / 2, virtualH * 0.29);
 
-          // Red dot tip（半透明の暗い帯 & 濃い縁取りでどの空の色でもくっきり読める）
+          // Tips badge
           const tipText = '★ 足場中央の赤い印に着地するとPERFECTボーナス！';
           ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           const tipW = ctx.measureText(tipText).width;
@@ -2103,7 +2656,7 @@
           ctx.fillText(tipText, virtualW / 2, virtualH * 0.33);
           ctx.restore();
 
-          // Start prompt with gentle pulse（半透明の暗い帯 & 濃い縁取り/影で昼の水色の空でもはっきり読める）
+          // Start prompt
           const pulse = 0.85 + Math.sin(performance.now() * 0.005) * 0.15;
           ctx.save();
           ctx.globalAlpha = pulse;
@@ -2114,7 +2667,7 @@
           const startBadgeW = startW + 36;
           const startBadgeH = 38;
           const startBadgeX = (virtualW - startBadgeW) / 2;
-          const startBadgeY = virtualH * 0.45 - 26;
+          const startBadgeY = virtualH * 0.44 - 26;
 
           ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
           ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
@@ -2129,88 +2682,153 @@
           ctx.shadowOffsetY = 1;
           ctx.strokeStyle = '#020617';
           ctx.lineWidth = 3.5;
-          ctx.strokeText(startText, virtualW / 2, virtualH * 0.45);
-          ctx.fillText(startText, virtualW / 2, virtualH * 0.45);
+          ctx.strokeText(startText, virtualW / 2, virtualH * 0.44);
+          ctx.fillText(startText, virtualW / 2, virtualH * 0.44);
           ctx.restore();
 
-          // Best score badge
-          if (best > 0) {
-            ctx.save();
-            const bestText = `BEST RECORD: ${best}`;
-            ctx.font = '600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            const bestW = ctx.measureText(bestText).width;
-            const bBadgeW = bestW + 24;
-            const bBadgeH = 26;
-            const bBadgeX = (virtualW - bBadgeW) / 2;
-            const bBadgeY = virtualH * 0.50 - 18;
+          // Best score and coins badge
+          ctx.save();
+          const bestText = best > 0 ? `BEST: ${best} pt (${bestCount}本)  |  🪙 ${totalCoins}` : `累計コイン: 🪙 ${totalCoins}`;
+          ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          const bestW = ctx.measureText(bestText).width;
+          const bBadgeW = bestW + 24;
+          const bBadgeH = 26;
+          const bBadgeX = (virtualW - bBadgeW) / 2;
+          const bBadgeY = virtualH * 0.49 - 18;
 
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-            ctx.lineWidth = 1;
-            drawRoundRect(ctx, bBadgeX, bBadgeY, bBadgeW, bBadgeH, 13);
-            ctx.fill();
-            ctx.stroke();
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+          ctx.lineWidth = 1;
+          drawRoundRect(ctx, bBadgeX, bBadgeY, bBadgeW, bBadgeH, 13);
+          ctx.fill();
+          ctx.stroke();
 
-            ctx.fillStyle = '#cbd5e1';
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-            ctx.shadowBlur = 4;
-            ctx.shadowOffsetY = 1;
-            ctx.fillText(bestText, virtualW / 2, virtualH * 0.50);
-            ctx.restore();
-          }
+          ctx.fillStyle = '#cbd5e1';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetY = 1;
+          ctx.fillText(bestText, virtualW / 2, virtualH * 0.49);
+          ctx.restore();
         } else if (gameState === 'over') {
-          // Semi-dark background curtain
-          ctx.fillStyle = 'rgba(9, 13, 22, 0.74)';
+          // 指示5: 結果パネルを詳しく（スコア、渡った本数、PERFECT回数、最大コンボ、取ったコイン、「あと◯でベスト」）
+          ctx.fillStyle = 'rgba(9, 13, 22, 0.78)';
           ctx.fillRect(0, 0, virtualW, virtualH);
 
           ctx.textAlign = 'center';
 
-          // GAME OVER
-          ctx.font = '900 36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          ctx.fillStyle = '#f87171';
-          ctx.shadowColor = 'rgba(239, 68, 68, 0.6)';
-          ctx.shadowBlur = 14;
-          ctx.fillText('GAME OVER', virtualW / 2, virtualH * 0.28);
+          // NEW BEST強調タイトル
+          if (isNewBest && score > 0) {
+            ctx.font = '900 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillStyle = '#fbbf24';
+            ctx.shadowColor = 'rgba(251, 191, 36, 0.9)';
+            ctx.shadowBlur = 18;
+            ctx.fillText('★ NEW BEST! ★', virtualW / 2, virtualH * 0.23);
+          } else {
+            ctx.font = '900 34px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillStyle = '#f87171';
+            ctx.shadowColor = 'rgba(239, 68, 68, 0.7)';
+            ctx.shadowBlur = 14;
+            ctx.fillText('GAME OVER', virtualW / 2, virtualH * 0.23);
+          }
 
-          // Score card box
-          const cardW = 270;
-          const cardH = 150;
+          // Detailed Card Box
+          const cardW = 310;
+          const cardH = 236;
           const cardX = (virtualW - cardW) / 2;
-          const cardY = virtualH * 0.33;
+          const cardY = virtualH * 0.27;
 
-          ctx.fillStyle = 'rgba(30, 41, 59, 0.9)';
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-          ctx.lineWidth = 1;
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-          ctx.shadowBlur = 16;
-          drawRoundRect(ctx, cardX, cardY, cardW, cardH, 16);
+          ctx.save();
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+          ctx.strokeStyle = isNewBest ? 'rgba(251, 191, 36, 0.6)' : 'rgba(255, 255, 255, 0.18)';
+          ctx.lineWidth = isNewBest ? 2 : 1;
+          ctx.shadowColor = isNewBest ? 'rgba(251, 191, 36, 0.4)' : 'rgba(0, 0, 0, 0.6)';
+          ctx.shadowBlur = isNewBest ? 20 : 16;
+          drawRoundRect(ctx, cardX, cardY, cardW, cardH, 18);
           ctx.fill();
           ctx.stroke();
+          ctx.restore();
 
-          // Score text
-          ctx.shadowBlur = 0;
-          ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          // Score Header
+          ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           ctx.fillStyle = '#94a3b8';
-          ctx.fillText('SCORE', virtualW / 2, cardY + 30);
+          ctx.fillText('FINAL SCORE', virtualW / 2, cardY + 24);
 
-          ctx.font = '900 46px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          ctx.fillStyle = '#ffffff';
-          ctx.fillText(score.toString(), virtualW / 2, cardY + 74);
+          ctx.font = '900 48px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = isNewBest ? '#fef08a' : '#ffffff';
+          if (isNewBest) {
+            ctx.shadowColor = 'rgba(251, 191, 36, 0.8)';
+            ctx.shadowBlur = 12;
+          }
+          ctx.fillText(score.toString(), virtualW / 2, cardY + 68);
+          ctx.shadowBlur = 0;
 
-          // 渡った本数 & Best
+          // 区切り線
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(cardX + 20, cardY + 84);
+          ctx.lineTo(cardX + cardW - 20, cardY + 84);
+          ctx.stroke();
+
+          // 2x2 Detailed Stats Grid
           ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          ctx.fillStyle = '#cbd5e1';
-          ctx.fillText(`渡った本数: ${count}本   BEST: ${best}`, virtualW / 2, cardY + 108);
+          const col1X = cardX + 32;
+          const col2X = cardX + cardW / 2 + 16;
+          ctx.textAlign = 'left';
 
+          // 行1: 渡った本数 & PERFECT回数
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillText('渡った本数:', col1X, cardY + 110);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(`${count}本`, col1X + 75, cardY + 110);
+
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillText('PERFECT:', col2X, cardY + 110);
+          ctx.fillStyle = '#fbbf24';
+          ctx.fillText(`${runPerfects}回`, col2X + 68, cardY + 110);
+
+          // 行2: 最大コンボ & 取ったコイン
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillText('最大コンボ:', col1X, cardY + 138);
+          ctx.fillStyle = maxCombo >= 3 ? '#fb7185' : '#ffffff';
+          ctx.fillText(`x${maxCombo}`, col1X + 75, cardY + 138);
+
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillText('獲得コイン:', col2X, cardY + 138);
+          ctx.fillStyle = '#fef08a';
+          ctx.fillText(`+${runCoins} 🪙`, col2X + 68, cardY + 138);
+
+          // 区切り線2
+          ctx.beginPath();
+          ctx.moveTo(cardX + 20, cardY + 158);
+          ctx.lineTo(cardX + cardW - 20, cardY + 158);
+          ctx.stroke();
+
+          // 「あと◯でベスト」 / NEW BEST 表示
+          ctx.textAlign = 'center';
           if (isNewBest && score > 0) {
-            ctx.save();
-            ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            const diff = score - previousBestScore;
+            ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.fillStyle = '#fbbf24';
             ctx.shadowColor = 'rgba(251, 191, 36, 0.7)';
-            ctx.shadowBlur = 8;
-            ctx.fillText('★ NEW BEST! ★', virtualW / 2, cardY + 130);
-            ctx.restore();
+            ctx.shadowBlur = 6;
+            ctx.fillText(`★ 自己ベスト更新! (+${diff > 0 ? diff : score} pt) ★`, virtualW / 2, cardY + 184);
+            ctx.shadowBlur = 0;
+          } else if (previousBestScore > 0) {
+            const needed = previousBestScore - score;
+            ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillText(needed > 0 ? `自己ベストまで あと ${needed} pt (BEST: ${previousBestScore})` : `自己ベストタイ記録! (BEST: ${previousBestScore})`, virtualW / 2, cardY + 184);
+          } else {
+            ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillText('ナイスチャレンジ！次はベスト更新を目指そう！', virtualW / 2, cardY + 184);
           }
+
+          // 累計コイン
+          ctx.font = '500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillText(`所持コイン総数: 🪙 ${totalCoins}`, virtualW / 2, cardY + 208);
 
           // Retry Prompt (ワンタップで即リトライ)
           const elapsedSinceOver = performance.now() - gameOverTime;
@@ -2222,7 +2840,7 @@
             ctx.fillStyle = '#38bdf8';
             ctx.shadowColor = 'rgba(56, 189, 248, 0.8)';
             ctx.shadowBlur = 10;
-            ctx.fillText('タップで即リトライ', virtualW / 2, cardY + 195);
+            ctx.fillText('タップで即リトライ', virtualW / 2, cardY + cardH + 46);
             ctx.restore();
           }
         }
@@ -2274,7 +2892,6 @@
         }
 
         if (gameState === 'over') {
-          // ゲームオーバー後は結果を少し見せてから即リトライ
           if (!botTimer) {
             const elapsed = performance.now() - gameOverTime;
             const waitTime = Math.max(0, 1800 - elapsed);
@@ -2289,17 +2906,29 @@
         }
 
         if (gameState === 'play' && playSubState === 'ready' && !botHolding) {
-          // Calculate needed length to next pillar
           const curP = pillars[currentPillarIndex];
           const nxtP = pillars[currentPillarIndex + 1];
           if (!nxtP) return;
 
           const startX = curP.x + curP.w;
-          const targetCenter = nxtP.perfectX;
-          const idealLength = targetCenter - startX;
+          let idealLength = 0;
+
+          // 動く足場の場合はリリース時の着地位置を予測計算
+          if (nxtP.type === 'moving' && !nxtP.isStopped) {
+            let tEst = (nxtP.baseX + nxtP.w / 2 - startX) / GROW_SPEED;
+            for (let iter = 0; iter < 3; iter++) {
+              const predX = nxtP.baseX + nxtP.w / 2 + Math.sin(nxtP.movePhase + nxtP.moveSpeed * tEst) * nxtP.moveAmp;
+              tEst = (predX - startX) / GROW_SPEED;
+            }
+            const finalPredX = nxtP.baseX + nxtP.w / 2 + Math.sin(nxtP.movePhase + nxtP.moveSpeed * tEst) * nxtP.moveAmp;
+            idealLength = finalPredX - startX;
+          } else {
+            idealLength = nxtP.perfectX - startX;
+          }
+
           const halfW = nxtP.w / 2;
 
-          // Error scaling: 48本以上は確実に失敗、進行するにつれて外す確率が上がる
+          // 失敗確率カーブ: 15〜50回でだいたい失敗する確率を維持
           let pMiss = 0;
           if (count >= 48) {
             pMiss = 1.0;
@@ -2310,10 +2939,9 @@
           let errorPx = 0;
           if (Math.random() < pMiss) {
             const dir = Math.random() < 0.5 ? -1 : 1;
-            errorPx = dir * (halfW + 16 + Math.random() * 20);
+            errorPx = dir * (halfW + 15 + Math.random() * 20);
           } else {
-            // 通常誤差（進行とともにわずかに広がる）
-            const sigma = 1.0 + Math.pow(count / 24, 2) * 2.8;
+            const sigma = 0.8 + Math.pow(count / 25, 2) * 2.4;
             const u1 = Math.max(1e-6, Math.random());
             const u2 = Math.random();
             const normalRand = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
