@@ -726,6 +726,169 @@
       // Input flags
       let isInputHeld = false;
 
+      // ==========================================
+      // Missions & Titles & Dress-up (Brush-up #3)
+      // ==========================================
+      const TITLES = [
+        { min: 0, name: '見習い橋職人', color: '#94a3b8' },
+        { min: 2, name: '駆け出し架橋士', color: '#38bdf8' },
+        { min: 5, name: '熟練の一本橋', color: '#34d399' },
+        { min: 9, name: '神業の跳躍者', color: '#fb7185' },
+        { min: 14, name: '伝説の架け橋', color: '#fbbf24' }
+      ];
+
+      function getTitleIndex(completed) {
+        let idx = 0;
+        for (let i = 0; i < TITLES.length; i++) {
+          if (completed >= TITLES[i].min) {
+            idx = i;
+          }
+        }
+        return idx;
+      }
+
+      function getTitle(completed) {
+        return TITLES[getTitleIndex(completed)];
+      }
+
+      const MISSION_POOL = [
+        {
+          id: 'm_combo_3',
+          title: 'PERFECT 3連続',
+          check: (r) => r.maxCombo >= 3,
+          progress: (r) => `${Math.min(r.maxCombo, 3)}/3連続`
+        },
+        {
+          id: 'm_count_10',
+          title: '1回で10本渡る',
+          check: (r) => r.count >= 10,
+          progress: (r) => `${Math.min(r.count, 10)}/10本`
+        },
+        {
+          id: 'm_coins_3',
+          title: 'コイン3枚を1回で取る',
+          check: (r) => r.runCoins >= 3,
+          progress: (r) => `${Math.min(r.runCoins, 3)}/3枚`
+        },
+        {
+          id: 'm_combo_5',
+          title: 'PERFECT 5連続',
+          check: (r) => r.maxCombo >= 5,
+          progress: (r) => `${Math.min(r.maxCombo, 5)}/5連続`
+        },
+        {
+          id: 'm_count_20',
+          title: '1回で20本渡る',
+          check: (r) => r.count >= 20,
+          progress: (r) => `${Math.min(r.count, 20)}/20本`
+        },
+        {
+          id: 'm_rush_2',
+          title: 'ラッシュに2回入る',
+          check: (r) => r.runRushes >= 2,
+          progress: (r) => `${Math.min(r.runRushes, 2)}/2回`
+        },
+        {
+          id: 'm_gold_perf',
+          title: 'ゴールド足場でPERFECT',
+          check: (r) => r.runGoldPerf >= 1,
+          progress: (r) => `${Math.min(r.runGoldPerf, 1)}/1回`
+        },
+        {
+          id: 'm_girigiri',
+          title: 'ギリギリ着地を1回成功',
+          check: (r) => r.runGirigiri >= 1,
+          progress: (r) => `${Math.min(r.runGirigiri, 1)}/1回`
+        },
+        {
+          id: 'm_moving',
+          title: '動く足場を渡る',
+          check: (r) => r.runMoving >= 1,
+          progress: (r) => `${Math.min(r.runMoving, 1)}/1回`
+        },
+        {
+          id: 'm_score_40',
+          title: '1回でスコア40以上',
+          check: (r) => r.score >= 40,
+          progress: (r) => `${Math.min(r.score, 40)}/40点`
+        }
+      ];
+
+      const SKINS = [
+        { id: 'default', name: 'ノーマル', cost: 0, desc: '定番の赤マフラー', icon: '🧣' },
+        { id: 'ninja', name: '忍者', cost: 5, desc: '黒装束＆額当て＆背負刀', icon: '🥷' },
+        { id: 'neko', name: 'ネコ耳', cost: 10, desc: 'ぴょこ耳＆ゆれるしっぽ', icon: '🐱' },
+        { id: 'crown', name: '王冠', cost: 18, desc: '黄金の王冠＆深紅マント', icon: '👑' },
+        { id: 'astro', name: '宇宙飛行士', cost: 28, desc: '金バイザー＆酸素ボンベ', icon: '🚀' },
+        { id: 'cyber', name: 'サイバー', cost: 40, desc: 'ネオンバイザー＆紫光帯', icon: '⚡' }
+      ];
+
+      let completedMissionsCount = parseInt(safeGetStorage('bridgeJumpCompletedMissionsCount', '0'), 10) || 0;
+      let activeMissionIds = ['m_combo_3', 'm_count_10', 'm_coins_3'];
+      try {
+        const rawMissions = safeGetStorage('bridgeJumpActiveMissions', null);
+        if (rawMissions) {
+          const parsed = JSON.parse(rawMissions);
+          if (Array.isArray(parsed) && parsed.length === 3) {
+            activeMissionIds = parsed;
+          }
+        }
+      } catch (e) {}
+
+      let equippedSkin = safeGetStorage('bridgeJumpEquippedSkin', 'default');
+      let unlockedSkins = ['default'];
+      try {
+        const rawUnlocked = safeGetStorage('bridgeJumpUnlockedSkins', null);
+        if (rawUnlocked) {
+          const parsedU = JSON.parse(rawUnlocked);
+          if (Array.isArray(parsedU) && parsedU.length > 0) {
+            unlockedSkins = parsedU;
+          }
+        }
+      } catch (e) {}
+
+      // Auto-unlock skins if cumulative coins reach cost
+      SKINS.forEach(sk => {
+        if (totalCoins >= sk.cost && !unlockedSkins.includes(sk.id)) {
+          unlockedSkins.push(sk.id);
+        }
+      });
+      safeSetStorage('bridgeJumpUnlockedSkins', JSON.stringify(unlockedSkins));
+
+      // Guide for first-time player (first 3 bridges)
+      let isGuideDone = safeGetStorage('bridgeJumpGuideDone', 'false') === 'true';
+
+      // Modal state ('how_to_play' | 'dress_up' | null)
+      let activeModal = null;
+
+      // Run-specific mission tracking
+      let runRushes = 0;
+      let runGoldPerf = 0;
+      let runGirigiri = 0;
+      let runMoving = 0;
+
+      // Results screen celebration state
+      let missionsCompletedThisRun = [];
+      let hasTitleRankUp = false;
+      let rankUpTitleName = '';
+
+      // Title screen button layout bounds
+      const btnStart = { x: 75, y: 214, w: 240, h: 42 };
+      const btnHowToPlay = { x: 55, y: 266, w: 130, h: 36 };
+      const btnDressUp = { x: 205, y: 266, w: 130, h: 36 };
+
+      function getPointerVirtualPos(e) {
+        if (!e) return { x: -999, y: -999 };
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+        const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+        const screenX = (clientX - rect.left) * (canvas.width / rect.width) / dpr;
+        const screenY = (clientY - rect.top) * (canvas.height / rect.height) / dpr;
+        const vx = (screenX - viewOffsetX) / viewScale;
+        const vy = screenY / viewScale;
+        return { x: vx, y: vy };
+      }
+
       // Bot Automation (?bot=1) state
       const urlParams = new URLSearchParams(window.location.search);
       const isBot = urlParams.get('bot') === '1';
@@ -748,23 +911,26 @@
           perfectCount: { get: () => runPerfects, set: (v) => { runPerfects = v; }, enumerable: true, configurable: true },
           maxCombo: { get: () => maxCombo, set: (v) => { maxCombo = v; }, enumerable: true, configurable: true },
           isRush: { get: () => isRush, set: (v) => { isRush = v; }, enumerable: true, configurable: true },
-          rushTimer: { get: () => rushTimer, set: (v) => { rushTimer = v; }, enumerable: true, configurable: true }
+          rushTimer: { get: () => rushTimer, set: (v) => { rushTimer = v; }, enumerable: true, configurable: true },
+          skin: { get: () => equippedSkin, set: (v) => { equippedSkin = v; }, enumerable: true, configurable: true },
+          title: { get: () => getTitle(completedMissionsCount).name, set: (v) => {}, enumerable: true, configurable: true },
+          titleTier: { get: () => getTitleIndex(completedMissionsCount), set: (v) => {}, enumerable: true, configurable: true },
+          completedMissionsCount: { get: () => completedMissionsCount, set: (v) => { completedMissionsCount = v; }, enumerable: true, configurable: true },
+          activeModal: { get: () => activeModal, set: (v) => { activeModal = v; }, enumerable: true, configurable: true },
+          activeMissions: {
+            get: () => activeMissionIds.map(id => {
+              const m = MISSION_POOL.find(x => x.id === id);
+              return m ? { id: m.id, title: m.title } : { id, title: '' };
+            }),
+            set: (v) => {},
+            enumerable: true,
+            configurable: true
+          }
         });
       } catch (e) {}
 
       function updateGameHook() {
-        if (!window.__game) window.__game = {};
-        window.__game.state = gameState;
-        window.__game.score = score;
-        window.__game.best = best;
-        window.__game.combo = combo;
-        window.__game.count = count;
-        window.__game.coins = runCoins;
-        window.__game.totalCoins = totalCoins;
-        window.__game.perfectCount = runPerfects;
-        window.__game.maxCombo = maxCombo;
-        window.__game.isRush = isRush;
-        window.__game.rushTimer = rushTimer;
+        // window.__game の全プロパティは getter/setter で直接クロージャ変数と同期しているため、代入を行わずに整合性を維持
       }
       updateGameHook();
 
@@ -883,12 +1049,38 @@
         }
         botHolding = false;
 
+        // Rotate out completed missions into new ones from pool
+        if (missionsCompletedThisRun.length > 0) {
+          for (let i = 0; i < missionsCompletedThisRun.length; i++) {
+            const compId = missionsCompletedThisRun[i];
+            const curIdx = activeMissionIds.indexOf(compId);
+            if (curIdx !== -1) {
+              for (let p = 0; p < MISSION_POOL.length; p++) {
+                const candidate = MISSION_POOL[p].id;
+                if (!activeMissionIds.includes(candidate)) {
+                  activeMissionIds[curIdx] = candidate;
+                  break;
+                }
+              }
+            }
+          }
+          safeSetStorage('bridgeJumpActiveMissions', JSON.stringify(activeMissionIds));
+        }
+        missionsCompletedThisRun = [];
+        hasTitleRankUp = false;
+        rankUpTitleName = '';
+        activeModal = null;
+
         score = 0;
         combo = 0;
         maxCombo = 0;
         count = 0;
         runPerfects = 0;
         runCoins = 0;
+        runRushes = 0;
+        runGoldPerf = 0;
+        runGirigiri = 0;
+        runMoving = 0;
         isRush = false;
         rushTimer = 0;
         rushBeatTimer = 0;
@@ -1106,11 +1298,93 @@
       // ==========================================
       // Input Handling
       // ==========================================
-      function handleInputDown() {
+      function handleDressUpModalClick(vx, vy) {
+        const cardX = 25;
+        const cardY = 90;
+        const cardW = 340;
+        const cardH = 430;
+        const closeBtn = { x: cardX + (cardW - 130) / 2, y: cardY + cardH - 36, w: 130, h: 28 };
+
+        // Tap close button or outside modal card to close
+        if (vx < cardX || vx > cardX + cardW || vy < cardY || vy > cardY + cardH ||
+            (vx >= closeBtn.x && vx <= closeBtn.x + closeBtn.w && vy >= closeBtn.y && vy <= closeBtn.y + closeBtn.h)) {
+          activeModal = null;
+          return;
+        }
+
+        // Check skin cards click
+        for (let i = 0; i < SKINS.length; i++) {
+          const col = i % 2;
+          const row = Math.floor(i / 2);
+          const sx = col === 0 ? cardX + 12 : cardX + 176;
+          const sy = cardY + 50 + row * 82;
+          const sw = 152;
+          const sh = 76;
+
+          if (vx >= sx && vx <= sx + sw && vy >= sy && vy <= sy + sh) {
+            const sk = SKINS[i];
+            const isUnlocked = unlockedSkins.includes(sk.id);
+            if (isUnlocked) {
+              equippedSkin = sk.id;
+              safeSetStorage('bridgeJumpEquippedSkin', sk.id);
+              playSuccessSound();
+            } else if (totalCoins >= sk.cost) {
+              if (!unlockedSkins.includes(sk.id)) {
+                unlockedSkins.push(sk.id);
+              }
+              safeSetStorage('bridgeJumpUnlockedSkins', JSON.stringify(unlockedSkins));
+              equippedSkin = sk.id;
+              safeSetStorage('bridgeJumpEquippedSkin', sk.id);
+              playFanfareSound();
+              spawnParticles(vx, vy, 24, 'gold_confetti');
+            }
+            return;
+          }
+        }
+      }
+
+      function handleInputDown(e) {
         initAudio();
         userHasInteracted = true;
 
         if (gameState === 'title') {
+          if (isBot) {
+            activeModal = null;
+            startGame();
+            isInputHeld = true;
+            startGrowing();
+            return;
+          }
+
+          const pos = getPointerVirtualPos(e);
+
+          if (activeModal === 'how_to_play') {
+            activeModal = null;
+            return;
+          }
+
+          if (activeModal === 'dress_up') {
+            handleDressUpModalClick(pos.x, pos.y);
+            return;
+          }
+
+          // Button click check: "あそびかた"
+          if (pos.x >= btnHowToPlay.x && pos.x <= btnHowToPlay.x + btnHowToPlay.w &&
+              pos.y >= btnHowToPlay.y && pos.y <= btnHowToPlay.y + btnHowToPlay.h) {
+            activeModal = 'how_to_play';
+            playSuccessSound();
+            return;
+          }
+
+          // Button click check: "きせかえ"
+          if (pos.x >= btnDressUp.x && pos.x <= btnDressUp.x + btnDressUp.w &&
+              pos.y >= btnDressUp.y && pos.y <= btnDressUp.y + btnDressUp.h) {
+            activeModal = 'dress_up';
+            playSuccessSound();
+            return;
+          }
+
+          // Anywhere else on title screen (including "長押しでスタート"): start game & grow
           startGame();
           isInputHeld = true;
           startGrowing();
@@ -1173,7 +1447,7 @@
       canvas.addEventListener('pointerdown', (e) => {
         if (e.button !== undefined && e.button !== 0) return;
         e.preventDefault();
-        handleInputDown();
+        handleInputDown(e);
       }, { passive: false });
 
       window.addEventListener('pointerup', (e) => {
@@ -1189,6 +1463,10 @@
         if (e.code === 'Space') {
           if (!e.repeat) {
             e.preventDefault();
+            if (activeModal !== null) {
+              activeModal = null;
+              return;
+            }
             handleInputDown();
           }
         }
@@ -1416,6 +1694,7 @@
                   combo++;
                   runPerfects++;
                   if (combo > maxCombo) maxCombo = combo;
+                  if (nxtP.type === 'gold') runGoldPerf++;
 
                   // 指示1: ゴールド足場: 赤印に入れると +5 と金色の紙吹雪
                   const goldBonus = isGold ? 5 : 0;
@@ -1455,6 +1734,7 @@
                   // 指示3: テンポのご褒美「ラッシュ」: PERFECT が5連続するとラッシュモード突入（5秒きっかり）
                   if (combo === 5 || (combo > 5 && !isRush)) {
                     isRush = true;
+                    runRushes++;
                     rushTimer = 5.0;
                     rushBeatTimer = 0.05;
                     setMilestonePopup('🔥 RUSH MODE! 得点2倍 🔥');
@@ -1478,6 +1758,7 @@
                     spawnParticles(tipX, groundY, 12, 'great');
                     setJudgePopup('GREAT', tipX, groundY - 62, pts, 0, isDistant, false, isRush);
                   } else if (judgeType === 'GIRIGIRI') {
+                    runGirigiri++;
                     playGirigiriSound();
                     screenShake = 3.6;
                     spawnParticles(tipX, groundY, 8, 'land');
@@ -1558,6 +1839,15 @@
                 // 渡りきった足場は停止を維持（足場が揺れないように）
                 nxtP.isStopped = true;
 
+                if (nxtP.type === 'moving') {
+                  runMoving++;
+                }
+
+                if (!isGuideDone && count >= 3) {
+                  isGuideDone = true;
+                  safeSetStorage('bridgeJumpGuideDone', 'true');
+                }
+
                 ensurePillarsAhead();
 
                 playSubState = 'ready';
@@ -1598,6 +1888,46 @@
                 bestCount = count;
                 safeSetStorage('bridgeJumpBestCount', bestCount.toString());
               }
+
+              // Evaluate active missions
+              const runStats = {
+                score: score,
+                count: count,
+                maxCombo: maxCombo,
+                runCoins: runCoins,
+                runPerfects: runPerfects,
+                runRushes: runRushes,
+                runGoldPerf: runGoldPerf,
+                runGirigiri: runGirigiri,
+                runMoving: runMoving,
+                totalCoins: totalCoins
+              };
+
+              missionsCompletedThisRun = [];
+              for (let i = 0; i < activeMissionIds.length; i++) {
+                const m = MISSION_POOL.find(x => x.id === activeMissionIds[i]);
+                if (m && m.check(runStats)) {
+                  missionsCompletedThisRun.push(m.id);
+                }
+              }
+
+              const prevCount = completedMissionsCount;
+              if (missionsCompletedThisRun.length > 0) {
+                completedMissionsCount += missionsCompletedThisRun.length;
+                safeSetStorage('bridgeJumpCompletedMissionsCount', completedMissionsCount.toString());
+
+                const oldTier = getTitleIndex(prevCount);
+                const newTier = getTitleIndex(completedMissionsCount);
+                if (newTier > oldTier) {
+                  hasTitleRankUp = true;
+                  rankUpTitleName = TITLES[newTier].name;
+                  playFanfareSound();
+                  spawnParticles(virtualW / 2 + cameraX, virtualH * 0.25, 40, 'gold_confetti');
+                } else {
+                  playGreatSound();
+                }
+              }
+
               updateGameHook();
             }
           }
@@ -1673,6 +2003,9 @@
 
         // Draw Stick
         drawStick();
+
+        // Draw Guide Ghost (初回プレイの最初の3本案内)
+        drawGuideGhost();
 
         // Draw Player
         drawPlayer();
@@ -2114,7 +2447,7 @@
       }
 
       // ==========================================
-      // Stick (Bridge) Rendering
+      // Stick (Bridge) Rendering & Ghost Guide
       // ==========================================
       function drawStick() {
         if (stickLength <= 0) return;
@@ -2154,8 +2487,77 @@
         ctx.restore();
       }
 
+      function drawGuideGhost() {
+        // 指示1: はじめての人向けガイド（初回プレイの最初の3本だけ、半透明のゴースト棒と「ここまで伸ばして離す」を表示）
+        if (isGuideDone || count >= 3 || gameState !== 'play') return;
+        if (playSubState !== 'ready' && playSubState !== 'growing') return;
+        const curP = pillars[currentPillarIndex];
+        const nxtP = pillars[currentPillarIndex + 1];
+        if (!curP || !nxtP) return;
+
+        const startX = curP.x + curP.w;
+        const targetX = nxtP.perfectX;
+        const reqLen = targetX - startX;
+        if (reqLen <= 0) return;
+
+        ctx.save();
+        // 半透明ゴースト棒（破線＆ネオングロー）
+        ctx.save();
+        ctx.translate(startX, groundY);
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.42)';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(reqLen, 0);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 目標地点のリングエフェクト
+        const pulse = 1.0 + Math.sin(performance.now() * 0.008) * 0.25;
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.28)';
+        ctx.beginPath();
+        ctx.arc(reqLen, 0, 8 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(reqLen, 0, 3.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        // 案内テキスト「ここまで伸ばして離す ▼」
+        const floatY = Math.sin(performance.now() * 0.008) * 3.5;
+        const labelX = targetX;
+        const labelY = groundY - 26 + floatY;
+
+        ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        const guideText = 'ここまで伸ばして離す ▼';
+        const textW = ctx.measureText(guideText).width;
+        const bW = textW + 18;
+        const bH = 24;
+        const bX = labelX - bW / 2;
+        const bY = labelY - bH;
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.2;
+        drawRoundRect(ctx, bX, bY, bW, bH, 12);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(56, 189, 248, 0.7)';
+        ctx.shadowBlur = 6;
+        ctx.fillText(guideText, labelX, labelY - 7);
+        ctx.restore();
+      }
+
       // ==========================================
-      // Player (Stickman) Rendering
+      // Player (Stickman) Rendering with Skins
       // ==========================================
       function drawPlayer() {
         ctx.save();
@@ -2165,97 +2567,290 @@
           ctx.rotate(playerFallRot);
         }
 
+        renderStickmanFigure(ctx, playSubState, playerWalkCycle, equippedSkin);
+        ctx.restore();
+      }
+
+      function renderStickmanFigure(c, subState, walkCycle, skinId, isPreview = false) {
         const headR = 4.5;
         const hipY = -6;
         const shoulderY = -14;
         const headY = -20;
-
-        ctx.lineWidth = 2.2;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.strokeStyle = '#f8fafc';
 
         let legAngle1 = 0;
         let legAngle2 = 0;
         let armAngle1 = 0;
         let armAngle2 = 0;
 
-        if (playSubState === 'walking') {
-          legAngle1 = Math.sin(playerWalkCycle) * 0.7;
-          legAngle2 = -Math.sin(playerWalkCycle) * 0.7;
-          armAngle1 = -Math.sin(playerWalkCycle) * 0.7;
-          armAngle2 = Math.sin(playerWalkCycle) * 0.7;
-        } else if (playSubState === 'growing') {
+        if (subState === 'walking') {
+          legAngle1 = Math.sin(walkCycle) * 0.7;
+          legAngle2 = -Math.sin(walkCycle) * 0.7;
+          armAngle1 = -Math.sin(walkCycle) * 0.7;
+          armAngle2 = Math.sin(walkCycle) * 0.7;
+        } else if (subState === 'growing') {
           armAngle1 = -1.1;
           armAngle2 = 0.2;
-        } else if (playSubState === 'falling_player') {
+        } else if (subState === 'falling_player') {
           armAngle1 = -2.2;
           armAngle2 = -2.0;
           legAngle1 = 0.6;
           legAngle2 = -0.5;
         }
 
+        const isNinja = skinId === 'ninja';
+        const isNeko = skinId === 'neko';
+        const isCrown = skinId === 'crown';
+        const isAstro = skinId === 'astro';
+        const isCyber = skinId === 'cyber';
+
+        const bodyColor = isNinja ? '#475569' : (isCyber ? '#06b6d4' : '#f8fafc');
+
+        c.lineWidth = 2.2;
+        c.lineCap = 'round';
+        c.lineJoin = 'round';
+        c.strokeStyle = bodyColor;
+
+        // Back accessories (Cape for Crown, Sheath for Ninja, Oxygen Tank for Astro, Tail for Neko)
+        if (isCrown) {
+          const capeWave = subState === 'walking' ? Math.sin(walkCycle * 1.5) * 6 : (isPreview ? 2 : Math.sin(performance.now() * 0.005) * 2.5);
+          c.fillStyle = '#dc2626';
+          c.beginPath();
+          c.moveTo(-1, shoulderY);
+          c.lineTo(1, shoulderY);
+          c.lineTo(-4 + capeWave, hipY + 8);
+          c.lineTo(-10 + capeWave, hipY + 6);
+          c.closePath();
+          c.fill();
+          c.strokeStyle = '#fbbf24';
+          c.lineWidth = 1;
+          c.stroke();
+          c.strokeStyle = bodyColor;
+          c.lineWidth = 2.2;
+        }
+
+        if (isAstro) {
+          c.fillStyle = '#475569';
+          c.strokeStyle = '#94a3b8';
+          c.lineWidth = 1.2;
+          drawRoundRect(c, -7, shoulderY + 1, 4, 11, 2);
+          c.fill();
+          c.stroke();
+          c.strokeStyle = bodyColor;
+          c.lineWidth = 2.2;
+        }
+
+        if (isNinja) {
+          c.strokeStyle = '#94a3b8';
+          c.lineWidth = 1.8;
+          c.beginPath();
+          c.moveTo(-2, shoulderY - 4);
+          c.lineTo(-8, hipY + 4);
+          c.stroke();
+          c.strokeStyle = '#e2e8f0';
+          c.lineWidth = 2.2;
+          c.beginPath();
+          c.moveTo(-2, shoulderY - 4);
+          c.lineTo(0, shoulderY - 7);
+          c.stroke();
+          c.strokeStyle = bodyColor;
+          c.lineWidth = 2.2;
+        }
+
+        if (isNeko) {
+          const tailWave = subState === 'walking' ? Math.sin(walkCycle * 1.5) * 5 : (isPreview ? 2 : Math.sin(performance.now() * 0.006) * 3);
+          c.strokeStyle = '#f8fafc';
+          c.lineWidth = 2.4;
+          c.beginPath();
+          c.moveTo(0, hipY);
+          c.quadraticCurveTo(-8, hipY - 6 + tailWave, -13, hipY - 2 + tailWave);
+          c.stroke();
+          c.strokeStyle = bodyColor;
+          c.lineWidth = 2.2;
+        }
+
         // Torso
-        ctx.beginPath();
-        ctx.moveTo(0, shoulderY);
-        ctx.lineTo(0, hipY);
-        ctx.stroke();
+        c.beginPath();
+        c.moveTo(0, shoulderY);
+        c.lineTo(0, hipY);
+        c.stroke();
 
         // Legs
-        ctx.beginPath();
-        ctx.moveTo(0, hipY);
+        c.beginPath();
+        c.moveTo(0, hipY);
         const l1x = Math.sin(legAngle1) * 7;
         const l1y = hipY + Math.cos(legAngle1) * 6;
-        ctx.lineTo(l1x, l1y);
-        ctx.lineTo(l1x + Math.sin(legAngle1 + 0.3) * 5, 0);
-        ctx.stroke();
+        c.lineTo(l1x, l1y);
+        c.lineTo(l1x + Math.sin(legAngle1 + 0.3) * 5, 0);
+        c.stroke();
 
-        ctx.beginPath();
-        ctx.moveTo(0, hipY);
+        c.beginPath();
+        c.moveTo(0, hipY);
         const l2x = Math.sin(legAngle2) * 7;
         const l2y = hipY + Math.cos(legAngle2) * 6;
-        ctx.lineTo(l2x, l2y);
-        ctx.lineTo(l2x + Math.sin(legAngle2 + 0.3) * 5, 0);
-        ctx.stroke();
+        c.lineTo(l2x, l2y);
+        c.lineTo(l2x + Math.sin(legAngle2 + 0.3) * 5, 0);
+        c.stroke();
 
         // Arms
-        ctx.beginPath();
-        ctx.moveTo(0, shoulderY);
-        ctx.lineTo(Math.sin(armAngle1) * 8, shoulderY + Math.cos(armAngle1) * 8);
-        ctx.stroke();
+        c.beginPath();
+        c.moveTo(0, shoulderY);
+        c.lineTo(Math.sin(armAngle1) * 8, shoulderY + Math.cos(armAngle1) * 8);
+        c.stroke();
 
-        ctx.beginPath();
-        ctx.moveTo(0, shoulderY);
-        ctx.lineTo(Math.sin(armAngle2) * 8, shoulderY + Math.cos(armAngle2) * 8);
-        ctx.stroke();
+        c.beginPath();
+        c.moveTo(0, shoulderY);
+        c.lineTo(Math.sin(armAngle2) * 8, shoulderY + Math.cos(armAngle2) * 8);
+        c.stroke();
 
         // Head
-        ctx.fillStyle = '#f8fafc';
-        ctx.beginPath();
-        ctx.arc(0, headY, headR, 0, Math.PI * 2);
-        ctx.fill();
+        c.fillStyle = bodyColor;
+        c.beginPath();
+        c.arc(0, headY, headR, 0, Math.PI * 2);
+        c.fill();
 
-        // Eye
-        ctx.fillStyle = '#090d16';
-        ctx.beginPath();
-        ctx.arc(2, headY - 0.5, 1, 0, Math.PI * 2);
-        ctx.fill();
+        // Head accessories & Face
+        if (isAstro) {
+          // Helmet
+          c.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+          c.lineWidth = 1.6;
+          c.beginPath();
+          c.arc(0, headY, headR + 2.5, 0, Math.PI * 2);
+          c.stroke();
+          // Visor
+          c.fillStyle = '#0284c7';
+          c.beginPath();
+          c.arc(1.5, headY - 0.5, headR * 0.8, -0.7, 1.8);
+          c.fill();
+          c.fillStyle = '#fef08a';
+          c.beginPath();
+          c.arc(2.5, headY - 1.5, 1.2, 0, Math.PI * 2);
+          c.fill();
+        } else if (isCyber) {
+          // Cyber glowing visor
+          c.fillStyle = '#22d3ee';
+          c.shadowColor = '#06b6d4';
+          c.shadowBlur = 8;
+          c.fillRect(-1, headY - 2.5, 7, 3);
+          c.shadowBlur = 0;
+        } else {
+          // Eye
+          c.fillStyle = isNinja ? '#f8fafc' : '#090d16';
+          c.beginPath();
+          c.arc(2, headY - 0.5, 1, 0, Math.PI * 2);
+          c.fill();
+        }
 
-        // Scarf
-        ctx.fillStyle = '#f43f5e';
-        ctx.beginPath();
-        ctx.arc(0, shoulderY, 2.5, 0, Math.PI * 2);
-        ctx.fill();
+        if (isNinja) {
+          // Red headband
+          c.fillStyle = '#ef4444';
+          c.fillRect(-headR - 1, headY - 1.5, headR * 2 + 2, 2.5);
+          // Forehead metal plate
+          c.fillStyle = '#cbd5e1';
+          c.fillRect(2, headY - 2, 3, 3);
+          // Trailing ribbons
+          const ribbonWave = subState === 'walking' ? Math.sin(walkCycle * 1.5) * 4 : (isPreview ? 2 : Math.sin(performance.now() * 0.005) * 2.5);
+          c.strokeStyle = '#ef4444';
+          c.lineWidth = 1.6;
+          c.beginPath();
+          c.moveTo(-headR, headY);
+          c.quadraticCurveTo(-headR - 6, headY - 2 + ribbonWave, -headR - 12, headY + 2 + ribbonWave);
+          c.stroke();
+        }
 
-        const scarfSwing = playSubState === 'walking' ? Math.sin(playerWalkCycle * 1.5) * 4 : 0;
-        ctx.strokeStyle = '#f43f5e';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(0, shoulderY);
-        ctx.quadraticCurveTo(-6, shoulderY - 2 + scarfSwing, -12, shoulderY + scarfSwing);
-        ctx.stroke();
+        if (isNeko) {
+          // Cat ears
+          c.fillStyle = '#f8fafc';
+          c.beginPath();
+          c.moveTo(-headR + 1, headY - 2);
+          c.lineTo(-headR - 2, headY - 7);
+          c.lineTo(-headR + 3, headY - 5);
+          c.closePath();
+          c.fill();
 
-        ctx.restore();
+          c.beginPath();
+          c.moveTo(headR - 1, headY - 2);
+          c.lineTo(headR + 2, headY - 7);
+          c.lineTo(headR - 3, headY - 5);
+          c.closePath();
+          c.fill();
+
+          // Pink inner ears
+          c.fillStyle = '#f43f5e';
+          c.beginPath();
+          c.moveTo(-headR + 0.6, headY - 2);
+          c.lineTo(-headR - 1.2, headY - 6);
+          c.lineTo(-headR + 2.2, headY - 4.5);
+          c.closePath();
+          c.fill();
+
+          c.beginPath();
+          c.moveTo(headR - 0.6, headY - 2);
+          c.lineTo(headR + 1.2, headY - 6);
+          c.lineTo(headR - 2.2, headY - 4.5);
+          c.closePath();
+          c.fill();
+
+          // Bell collar
+          c.fillStyle = '#fbbf24';
+          c.beginPath();
+          c.arc(1, shoulderY + 1, 2, 0, Math.PI * 2);
+          c.fill();
+        }
+
+        if (isCrown) {
+          // Gold crown
+          c.fillStyle = '#fbbf24';
+          c.beginPath();
+          c.moveTo(-4, headY - headR);
+          c.lineTo(-4, headY - headR - 5);
+          c.lineTo(-2, headY - headR - 2);
+          c.lineTo(0, headY - headR - 6);
+          c.lineTo(2, headY - headR - 2);
+          c.lineTo(4, headY - headR - 5);
+          c.lineTo(4, headY - headR);
+          c.closePath();
+          c.fill();
+          // Ruby jewel
+          c.fillStyle = '#ef4444';
+          c.beginPath();
+          c.arc(0, headY - headR - 2, 1.2, 0, Math.PI * 2);
+          c.fill();
+        }
+
+        // Neck / Scarf
+        if (isCyber) {
+          const scarfWave = subState === 'walking' ? Math.sin(walkCycle * 1.5) * 4 : 0;
+          c.strokeStyle = '#c084fc';
+          c.shadowColor = '#a855f7';
+          c.shadowBlur = 8;
+          c.lineWidth = 2.6;
+          c.beginPath();
+          c.moveTo(0, shoulderY);
+          c.quadraticCurveTo(-6, shoulderY - 2 + scarfWave, -12, shoulderY + scarfWave);
+          c.stroke();
+          c.shadowBlur = 0;
+        } else if (!isCrown && !isAstro && !isNeko) {
+          c.fillStyle = '#f43f5e';
+          c.beginPath();
+          c.arc(0, shoulderY, 2.5, 0, Math.PI * 2);
+          c.fill();
+
+          const scarfSwing = subState === 'walking' ? Math.sin(walkCycle * 1.5) * 4 : 0;
+          c.strokeStyle = '#f43f5e';
+          c.lineWidth = 2.5;
+          c.beginPath();
+          c.moveTo(0, shoulderY);
+          c.quadraticCurveTo(-6, shoulderY - 2 + scarfSwing, -12, shoulderY + scarfSwing);
+          c.stroke();
+        }
+      }
+
+      function drawSkinPreview(c, px, py, skinId) {
+        c.save();
+        c.translate(px, py);
+        c.scale(0.85, 0.85);
+        renderStickmanFigure(c, 'ready', 0, skinId, true);
+        c.restore();
       }
 
       function drawRingEffects() {
@@ -2508,6 +3103,8 @@
       function drawHUD() {
         ctx.save();
 
+        const currentTitle = getTitle(completedMissionsCount);
+
         if (gameState === 'play') {
           ctx.textAlign = 'center';
 
@@ -2546,6 +3143,30 @@
           ctx.fillText(hudText, virtualW / 2, 108);
           ctx.restore();
 
+          // 指示4: 称号を HUD に小さく表示
+          ctx.save();
+          const titleBadgeText = `🎖️ ${currentTitle.name}`;
+          ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          const tTextW = ctx.measureText(titleBadgeText).width;
+          const tBadgeW = tTextW + 18;
+          const tBadgeH = 20;
+          const tBadgeX = (virtualW - tBadgeW) / 2;
+          const tBadgeY = 120;
+
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+          ctx.strokeStyle = currentTitle.color;
+          ctx.lineWidth = 1;
+          drawRoundRect(ctx, tBadgeX, tBadgeY, tBadgeW, tBadgeH, 10);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = currentTitle.color;
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 3;
+          ctx.textAlign = 'center';
+          ctx.fillText(titleBadgeText, virtualW / 2, tBadgeY + 14);
+          ctx.restore();
+
           // 指示2: コイン数は HUD 右上に小さく表示
           ctx.save();
           const coinText = `🪙 ${totalCoins}`;
@@ -2580,7 +3201,7 @@
             const rBadgeW = rTextW + 20;
             const rBadgeH = 24;
             const rBadgeX = (virtualW - rBadgeW) / 2;
-            const rBadgeY = 124;
+            const rBadgeY = 144;
 
             ctx.fillStyle = 'rgba(180, 83, 9, 0.85)';
             ctx.strokeStyle = '#fef08a';
@@ -2601,7 +3222,7 @@
           if (combo >= 2 && !isRush) {
             ctx.save();
             const pulse = 1.0 + Math.sin(performance.now() * 0.01) * 0.08;
-            ctx.translate(virtualW / 2, 134);
+            ctx.translate(virtualW / 2, 154);
             ctx.scale(pulse, pulse);
             ctx.font = '900 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.fillStyle = combo >= 4 ? '#fbbf24' : '#f43f5e';
@@ -2614,132 +3235,223 @@
           ctx.textAlign = 'center';
 
           // Main Title
-          ctx.font = '900 34px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.font = '900 23px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           ctx.fillStyle = '#f8fafc';
           ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
           ctx.shadowBlur = 12;
           ctx.shadowOffsetY = 2;
-          ctx.fillText('ワンタップ・ジャンプ橋', virtualW / 2, virtualH * 0.24);
+          ctx.fillText('ワンタップ・ジャンプ橋', virtualW / 2, 56);
 
-          // 1-line Instruction
-          ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          ctx.fillStyle = '#ffffff';
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-          ctx.shadowBlur = 4;
-          ctx.shadowOffsetY = 1;
-          ctx.fillText('画面長押しで棒を伸ばし、離して橋を架けよう！', virtualW / 2, virtualH * 0.29);
-
-          // Tips badge
-          const tipText = '★ 足場中央の赤い印に着地するとPERFECTボーナス！';
-          ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          const tipW = ctx.measureText(tipText).width;
-          const tipBadgeW = tipW + 20;
-          const tipBadgeH = 26;
-          const tipBadgeX = (virtualW - tipBadgeW) / 2;
-          const tipBadgeY = virtualH * 0.33 - 18;
-
+          // 指示4: 称号をタイトルに小さく表示
           ctx.save();
-          ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
-          ctx.strokeStyle = 'rgba(244, 63, 94, 0.35)';
+          const titleBadgeText = `🎖️ 称号: ${currentTitle.name}`;
+          ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          const tbW = ctx.measureText(titleBadgeText).width + 20;
+          const tbH = 22;
+          const tbX = (virtualW - tbW) / 2;
+          const tbY = 72;
+
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+          ctx.strokeStyle = currentTitle.color;
           ctx.lineWidth = 1;
-          drawRoundRect(ctx, tipBadgeX, tipBadgeY, tipBadgeW, tipBadgeH, 13);
+          drawRoundRect(ctx, tbX, tbY, tbW, tbH, 11);
           ctx.fill();
           ctx.stroke();
 
-          ctx.fillStyle = '#fb7185';
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+          ctx.fillStyle = currentTitle.color;
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
           ctx.shadowBlur = 4;
-          ctx.shadowOffsetY = 1;
-          ctx.strokeStyle = 'rgba(15, 23, 42, 0.9)';
-          ctx.lineWidth = 2.5;
-          ctx.strokeText(tipText, virtualW / 2, virtualH * 0.33);
-          ctx.fillText(tipText, virtualW / 2, virtualH * 0.33);
+          ctx.fillText(titleBadgeText, virtualW / 2, tbY + 15);
           ctx.restore();
 
-          // Start prompt
-          const pulse = 0.85 + Math.sin(performance.now() * 0.005) * 0.15;
+          // 指示2: タイトルに常に3つのミッションを表示
+          const mCardX = 35;
+          const mCardY = 102;
+          const mCardW = 320;
+          const mCardH = 96;
+
+          ctx.save();
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+          ctx.lineWidth = 1;
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+          ctx.shadowBlur = 10;
+          drawRoundRect(ctx, mCardX, mCardY, mCardW, mCardH, 14);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#fbbf24';
+          ctx.textAlign = 'left';
+          ctx.fillText(`🎯 ミッション (達成累計: ${completedMissionsCount})`, mCardX + 14, mCardY + 20);
+
+          for (let i = 0; i < 3; i++) {
+            const mId = activeMissionIds[i];
+            const m = MISSION_POOL.find(x => x.id === mId);
+            const lineY = mCardY + 42 + i * 20;
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText('🔸', mCardX + 14, lineY);
+
+            ctx.fillStyle = '#e2e8f0';
+            ctx.font = '500 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(m ? m.title : '---', mCardX + 32, lineY);
+          }
+          ctx.restore();
+
+          // 指示5: スタートボタン（長押しで開始、どこでも長押しでも開始可能）
+          const pulse = 0.88 + Math.sin(performance.now() * 0.005) * 0.12;
           ctx.save();
           ctx.globalAlpha = pulse;
 
-          const startText = '長押しでスタート';
-          ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          const startW = ctx.measureText(startText).width;
-          const startBadgeW = startW + 36;
-          const startBadgeH = 38;
-          const startBadgeX = (virtualW - startBadgeW) / 2;
-          const startBadgeY = virtualH * 0.44 - 26;
-
-          ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
-          ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
-          ctx.lineWidth = 1.5;
-          drawRoundRect(ctx, startBadgeX, startBadgeY, startBadgeW, startBadgeH, 19);
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
+          ctx.lineWidth = 1.6;
+          ctx.shadowColor = 'rgba(56, 189, 248, 0.4)';
+          ctx.shadowBlur = 12;
+          drawRoundRect(ctx, btnStart.x, btnStart.y, btnStart.w, btnStart.h, 21);
           ctx.fill();
           ctx.stroke();
 
-          ctx.fillStyle = '#38bdf8';
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 17px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-          ctx.shadowBlur = 8;
-          ctx.shadowOffsetY = 1;
-          ctx.strokeStyle = '#020617';
-          ctx.lineWidth = 3.5;
-          ctx.strokeText(startText, virtualW / 2, virtualH * 0.44);
-          ctx.fillText(startText, virtualW / 2, virtualH * 0.44);
+          ctx.shadowBlur = 6;
+          ctx.textAlign = 'center';
+          ctx.fillText('長押しでスタート', virtualW / 2, btnStart.y + 26);
+          ctx.restore();
+
+          // 指示5: タイトルの「あそびかた」「きせかえ」ボタン（重ならずに収まる横並びレイアウト）
+          ctx.save();
+          // 「あそびかた」ボタン
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+          ctx.lineWidth = 1.2;
+          drawRoundRect(ctx, btnHowToPlay.x, btnHowToPlay.y, btnHowToPlay.w, btnHowToPlay.h, 18);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#e0f2fe';
+          ctx.textAlign = 'center';
+          ctx.fillText('📖 あそびかた', btnHowToPlay.x + btnHowToPlay.w / 2, btnHowToPlay.y + 22);
+
+          // 「きせかえ」ボタン
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+          ctx.strokeStyle = 'rgba(244, 114, 182, 0.45)';
+          ctx.lineWidth = 1.2;
+          drawRoundRect(ctx, btnDressUp.x, btnDressUp.y, btnDressUp.w, btnDressUp.h, 18);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#fce7f3';
+          ctx.fillText('👗 きせかえ', btnDressUp.x + btnDressUp.w / 2, btnDressUp.y + 22);
           ctx.restore();
 
           // Best score and coins badge
           ctx.save();
           const bestText = best > 0 ? `BEST: ${best} pt (${bestCount}本)  |  🪙 ${totalCoins}` : `累計コイン: 🪙 ${totalCoins}`;
-          ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           const bestW = ctx.measureText(bestText).width;
           const bBadgeW = bestW + 24;
-          const bBadgeH = 26;
+          const bBadgeH = 24;
           const bBadgeX = (virtualW - bBadgeW) / 2;
-          const bBadgeY = virtualH * 0.49 - 18;
+          const bBadgeY = 312;
 
           ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
           ctx.lineWidth = 1;
-          drawRoundRect(ctx, bBadgeX, bBadgeY, bBadgeW, bBadgeH, 13);
+          drawRoundRect(ctx, bBadgeX, bBadgeY, bBadgeW, bBadgeH, 12);
           ctx.fill();
           ctx.stroke();
 
           ctx.fillStyle = '#cbd5e1';
           ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
           ctx.shadowBlur = 4;
-          ctx.shadowOffsetY = 1;
-          ctx.fillText(bestText, virtualW / 2, virtualH * 0.49);
+          ctx.textAlign = 'center';
+          ctx.fillText(bestText, virtualW / 2, bBadgeY + 16);
           ctx.restore();
+
+          // 1-line Tip text
+          ctx.save();
+          const tipText = '★ 足場中央の赤い印に着地するとPERFECTボーナス！';
+          ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          const tipW = ctx.measureText(tipText).width;
+          const tipBadgeW = tipW + 20;
+          const tipBadgeH = 24;
+          const tipBadgeX = (virtualW - tipBadgeW) / 2;
+          const tipBadgeY = 344;
+
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+          ctx.lineWidth = 1;
+          drawRoundRect(ctx, tipBadgeX, tipBadgeY, tipBadgeW, tipBadgeH, 12);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+          ctx.shadowBlur = 4;
+          ctx.textAlign = 'center';
+          ctx.fillText(tipText, virtualW / 2, tipBadgeY + 16);
+          ctx.restore();
+
         } else if (gameState === 'over') {
-          // 指示5: 結果パネルを詳しく（スコア、渡った本数、PERFECT回数、最大コンボ、取ったコイン、「あと◯でベスト」）
-          ctx.fillStyle = 'rgba(9, 13, 22, 0.78)';
+          // 結果パネル
+          ctx.fillStyle = 'rgba(9, 13, 22, 0.82)';
           ctx.fillRect(0, 0, virtualW, virtualH);
 
           ctx.textAlign = 'center';
 
           // NEW BEST強調タイトル
           if (isNewBest && score > 0) {
-            ctx.font = '900 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.font = '900 30px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.fillStyle = '#fbbf24';
             ctx.shadowColor = 'rgba(251, 191, 36, 0.9)';
             ctx.shadowBlur = 18;
-            ctx.fillText('★ NEW BEST! ★', virtualW / 2, virtualH * 0.23);
+            ctx.fillText('★ NEW BEST! ★', virtualW / 2, 72);
           } else {
-            ctx.font = '900 34px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.font = '900 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.fillStyle = '#f87171';
             ctx.shadowColor = 'rgba(239, 68, 68, 0.7)';
             ctx.shadowBlur = 14;
-            ctx.fillText('GAME OVER', virtualW / 2, virtualH * 0.23);
+            ctx.fillText('GAME OVER', virtualW / 2, 72);
+          }
+
+          // 指示4: 称号アップ時の演出バナー
+          if (hasTitleRankUp) {
+            ctx.save();
+            const rPulse = 0.9 + Math.sin(performance.now() * 0.008) * 0.1;
+            ctx.translate(virtualW / 2, 98);
+            ctx.scale(rPulse, rPulse);
+            const rankText = `🎖️ 称号アップ! 「${rankUpTitleName}」に昇格！`;
+            ctx.font = '900 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            const rW = ctx.measureText(rankText).width + 24;
+            ctx.fillStyle = 'rgba(180, 83, 9, 0.9)';
+            ctx.strokeStyle = '#fef08a';
+            ctx.lineWidth = 1.4;
+            ctx.shadowColor = 'rgba(251, 191, 36, 0.9)';
+            ctx.shadowBlur = 10;
+            drawRoundRect(ctx, -rW / 2, -12, rW, 24, 12);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.fillText(rankText, 0, 5);
+            ctx.restore();
           }
 
           // Detailed Card Box
-          const cardW = 310;
-          const cardH = 236;
+          const cardW = 320;
+          const cardH = 360;
           const cardX = (virtualW - cardW) / 2;
-          const cardY = virtualH * 0.27;
+          const cardY = hasTitleRankUp ? 116 : 98;
 
           ctx.save();
-          ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-          ctx.strokeStyle = isNewBest ? 'rgba(251, 191, 36, 0.6)' : 'rgba(255, 255, 255, 0.18)';
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
+          ctx.strokeStyle = isNewBest ? 'rgba(251, 191, 36, 0.65)' : 'rgba(255, 255, 255, 0.18)';
           ctx.lineWidth = isNewBest ? 2 : 1;
           ctx.shadowColor = isNewBest ? 'rgba(251, 191, 36, 0.4)' : 'rgba(0, 0, 0, 0.6)';
           ctx.shadowBlur = isNewBest ? 20 : 16;
@@ -2749,86 +3461,150 @@
           ctx.restore();
 
           // Score Header
-          ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.font = '600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           ctx.fillStyle = '#94a3b8';
-          ctx.fillText('FINAL SCORE', virtualW / 2, cardY + 24);
+          ctx.fillText('FINAL SCORE', virtualW / 2, cardY + 20);
 
-          ctx.font = '900 48px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.font = '900 44px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           ctx.fillStyle = isNewBest ? '#fef08a' : '#ffffff';
           if (isNewBest) {
             ctx.shadowColor = 'rgba(251, 191, 36, 0.8)';
             ctx.shadowBlur = 12;
           }
-          ctx.fillText(score.toString(), virtualW / 2, cardY + 68);
+          ctx.fillText(score.toString(), virtualW / 2, cardY + 60);
           ctx.shadowBlur = 0;
 
-          // 区切り線
+          // 区切り線1
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
           ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.moveTo(cardX + 20, cardY + 84);
-          ctx.lineTo(cardX + cardW - 20, cardY + 84);
+          ctx.moveTo(cardX + 16, cardY + 74);
+          ctx.lineTo(cardX + cardW - 16, cardY + 74);
           ctx.stroke();
 
           // 2x2 Detailed Stats Grid
-          ctx.font = '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          const col1X = cardX + 32;
-          const col2X = cardX + cardW / 2 + 16;
+          ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          const col1X = cardX + 24;
+          const col2X = cardX + cardW / 2 + 12;
           ctx.textAlign = 'left';
 
           // 行1: 渡った本数 & PERFECT回数
           ctx.fillStyle = '#cbd5e1';
-          ctx.fillText('渡った本数:', col1X, cardY + 110);
+          ctx.fillText('渡った本数:', col1X, cardY + 95);
           ctx.fillStyle = '#ffffff';
-          ctx.fillText(`${count}本`, col1X + 75, cardY + 110);
+          ctx.fillText(`${count}本`, col1X + 70, cardY + 95);
 
           ctx.fillStyle = '#cbd5e1';
-          ctx.fillText('PERFECT:', col2X, cardY + 110);
+          ctx.fillText('PERFECT:', col2X, cardY + 95);
           ctx.fillStyle = '#fbbf24';
-          ctx.fillText(`${runPerfects}回`, col2X + 68, cardY + 110);
+          ctx.fillText(`${runPerfects}回`, col2X + 65, cardY + 95);
 
           // 行2: 最大コンボ & 取ったコイン
           ctx.fillStyle = '#cbd5e1';
-          ctx.fillText('最大コンボ:', col1X, cardY + 138);
+          ctx.fillText('最大コンボ:', col1X, cardY + 118);
           ctx.fillStyle = maxCombo >= 3 ? '#fb7185' : '#ffffff';
-          ctx.fillText(`x${maxCombo}`, col1X + 75, cardY + 138);
+          ctx.fillText(`x${maxCombo}`, col1X + 70, cardY + 118);
 
           ctx.fillStyle = '#cbd5e1';
-          ctx.fillText('獲得コイン:', col2X, cardY + 138);
+          ctx.fillText('獲得コイン:', col2X, cardY + 118);
           ctx.fillStyle = '#fef08a';
-          ctx.fillText(`+${runCoins} 🪙`, col2X + 68, cardY + 138);
+          ctx.fillText(`+${runCoins} 🪙`, col2X + 65, cardY + 118);
 
           // 区切り線2
           ctx.beginPath();
-          ctx.moveTo(cardX + 20, cardY + 158);
-          ctx.lineTo(cardX + cardW - 20, cardY + 158);
+          ctx.moveTo(cardX + 16, cardY + 132);
+          ctx.lineTo(cardX + cardW - 16, cardY + 132);
+          ctx.stroke();
+
+          // 指示2: 結果画面に常に3つのミッションを表示＆達成演出
+          ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillText('🎯 ミッション結果', col1X, cardY + 150);
+
+          const runStatsForDisplay = {
+            score: score,
+            count: count,
+            maxCombo: maxCombo,
+            runCoins: runCoins,
+            runPerfects: runPerfects,
+            runRushes: runRushes,
+            runGoldPerf: runGoldPerf,
+            runGirigiri: runGirigiri,
+            runMoving: runMoving,
+            totalCoins: totalCoins
+          };
+
+          for (let i = 0; i < 3; i++) {
+            const mId = activeMissionIds[i];
+            const m = MISSION_POOL.find(x => x.id === mId);
+            const mY = cardY + 172 + i * 26;
+            const isCompleted = missionsCompletedThisRun.includes(mId);
+
+            if (isCompleted) {
+              // 達成演出（緑枠・チェックマーク・ゴールドハイライト）
+              ctx.save();
+              ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
+              ctx.strokeStyle = '#34d399';
+              ctx.lineWidth = 1;
+              drawRoundRect(ctx, col1X - 6, mY - 14, cardW - 36, 22, 6);
+              ctx.fill();
+              ctx.stroke();
+
+              ctx.font = '900 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              ctx.fillStyle = '#34d399';
+              ctx.fillText(`✔ ${m ? m.title : ''}`, col1X, mY + 2);
+
+              ctx.fillStyle = '#fbbf24';
+              ctx.textAlign = 'right';
+              ctx.fillText('ミッション達成!', cardX + cardW - 24, mY + 2);
+              ctx.restore();
+            } else {
+              ctx.save();
+              ctx.font = '500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              ctx.fillStyle = '#94a3b8';
+              ctx.fillText(`▫ ${m ? m.title : ''}`, col1X, mY + 2);
+
+              ctx.fillStyle = '#64748b';
+              ctx.textAlign = 'right';
+              const prog = m ? m.progress(runStatsForDisplay) : '';
+              ctx.fillText(prog, cardX + cardW - 24, mY + 2);
+              ctx.restore();
+            }
+          }
+
+          // 区切り線3
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(cardX + 16, cardY + 256);
+          ctx.lineTo(cardX + cardW - 16, cardY + 256);
           ctx.stroke();
 
           // 「あと◯でベスト」 / NEW BEST 表示
           ctx.textAlign = 'center';
           if (isNewBest && score > 0) {
             const diff = score - previousBestScore;
-            ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.fillStyle = '#fbbf24';
             ctx.shadowColor = 'rgba(251, 191, 36, 0.7)';
             ctx.shadowBlur = 6;
-            ctx.fillText(`★ 自己ベスト更新! (+${diff > 0 ? diff : score} pt) ★`, virtualW / 2, cardY + 184);
+            ctx.fillText(`★ 自己ベスト更新! (+${diff > 0 ? diff : score} pt) ★`, virtualW / 2, cardY + 276);
             ctx.shadowBlur = 0;
           } else if (previousBestScore > 0) {
             const needed = previousBestScore - score;
-            ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.fillStyle = '#e2e8f0';
-            ctx.fillText(needed > 0 ? `自己ベストまで あと ${needed} pt (BEST: ${previousBestScore})` : `自己ベストタイ記録! (BEST: ${previousBestScore})`, virtualW / 2, cardY + 184);
+            ctx.fillText(needed > 0 ? `自己ベストまで あと ${needed} pt (BEST: ${previousBestScore})` : `自己ベストタイ記録! (BEST: ${previousBestScore})`, virtualW / 2, cardY + 276);
           } else {
-            ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.fillStyle = '#38bdf8';
-            ctx.fillText('ナイスチャレンジ！次はベスト更新を目指そう！', virtualW / 2, cardY + 184);
+            ctx.fillText('ナイスチャレンジ！次はベスト更新を目指そう！', virtualW / 2, cardY + 276);
           }
 
-          // 累計コイン
+          // 累計コイン & 称号
           ctx.font = '500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           ctx.fillStyle = '#94a3b8';
-          ctx.fillText(`所持コイン総数: 🪙 ${totalCoins}`, virtualW / 2, cardY + 208);
+          ctx.fillText(`所持コイン: 🪙 ${totalCoins}   |   🎖️ ${currentTitle.name}`, virtualW / 2, cardY + 298);
 
           // Retry Prompt (ワンタップで即リトライ)
           const elapsedSinceOver = performance.now() - gameOverTime;
@@ -2836,13 +3612,219 @@
             const retryPulse = 0.85 + Math.sin(performance.now() * 0.007) * 0.15;
             ctx.save();
             ctx.globalAlpha = retryPulse;
-            ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.font = 'bold 17px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
             ctx.fillStyle = '#38bdf8';
             ctx.shadowColor = 'rgba(56, 189, 248, 0.8)';
             ctx.shadowBlur = 10;
-            ctx.fillText('タップで即リトライ', virtualW / 2, cardY + cardH + 46);
+            ctx.textAlign = 'center';
+            ctx.fillText('タップで即リトライ', virtualW / 2, cardY + cardH + 34);
             ctx.restore();
           }
+        }
+
+        // ==========================================
+        // Modal Cards (あそびかた & きせかえ)
+        // ==========================================
+        if (activeModal === 'how_to_play') {
+          // 指示1: 「あそびかた」カード（短い説明カード、タップで閉じる）
+          ctx.save();
+          ctx.fillStyle = 'rgba(5, 7, 13, 0.86)';
+          ctx.fillRect(0, 0, virtualW, virtualH);
+
+          const cardX = 25;
+          const cardY = 96;
+          const cardW = 340;
+          const cardH = 410;
+
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.96)';
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+          ctx.lineWidth = 1.5;
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+          ctx.shadowBlur = 18;
+          drawRoundRect(ctx, cardX, cardY, cardW, cardH, 18);
+          ctx.fill();
+          ctx.stroke();
+
+          // Title
+          ctx.textAlign = 'center';
+          ctx.font = '900 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillText('📖 あそびかた', virtualW / 2, cardY + 34);
+
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(cardX + 20, cardY + 48);
+          ctx.lineTo(cardX + cardW - 20, cardY + 48);
+          ctx.stroke();
+
+          // Rules
+          const rules = [
+            { icon: '👆', title: '長押しで伸ばす', desc: '画面を長押しすると棒（橋）が上に伸びます。' },
+            { icon: '🖐️', title: '離して橋を架ける', desc: '指を離すと棒が倒れて次の足場へ架かります。' },
+            { icon: '🎯', title: 'ピッタリ届かせる', desc: '短すぎても長すぎても谷底へ落下してしまいます！' },
+            { icon: '🔴', title: 'PERFECTボーナス', desc: '足場中央の赤印に着地で高得点！5連続でラッシュ！' },
+            { icon: '🪙', title: '空中のコイン', desc: '倒れる棒がコインに触れるとゲットできます。' },
+            { icon: '👗', title: 'きせかえ解放', desc: '集めたコインで忍者や王冠などスキンを着せ替え！' }
+          ];
+
+          ctx.textAlign = 'left';
+          for (let i = 0; i < rules.length; i++) {
+            const r = rules[i];
+            const ry = cardY + 76 + i * 48;
+
+            ctx.font = '18px sans-serif';
+            ctx.fillText(r.icon, cardX + 16, ry + 8);
+
+            ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillText(r.title, cardX + 46, ry);
+
+            ctx.font = '500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText(r.desc, cardX + 46, ry + 16);
+          }
+
+          // Close prompt
+          const cPulse = 0.85 + Math.sin(performance.now() * 0.007) * 0.15;
+          ctx.globalAlpha = cPulse;
+          ctx.textAlign = 'center';
+          ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillText('タップして閉じる', virtualW / 2, cardY + cardH - 18);
+          ctx.restore();
+
+        } else if (activeModal === 'dress_up') {
+          // 指示3: コインで着せ替え画面
+          ctx.save();
+          ctx.fillStyle = 'rgba(5, 7, 13, 0.86)';
+          ctx.fillRect(0, 0, virtualW, virtualH);
+
+          const cardX = 25;
+          const cardY = 90;
+          const cardW = 340;
+          const cardH = 430;
+
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.96)';
+          ctx.strokeStyle = 'rgba(244, 114, 182, 0.55)';
+          ctx.lineWidth = 1.5;
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+          ctx.shadowBlur = 18;
+          drawRoundRect(ctx, cardX, cardY, cardW, cardH, 18);
+          ctx.fill();
+          ctx.stroke();
+
+          // Header
+          ctx.textAlign = 'left';
+          ctx.font = '900 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#f472b6';
+          ctx.fillText('👗 きせかえ', cardX + 18, cardY + 30);
+
+          ctx.textAlign = 'right';
+          ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#fef08a';
+          ctx.fillText(`所持: 🪙 ${totalCoins}`, cardX + cardW - 18, cardY + 30);
+
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(cardX + 16, cardY + 42);
+          ctx.lineTo(cardX + cardW - 16, cardY + 42);
+          ctx.stroke();
+
+          // 6 Skin Cards (2 columns x 3 rows)
+          for (let i = 0; i < SKINS.length; i++) {
+            const sk = SKINS[i];
+            const col = i % 2;
+            const row = Math.floor(i / 2);
+            const sx = col === 0 ? cardX + 12 : cardX + 176;
+            const sy = cardY + 50 + row * 82;
+            const sw = 152;
+            const sh = 76;
+
+            const isEquipped = equippedSkin === sk.id;
+            const isUnlocked = unlockedSkins.includes(sk.id);
+            const canUnlock = totalCoins >= sk.cost;
+
+            ctx.save();
+            ctx.fillStyle = isEquipped ? 'rgba(56, 189, 248, 0.18)' : 'rgba(30, 41, 59, 0.75)';
+            ctx.strokeStyle = isEquipped ? '#38bdf8' : (isUnlocked ? 'rgba(255, 255, 255, 0.18)' : 'rgba(251, 191, 36, 0.35)');
+            ctx.lineWidth = isEquipped ? 1.8 : 1;
+            drawRoundRect(ctx, sx, sy, sw, sh, 10);
+            ctx.fill();
+            ctx.stroke();
+
+            // Preview mini stickman
+            drawSkinPreview(ctx, sx + 22, sy + 62, sk.id);
+
+            // Name & Desc
+            ctx.textAlign = 'left';
+            ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillStyle = isEquipped ? '#38bdf8' : '#f8fafc';
+            ctx.fillText(sk.name, sx + 44, sy + 22);
+
+            ctx.font = '500 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText(sk.desc, sx + 44, sy + 38);
+
+            // Status Badge
+            const bX = sx + 44;
+            const bY = sy + 46;
+            const bW = sw - 52;
+            const bH = 20;
+
+            if (isEquipped) {
+              ctx.fillStyle = '#38bdf8';
+              ctx.font = '900 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              ctx.fillText('✓ そうび中', bX + 4, bY + 14);
+            } else if (isUnlocked) {
+              ctx.fillStyle = 'rgba(52, 211, 153, 0.2)';
+              ctx.strokeStyle = '#34d399';
+              ctx.lineWidth = 1;
+              drawRoundRect(ctx, bX, bY, bW, bH, 5);
+              ctx.fill();
+              ctx.stroke();
+
+              ctx.fillStyle = '#34d399';
+              ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillText('えらぶ', bX + bW / 2, bY + 14);
+            } else if (canUnlock) {
+              ctx.fillStyle = 'rgba(245, 158, 11, 0.25)';
+              ctx.strokeStyle = '#fbbf24';
+              ctx.lineWidth = 1;
+              drawRoundRect(ctx, bX, bY, bW, bH, 5);
+              ctx.fill();
+              ctx.stroke();
+
+              ctx.fillStyle = '#fef08a';
+              ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillText(`🪙${sk.cost} 解放`, bX + bW / 2, bY + 14);
+            } else {
+              ctx.fillStyle = '#64748b';
+              ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              ctx.fillText(`🔒 🪙${sk.cost}`, bX + 4, bY + 14);
+            }
+
+            ctx.restore();
+          }
+
+          // Close button at bottom
+          const closeBtn = { x: cardX + (cardW - 130) / 2, y: cardY + cardH - 36, w: 130, h: 28 };
+          ctx.save();
+          ctx.fillStyle = 'rgba(30, 41, 59, 0.85)';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+          ctx.lineWidth = 1;
+          drawRoundRect(ctx, closeBtn.x, closeBtn.y, closeBtn.w, closeBtn.h, 14);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.textAlign = 'center';
+          ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillStyle = '#e2e8f0';
+          ctx.fillText('✕ とじる', closeBtn.x + closeBtn.w / 2, closeBtn.y + 18);
+          ctx.restore();
         }
 
         ctx.restore();
@@ -2878,15 +3860,17 @@
       // ==========================================
       function runBotLogic() {
         if (!isBot) return;
+        activeModal = null; // bot実行時はモーダルを開かない
 
         if (gameState === 'title') {
           if (!botTimer) {
             botTimer = setTimeout(() => {
               botTimer = null;
               if (gameState === 'title') {
+                activeModal = null;
                 startGame();
               }
-            }, 500);
+            }, 300);
           }
           return;
         }
@@ -2894,7 +3878,7 @@
         if (gameState === 'over') {
           if (!botTimer) {
             const elapsed = performance.now() - gameOverTime;
-            const waitTime = Math.max(0, 1800 - elapsed);
+            const waitTime = Math.max(0, 2000 - elapsed);
             botTimer = setTimeout(() => {
               botTimer = null;
               if (gameState === 'over') {
