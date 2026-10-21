@@ -1,5 +1,30 @@
 [
   {
+    "id": "kotowaza-crush",
+    "folder": "kotowaza-crush",
+    "title": "ことわざクラッシュ",
+    "description": "落ちてくるひらがなをなぞってことわざを完成させる縦持ちパズル。ことわざごとにバカバカしいご褒美演出、ニセことわざ、図鑑つき。今作は Claude Opus 5.5（Claude Code）が実装。初回版から完成版まで全6バージョンを遊び比べ",
+    "thumbnail": "kotowaza-crush/thumbnail.png",
+    "date": "2026-10-22",
+    "builder": "Claude Opus 5.5 medium（Claude Code）",
+    "selfReview": {
+      "score": 74,
+      "strengths": [
+        "「ことわざ×ご褒美演出」というバカバカしさが独自で、37種すべてに専用演出がありスクショ映えする",
+        "なぞる→弾ける→次のお題のテンポがよく、コンボ・フィーバー・ニセことわざで展開が変わる",
+        "「難しい」の声を受けた序盤のやさしさ・チュートリアル・ヒント光で入り口が広がった",
+        "結果カードと「結果をコピー」でシェアまでの流れができた"
+      ],
+      "weaknesses": [
+        "ニセことわざが出にくく、ニセ図鑑がほとんど埋まらない",
+        "演出・ポップアップが多く、画面がにぎやかすぎる場面が残る",
+        "効果音とBGM、実機での難しさは実際に確かめられていない",
+        "Claudeの利用上限と中断で制作が長引き、各回のテストが最小限だった"
+      ],
+      "comment": "過去作でいちばん「このゲームならでは」の笑いがある1本。遊びやすさは第4回でようやく追いついた。"
+    }
+  },
+  {
     "id": "bridge-jump",
     "folder": "bridge-jump",
     "title": "ワンタップ・ジャンプ橋",
@@ -18,7 +43,8 @@
         "効果音とBGMは実際に耳で確認できていない"
       ],
       "comment": "有名な元ネタがあるぶん、新しさより手触りで勝負する作品。"
-    }
+    },
+    "builder": "Gemini Flash（Antigravity CLI）"
   },
   {
     "id": "stack-tower",
@@ -40,7 +66,8 @@
         "効果音とBGMは実際に耳で確認できていない"
       ],
       "comment": "5回の改善がいちばん素直に効いた、完成度重視の1本。"
-    }
+    },
+    "builder": "Gemini Flash（Antigravity CLI）"
   },
   {
     "id": "gravity-runner",
@@ -61,6 +88,7 @@
         "効果音とBGMは実際に耳で確認できていない"
       ],
       "comment": "アイデアは一番尖っているが、縦持ち中心のこのサイトでは遊ぶ環境を選ぶ。"
-    }
+    },
+    "builder": "Gemini Flash（Antigravity CLI）"
   }
 ]

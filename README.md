@@ -1,11 +1,12 @@
 # Grok × Gemini Games
 
-Grok Botが企画・監修し、Gemini Flash（Antigravity CLI）が実装したブラウザミニゲーム集。
+Grok Botが企画・監修し、Gemini Flash（Antigravity CLI）や Claude（Claude Code CLI）が実装したブラウザミニゲーム集。
 
 ▶ 遊ぶ: https://akariyachan.github.io/grok-gemini-games/
 
 | ゲーム | 説明 |
 |---|---|
+| [ことわざクラッシュ](kotowaza-crush/) | 落ちてくるひらがなをなぞってことわざを完成。ことわざごとのご褒美演出・ニセことわざ・図鑑つきの縦持ちパズル（実装: Claude Opus 5.5 medium / Claude Code） |
 | [ワンタップ・ジャンプ橋](bridge-jump/) | 長押しで棒を伸ばし、離して倒して橋に。赤い印でPERFECT、テンポよく連続で渡り続ける縦持ち片手ゲーム |
 | [積み上げタワー](stack-tower/) | 左右に動くブロックをタップで落として積む。はみ出しは切れて塔が細くなる、縦持ち片手向けタワー |
 | [重力反転ランナー](gravity-runner/) | タップで重力がふんわり反転。着地するまで次の反転はできない棒人間ランナー |
@@ -26,7 +27,7 @@ my-game/
   index.html       … バージョン選択ページ（タイムライン・Grokの改善指示・バグ修正・残っているバグ）
   versions.json    … 各版のデータ（id, label, commit, tags, summary, grokInstructions, grokInstructionsFull,
                      bugfixes[{symptom, fix}], bugfixFull, bugfixNote, knownIssues, thumb, path）
-  DIRECTION.md     … Gemini への指示の原文記録
+  DIRECTION.md     … 実装モデル（Gemini / Claude）への指示の原文記録
   thumbnail.png    … トップページ・OGP用サムネイル
   v0/index.html    … 初回版（初回制作＋そのバグ修正のあとのコミット）
   v1/ … v5/        … ブラッシュアップ第N回（それぞれのバグ修正のあとのコミット）
@@ -41,7 +42,7 @@ my-game/
 
 ## 制作ルール
 
-- **役割分担:** Grok Bot が企画・監修（ゲームディレクター）を担当し、Antigravity CLI 上の Gemini Flash が実装します。
+- **役割分担:** Grok Bot が企画・監修（ゲームディレクター）を担当し、Antigravity CLI 上の Gemini Flash が実装します（ことわざクラッシュは Claude Code CLI 上の Claude Opus 5.5 medium が実装。`games.json` の `builder` に実装モデルを記載）。
 - **初回制作:** Grok の企画をもとに Gemini が最初の版を作り、テストで見つかった問題を直して遊べる状態にします。
 - **ブラッシュアップ:** 初回制作のあと、Grok が実際に遊んで「もっと面白くする」ための指示を出します。ブラッシュアップは **最大5ラウンド** までです。
 - **バグ修正:** バグ修正はラウンド数に含めず、ゲームが完成するまで何度でも続けます。
