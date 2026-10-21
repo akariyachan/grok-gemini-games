@@ -92,6 +92,7 @@ function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;
 
 /* ---------- layout ---------- */
 let W=0,H=0,DPR=1,L={};
+const PILL_H=28;
 function resize(){
  DPR=Math.min(3,window.devicePixelRatio||1);
  W=window.innerWidth;H=window.innerHeight;
@@ -110,16 +111,21 @@ function resize(){
   L.bb=by+bh;
   const banH=Math.min(58,Math.max(40,H*0.16|0));
   L.ban={x:px,y:L.bb-banH,w:sideW,h:banH,a:1};
+  // status pill (FEVER / ピンチ): in the side panel, just above the meaning card
+  L.pill={x:px+sideW/2,y:L.ban.y-8-PILL_H/2,w:sideW-8};
   return;
  }
- cell=Math.max(20,cell);
+ // portrait: keep a strip under the board for the status pill
+ cell=Math.max(20,Math.min(cell,Math.floor((H-topH-8-72-PILL_H)/ROWS)));
  const colX=(W-colW)/2;
  const bw=cell*COLS,bh=cell*ROWS;
  L={side:false,colW,colX,topH,cell,bx:colX+(colW-bw)/2,by:topH+8,bw,bh};
  L.bb=L.by+bh;
- // meaning card: below the board; if no room, small & translucent over the top HUD
- const bottomSpace=H-L.bb,w=colW-24,banH=Math.min(58,bottomSpace-12);
- if(banH>=40)L.ban={x:colX+12,y:L.bb+8+(bottomSpace-8-banH)/2,w,h:banH,a:1};
+ // status pill (FEVER / ピンチ): its own strip right under the board frame
+ L.pill={x:L.bx+bw/2,y:L.bb+8+PILL_H/2,w:Math.min(colW-16,bw+12)};
+ // meaning card: below the pill strip; if no room, small & translucent over the top HUD
+ const b0=L.bb+8+PILL_H,bottomSpace=H-b0,w=colW-24,banH=Math.min(58,bottomSpace-8);
+ if(banH>=40)L.ban={x:colX+12,y:b0+4+(bottomSpace-4-banH)/2,w,h:banH,a:1};
  else L.ban={x:colX+12,y:4,w,h:Math.min(58,Math.max(30,L.by-14)),a:0.8};
 }
 window.addEventListener('resize',resize);
@@ -173,6 +179,15 @@ function sfx(n,i){
   case 'hmm':tone(500,0.12,'sine',0.07,0,700);break;
   case 'new':[880,1175,1568].forEach((f,k)=>tone(f,0.12,'square',0.04,k*0.06));break;
   case 'kachi':tone(1300,0.04,'square',0.06);tone(900,0.06,'square',0.04,0.05);break;
+  // pinch / special tiles / fever
+  case 'heart':tone(62,0.13,'sine',0.32,0,48);tone(55,0.16,'sine',0.24,0.17,42);break;
+  case 'pinch':tone(880,0.1,'square',0.05);tone(660,0.1,'square',0.05,0.12);tone(880,0.1,'square',0.05,0.24);break;
+  case 'baku':tone(120,0.45,'sawtooth',0.16,0,30);tone(70,0.55,'sine',0.28,0,28);tone(900,0.12,'square',0.05,0,200);break;
+  case 'escape':[392,523,659,784,1047].forEach((f,k)=>tone(f,0.16,'triangle',0.09,k*0.06));break;
+  case 'fever':[523,659,784,1047,1319,1568].forEach((f,k)=>tone(f,0.18,'square',0.06,k*0.055));tone(2093,0.5,'triangle',0.06,0.33);break;
+  case 'fevtick':tone(880*Math.pow(2,NOTE_STEPS[i%8]/12),0.07,'triangle',0.035);break;
+  case 'fevend':[1047,784,659].forEach((f,k)=>tone(f,0.14,'triangle',0.07,k*0.08));break;
+  case 'nowild':tone(300,0.08,'square',0.05,0,240);break;
  }
 }
 const SVG_ON='<svg viewBox="0 0 24 24"><path d="M3 9h4l5-4v14l-5-4H3z" fill="#fff"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/></svg>';
@@ -194,10 +209,19 @@ let targetT=0,targetGoal=6,lineShake=0,morphs=[],edgeA=0,edgeFlash=0,lastRating=
 let hudPos={cx:W/2,dy:110,w:300,sz:30};
 // fake proverb armed for the current target / dex entries found this run
 let parody=null,newRun=new Set(),newFakeRun=new Set(),sfxBudget=0,fxLift=0;
+// pinch & comeback: heartbeat when the stack reaches the top 2 rows / fever after 5 straight solves
+let pinch=false,pinchRaw=false,heartT=0,beatK=0,feverT=0,feverBeat=0,feverN=0,feverA=0,streak=0,lastClearT=-9,wildMsgT=0;
+const FEVER_DUR=8,FEVER_STREAK=5;
 const SPEED_TIERS=[{r:0.35,label:'神速!!',mul:2,color:'#ffe066',size:34},{r:0.6,label:'はやい!',mul:1.5,color:'#7ee8ff',size:28},{r:1,label:'いいね',mul:1.2,color:'#b2ff9e',size:22}];
-window.__game={state:'title',score:0,best:best,solved:0,target:'',combo:0,speed:'',dex:dex.size,dexTotal:PROVERBS.length,fakes:fakeDex.size,fakeTotal:PARODIES.length,parody:'',fx:''};
+window.__game={state:'title',score:0,best:best,solved:0,target:'',combo:0,speed:'',dex:dex.size,dexTotal:PROVERBS.length,fakes:fakeDex.size,fakeTotal:PARODIES.length,parody:'',fx:'',pinch:false,fever:0,streak:0,bombs:0,wilds:0};
 
-function mkTile(ch,c,y){return {ch,c,y,vy:0,id:tileId++,flash:0,shk:0,hold:0};}
+function mkTile(ch,c,y,sp){return {ch,c,y,vy:0,id:tileId++,flash:0,shk:0,hold:0,sp:sp||null};}
+// special tiles: 'bomb' (blasts its neighbours when part of a completed proverb), 'wild' (？ = any kana, max 1 per word)
+function matchT(t,ch){return t.ch===ch||t.sp==='wild';}
+function fitsT(ts,w){if(!w||ts.length>w.length)return false;let n=0;
+ for(let i=0;i<ts.length;i++){const t=ts[i];if(t.sp==='wild'){if(++n>1)return false;}else if(t.ch!==w[i])return false;}return true;}
+function countSp(sp){let n=0;for(const col of cols)for(const t of col)if(t.sp===sp)n++;return n;}
+function maxHeight(){let m=0;for(const col of cols)m=Math.max(m,col.length);return m;}
 function landedT(t,i){return t.vy===0&&Math.abs(t.y-i)<0.01;}
 function tileAt(c,r){if(c<0||c>=COLS||r<0)return null;const t=cols[c][r];return t&&landedT(t,r)?t:null;}
 function rIdx(t){return cols[t.c].indexOf(t);}
@@ -218,7 +242,11 @@ function rowChar(){
 }
 function pickTarget(){
  let pool=PROVERBS.filter(p=>!recent.includes(p));
- if(solved<2){const s=pool.filter(p=>p.k.length<=7);if(s.length)pool=s;}
+ if(feverT>0){
+  // fever: short proverbs only (6 letters max); repeats allowed when all of them are recent
+  const s=PROVERBS.filter(p=>p.k.length<=6),f=s.filter(p=>!recent.includes(p)),g=s.filter(p=>p!==target);
+  pool=f.length?f:g.length?g:s;
+ }else if(solved<2){const s=pool.filter(p=>p.k.length<=7);if(s.length)pool=s;}
  target=pick(pool);
  recent.push(target);if(recent.length>4)recent.shift();
  needCheck=true;hintT=0;hintPath=null;
@@ -235,7 +263,7 @@ function plantParody(){
  let bw=null,bs=-1;
  for(let i=0;i<20;i++){
   const w=randomWalk(parody.k.length,parody.k);if(!w)break;
-  if(w.some((t,j)=>keep.has(t)&&t.ch!==parody.k[j]))continue;
+  if(w.some((t,j)=>(keep.has(t)&&t.ch!==parody.k[j])||t.sp==='wild'))continue;
   let sc=0;w.forEach((t,j)=>{if(t.ch===parody.k[j])sc++;});
   if(sc>bs){bs=sc;bw=w;}
  }
@@ -246,18 +274,20 @@ function plantParody(){
 /* ---------- path search ---------- */
 function findPath(s){
  const starts=[];
- for(let c=0;c<COLS;c++)for(let r=0;r<cols[c].length;r++){const t=tileAt(c,r);if(t&&t.ch===s[0])starts.push([c,r]);}
+ for(let c=0;c<COLS;c++)for(let r=0;r<cols[c].length;r++){const t=tileAt(c,r);if(t&&matchT(t,s[0]))starts.push([c,r]);}
  shuffle(starts);
- const used=new Set(),out=[];let steps=0;
+ // a ？ tile matches any kana, but only one per word
+ const used=new Set(),out=[];let steps=0,wild=0;
+ const ok=n=>n.ch===s[out.length]||(n.sp==='wild'&&wild===0);
  const dfs=(c,r,k)=>{
   if(++steps>20000)return false;
-  const t=tileAt(c,r);used.add(t);out.push(t);
+  const t=tileAt(c,r);used.add(t);out.push(t);if(t.sp==='wild')wild++;
   if(k===s.length-1)return true;
   for(const [dc,dr] of shuffle(DIRS.slice())){
    const n=tileAt(c+dc,r+dr);
-   if(n&&!used.has(n)&&n.ch===s[k+1]&&dfs(c+dc,r+dr,k+1))return true;
+   if(n&&!used.has(n)&&ok(n)&&dfs(c+dc,r+dr,k+1))return true;
   }
-  used.delete(t);out.pop();return false;
+  used.delete(t);out.pop();if(t.sp==='wild')wild--;return false;
  };
  for(const [c,r] of starts){if(dfs(c,r,0))return out.slice();}
  return null;
@@ -293,7 +323,10 @@ function ensurePath(){
   if(sc>bs){bs=sc;bw=w;}
  }
  if(!bw)return false;
- bw.forEach((t,j)=>{if(t.ch!==target.k[j]){t.ch=target.k[j];t.flash=1;}});
+ // keep the first ？ in the walk as a joker; any extra ？ turns into the needed letter
+ let wild=0;
+ bw.forEach((t,j)=>{if(t.sp==='wild'&&wild++===0)return;
+  if(t.ch!==target.k[j]||t.sp==='wild'){t.ch=target.k[j];t.flash=1;if(t.sp==='wild')t.sp=null;}});
  hintPath=null;
  return true;
 }
@@ -304,6 +337,7 @@ function startGame(){
  particles=[];effects=[];popups=[];banner=null;path=[];dragging=false;shake=0;
  morphs=[];lineShake=0;edgeA=0;edgeFlash=0;lastRating='';
  parody=null;newRun=new Set();newFakeRun=new Set();
+ pinch=false;pinchRaw=false;heartT=0;beatK=0;feverT=0;feverBeat=0;feverN=0;feverA=0;streak=0;lastClearT=-9;wildMsgT=0;
  cols=[];for(let c=0;c<COLS;c++)cols.push([]);
  pickTarget();
  for(let r=0;r<4;r++)for(let c=0;c<COLS;c++)cols[c].push(mkTile(rowChar(),c,r));
@@ -314,13 +348,24 @@ function startGame(){
 }
 function spawnRow(){
  for(let c=0;c<COLS;c++)if(cols[c].length>=ROWS){gameOver();return;}
- for(let c=0;c<COLS;c++){const t=mkTile(rowChar(),c,ROWS+0.4+Math.random()*0.7);t.vy=3;cols[c].push(t);}
+ // special tiles: bombs show up more often in a pinch (a chance to turn it around)
+ const hi=maxHeight(),spc=Math.random()*COLS|0;let sp=null;
+ if(elapsed>6&&countSp('bomb')<3&&Math.random()<(hi>=ROWS-3?0.45:0.2))sp='bomb';
+ else if(elapsed>10&&countSp('wild')<2&&Math.random()<0.14)sp='wild';
+ for(let c=0;c<COLS;c++){const s=c===spc?sp:null,t=mkTile(s==='wild'?'？':rowChar(),c,ROWS+0.4+Math.random()*0.7,s);t.vy=3;cols[c].push(t);}
  settleCols();
  hintPath=null;
  sfx('drop');
 }
+function startFever(){
+ feverT=FEVER_DUR;feverN++;streak=0;
+ popups.push({text:'FEVER!!',x:L.bx+L.bw/2,y:L.by+L.bh*0.42,t:0,color:'#ffe066',size:Math.round(Math.max(30,Math.min(48,L.cell*0.9))),pop:1,life:1.2});
+ popups.push({text:'得点2倍・行が止まる!',x:L.bx+L.bw/2,y:L.by+L.bh*0.42+L.cell*0.8,t:-0.1,color:'#fff6c0',size:Math.round(Math.max(14,Math.min(20,L.cell*0.38))),life:1.3});
+ for(let k=0;k<40;k++){const a=rnd(0,Math.PI*2),sp=rnd(150,520);particles.push({x:L.bx+L.bw/2,y:L.by+L.bh*0.42,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-120,life:0,max:rnd(0.6,1),size:rnd(4,9),color:pick(['#ffe066','#fff6c0','#ffb347','#fff']),kind:'sq',rot:rnd(0,6)});}
+ shake=Math.max(shake,0.3);sfx('fever');
+}
 function gameOver(){
- state='over';overT=0;dragging=false;path=[];
+ state='over';overT=0;dragging=false;path=[];feverT=0;
  if(score>best){best=score;newBest=true;lsSet(BEST_KEY,String(best));}
  sfx('over');
 }
@@ -345,11 +390,28 @@ function clearTiles(ts,chain){
   if(m){
    // only resting tiles wait; tiles already falling keep falling
    for(let r=i;r<cols[t.c].length;r++){const u=cols[t.c][r];if(u.vy===0)u.hold=Math.max(u.hold,d+0.03);}
-   m.cs.push({ch:t.ch,x,y,t0:d,k,popped:false,tx:m.cx+(k-(n-1)/2)*Math.min(hudPos.sz*0.95,hudPos.w/n),ty:m.dy,fs:Math.min(hudPos.sz*0.95,hudPos.w/n)*0.9});
+   m.cs.push({ch:t.sp==='wild'&&chain.k?chain.k[k]:t.ch,sp:t.sp,x,y,t0:d,k,popped:false,tx:m.cx+(k-(n-1)/2)*Math.min(hudPos.sz*0.95,hudPos.w/n),ty:m.dy,fs:Math.min(hudPos.sz*0.95,hudPos.w/n)*0.9});
   }else burst(x,y,t.ch);
  });
  settleCols();
  needCheck=true;hintPath=null;hintT=0;
+}
+// 爆 tiles in a completed word blow away their 8 neighbours; a blasted bomb chains on
+function blastSet(ts){
+ const inP=new Set(ts),out=[],seen=new Set(),q=ts.filter(t=>t.sp==='bomb');
+ const centers=[];
+ while(q.length){const b=q.shift();const r=rIdx(b);if(r<0)continue;centers.push(tileXY(b));
+  for(let dc=-1;dc<=1;dc++)for(let dr=-1;dr<=1;dr++){const n=tileAt(b.c+dc,r+dr);
+   if(!n||inP.has(n)||seen.has(n))continue;seen.add(n);out.push(n);if(n.sp==='bomb')q.push(n);}}
+ return {tiles:out,centers};
+}
+function detonate(bl){
+ for(const [x,y] of bl.centers){
+  effects.push({kind:'blast',t:0,dur:0.6,parts:[],x,y});
+  for(let k=0;k<22;k++){const a=rnd(0,Math.PI*2),sp=rnd(200,620);particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-120,life:0,max:rnd(0.4,0.8),size:rnd(5,11)*L.cell/60,color:pick(['#ff7043','#ffb300','#ffe066','#5d4037','#fff']),kind:'sq',rot:rnd(0,6)});}
+ }
+ if(bl.tiles.length)clearTiles(bl.tiles);
+ shake=Math.max(shake,0.45);sfx('baku');
 }
 // keep every column consistent: no tile below its slot, none overlapping the one under it,
 // and nothing resting in mid-air (update() then lets them fall into place)
@@ -371,24 +433,30 @@ function pushPanel(lines){
  popups.push({grp:1,lines,lh,hh,x:L.bx+L.bw/2,y,t:0,life:1.1});
 }
 function evaluate(){
- const s=path.map(t=>t.ch).join('');
+ const s=pathText(),fmul=feverT>0?2:1;
  if(path.length>=1&&target){
-  if(s===target.k){
+  if(path.length===target.k.length&&fitsT(path,target.k)){
    // combo continues only if solved before the time gauge ran out
-   if(targetT>targetGoal)combo=0;
+   if(targetT>targetGoal){combo=0;streak=0;}
    combo++;
    const r=targetT/targetGoal,tier=SPEED_TIERS.find(q=>r<=q.r);
-   const smul=tier?tier.mul:1,cmul=1+0.25*Math.min(combo-1,8);
-   const pts=Math.round((100+40*s.length)*cmul*smul);
-   score+=pts;solved++;solvedList.push(target.j);lastRating=tier?tier.label:'';
+   const smul=tier?tier.mul:1,cmul=1+0.25*Math.min(combo-1,8),pmul=pinch?1.5:1;
+   const bl=blastSet(path),bpts=bl.tiles.length*50*fmul;
+   const pts=Math.round((100+40*s.length)*cmul*smul*pmul*fmul)+bpts;
+   score+=pts;solved++;solvedList.push(target.j);lastRating=tier?tier.label:'';lastClearT=stateT;
    clearTiles(path,target);
+   if(bl.centers.length)detonate(bl);
    const lines=[];
    if(!dex.has(target.k)){dex.add(target.k);newRun.add(target.k);saveDex();
     lines.push({text:'図鑑 NEW!',color:'#ff7ad9',size:24});sfx('new');}
    if(tier)lines.push({text:tier.label+' ×'+tier.mul.toFixed(1),color:tier.color,size:Math.min(28,tier.size)});
+   if(pinch)lines.push({text:'ピンチ逆転 ×1.5',color:'#ff6b6b',size:24});
+   if(bl.centers.length)lines.push({text:'爆破 '+bl.tiles.length+'枚 +'+bpts,color:'#ffab40',size:24});
+   if(fmul>1)lines.push({text:'FEVER ×2',color:'#ffe066',size:22});
    lines.push({text:'+'+pts,color:'#ffe066',size:30});
    if(combo>1)lines.push({text:combo+' COMBO! ×'+cmul.toFixed(2).replace(/0$/,''),color:'#ff9ecb',size:Math.min(26,18+combo)});
    pushPanel(lines);
+   if(feverT<=0&&++streak>=FEVER_STREAK)startFever();
    startEffect(target.fx);
    banner={p:target,t:0};
    shake=Math.max(shake,0.2);
@@ -396,29 +464,31 @@ function evaluate(){
    sfx('fan');
    if(tier&&tier.mul>=2)sfx('shinsoku');
    pickTarget();
-  }else if(parody&&s===parody.k){
+  }else if(parody&&path.length===parody.k.length&&fitsT(path,parody.k)){
    // fake proverb: tsukkomi + silly effect, target stays, combo untouched
-   const q=parody,pts=300;
-   score+=pts;parody=null;
+   const q=parody,bl=blastSet(path),bpts=bl.tiles.length*50*fmul,pts=300*fmul+bpts;
+   score+=pts;parody=null;lastClearT=stateT;
    clearTiles(path,q);
+   if(bl.centers.length)detonate(bl);
    const lines=[];
    if(!fakeDex.has(q.k)){fakeDex.add(q.k);newFakeRun.add(q.k);saveDex();
     lines.push({text:'ニセ図鑑 NEW!',color:'#ff7ad9',size:22});sfx('new');}
+   if(bl.centers.length)lines.push({text:'爆破 '+bl.tiles.length+'枚 +'+bpts,color:'#ffab40',size:22});
    lines.push({text:'+'+pts,color:'#e0b0ff',size:30});
    pushPanel(lines);
    startNise(q);
    banner={p:q,t:0,nise:true};
    shake=Math.max(shake,0.25);
-  }else if(path.length>=2&&target.k.startsWith(s)){
-   const pts=Math.round(10*s.length*(1+0.25*Math.min(Math.max(combo,1)-1,8)));
-   score+=pts;
+  }else if(path.length>=2&&fitsT(path,target.k)){
+   const pts=Math.round(10*s.length*(1+0.25*Math.min(Math.max(combo,1)-1,8)))*fmul;
+   score+=pts;lastClearT=stateT;
    const [mx,my]=tileXY(path[path.length-1]);
    clearTiles(path);
    popups.push({text:'+'+pts,x:mx,y:my,t:0,color:'#b2ff9e',size:22});
    sfx('part');
   }else if(path.length>=2){
    if(combo>=2){const [mx,my]=tileXY(path[path.length-1]);popups.push({text:'コンボ途切れ…',x:mx,y:my,t:0,color:'#ff8a8a',size:18});}
-   combo=0;
+   combo=0;streak=0;
    for(const t of path)t.shk=0.35;
    sfx('buzz');
   }
@@ -434,9 +504,11 @@ function hit(x,y,rad){
  return Math.hypot(x-cx,y-cy)<=rad*L.cell?t:null;
 }
 function adjacent(a,b){const ra=rIdx(a),rb=rIdx(b);return a!==b&&Math.abs(a.c-b.c)<=1&&Math.abs(ra-rb)<=1;}
-function pathOk(){return !!target&&target.k.startsWith(path.map(t=>t.ch).join(''));}
+function pathOk(){return !!target&&fitsT(path,target.k);}
 // off the target but still on the armed fake proverb
-function pathNise(){return !!parody&&!pathOk()&&parody.k.startsWith(path.map(t=>t.ch).join(''));}
+function pathNise(){return !!parody&&!pathOk()&&fitsT(path,parody.k);}
+// traced text with the ？ resolved to the letter it stands for
+function pathText(){const w=pathOk()?target.k:pathNise()?parody.k:null;return path.map((t,i)=>t.sp==='wild'&&w?w[i]:t.ch).join('');}
 function pushTile(t){
  const was=pathOk(),wasN=pathNise();path.push(t);
  const ok=pathOk(),nise=pathNise();
@@ -450,7 +522,12 @@ function tryAdd(x,y,rad){
  const last=path[path.length-1];if(t===last)return;
  if(path.length>=2&&t===path[path.length-2]){path.pop();sfx('back');return;}
  if(path.includes(t))return;
- if(adjacent(last,t))pushTile(t);
+ if(!adjacent(last,t))return;
+ if(t.sp==='wild'&&path.some(u=>u.sp==='wild')){
+  if(stateT-wildMsgT>0.8){wildMsgT=stateT;const [mx,my]=tileXY(t);popups.push({text:'？は1つまで',x:mx,y:my,t:0,color:'#80deea',size:16});sfx('nowild');}
+  return;
+ }
+ pushTile(t);
 }
 function onDown(x,y){
  if(state==='title'){if(stateT>0.2)startGame();return;}
@@ -483,14 +560,16 @@ function botUpdate(dt){
  if(state==='over'){if(overT>=2)onDown(W/2,H/2);return;}
  if(bot.phase==='idle'){
   bot.wait-=dt;if(bot.wait>0)return;
-  const full=findPath(target.k);
+  let full=findPath(target.k);
   if(!full){bot.wait=0.2;return;}
+  // likes to route through a 爆 tile when it can (findPath already uses a ？ when needed)
+  for(let i=0;i<3&&!full.some(t=>t.sp==='bomb');i++){const f2=findPath(target.k);if(f2&&f2.some(t=>t.sp==='bomb'))full=f2;}
   // test bot gets worse over time and always loses eventually (~1-2 min)
   const failP=elapsed>120?1:Math.min(0.97,0.08+elapsed/150);
   let p=full;const r=Math.random();
   if(r<failP){
    p=null;
-   for(let i=0;i<6&&!p;i++){const w=randomWalk(3+(Math.random()*2|0));if(w&&!target.k.startsWith(w.map(t=>t.ch).join('')))p=w;}
+   for(let i=0;i<6&&!p;i++){const w=randomWalk(3+(Math.random()*2|0));if(w&&!fitsT(w,target.k)&&!w.some(t=>t.sp==='wild'))p=w;}
    if(!p)p=[full[full.length-1]];
   }else if(r<failP+0.1){p=full.slice(0,2+(Math.random()*2|0));}
   else if(parody&&Math.random()<0.5){const pp=findPath(parody.k);if(pp)p=pp;}
@@ -962,6 +1041,15 @@ function drawFx(e,dt){
    const k2=rain?0:Math.min(1,(e.t-0.7)/0.2);ctx.fillStyle='rgb('+(121+(144-121)*k2|0)+','+(85+(144-85)*k2|0)+','+(72+(150-72)*k2|0)+')';ctx.fillRect(0,gy,W,H-gy);
    if(!rain){ctx.strokeStyle='rgba(60,60,70,0.6)';ctx.lineWidth=2;for(let x=0;x<W;x+=50*U){ctx.beginPath();ctx.moveTo(x,gy);ctx.lineTo(x+20*U,H);ctx.stroke();}}
    break;}
+  case 'blast':{
+   // 爆: white flash, expanding shock ring and a big "ドカン!"
+   const k=Math.min(1,e.t/0.35),R=L.cell*(0.4+2.2*k);
+   if(e.t<0.12){ctx.globalAlpha=a*(1-e.t/0.12)*0.8;circ(e.x,e.y,L.cell*1.6,'#fff6d0');ctx.globalAlpha=a;}
+   ctx.strokeStyle='rgba(255,140,40,'+(1-k)+')';ctx.lineWidth=L.cell*0.22*(1-k)+2;ctx.beginPath();ctx.arc(e.x,e.y,R,0,Math.PI*2);ctx.stroke();
+   ctx.strokeStyle='rgba(255,230,120,'+(1-k)*0.8+')';ctx.lineWidth=3;ctx.beginPath();ctx.arc(e.x,e.y,R*0.7,0,Math.PI*2);ctx.stroke();
+   const ps=e.t<0.1?0.6+e.t*6:1.2-Math.min(0.2,(e.t-0.1));
+   ctx.save();ctx.translate(e.x,e.y-L.cell*0.3-e.t*40);ctx.scale(ps,ps);ctx.rotate(-0.12);fxText('ドカン!',0,0,Math.max(20,L.cell*0.62),'#ffcc33','#5a1a00');ctx.restore();
+   break;}
  }
  ctx.restore();
  return e.t<e.dur;
@@ -976,18 +1064,42 @@ function update(dt){
  if(state==='play'){
   elapsed+=dt;
   rowInterval=Math.max(1.3,5.5-elapsed*0.045);
-  rowTimer-=dt;
   const falling=anyFalling();
-  if(!falling&&landedCount()<target.k.length+6&&rowTimer>0.6)rowTimer=0.6;
+  if(feverT>0){
+   // fever: no new rows (only an emergency refill when the board runs out of letters)
+   feverT=Math.max(0,feverT-dt);
+   feverBeat-=dt;if(feverBeat<=0){feverBeat=0.25;sfx('fevtick',feverN++);}
+   if(!falling&&landedCount()<target.k.length+4){rowTimer=Math.min(rowTimer,0.6)-dt;}
+   if(feverT<=0){rowTimer=Math.max(rowTimer,rowInterval);popups.push({text:'フィーバー終了',x:L.bx+L.bw/2,y:L.by+L.bh*0.3,t:0,color:'#ffe066',size:20});sfx('fevend');}
+  }else{
+   rowTimer-=dt;
+   if(!falling&&landedCount()<target.k.length+6&&rowTimer>0.6)rowTimer=0.6;
+  }
   if(rowTimer<=0){rowTimer=rowInterval;spawnRow();}
   if(state==='play'){
    targetT+=dt;
    if(combo>0&&!dragging&&targetT>targetGoal){
     if(combo>=2){popups.push({text:'コンボ終了',x:hudPos.cx,y:hudPos.dy,t:0,color:'#ff9ecb',size:16});sfx('brk');}
-    combo=0;
+    combo=0;streak=0;
    }
+   // pinch: stack within the top 2 rows -> "ピンチ!", red pulsing frame, heartbeat (paused during fever)
+   const mh=maxHeight(),was=pinchRaw;
+   pinchRaw=mh>=ROWS-2;
+   const np=pinchRaw&&feverT<=0;
+   if(np&&!pinch){popups.push({text:'ピンチ!',x:L.bx+L.bw/2,y:L.by+L.bh*0.45,t:0,color:'#ff5252',size:Math.round(Math.max(28,Math.min(44,L.cell*0.8))),pop:1});sfx('pinch');heartT=0.25;}
+   pinch=np;
+   if(was&&!pinchRaw&&stateT-lastClearT<1.5){
+    // cleared out of the danger zone: comeback bonus
+    const b=300*(feverT>0?2:1);score+=b;
+    popups.push({text:'ピンチ脱出!! +'+b,x:L.bx+L.bw/2,y:L.by+L.bh*0.35,t:0,color:'#7dff9a',size:Math.round(Math.max(20,Math.min(30,L.cell*0.55))),pop:1,life:1.2});
+    sfx('escape');edgeFlash=1;
+   }
+   if(pinch){heartT-=dt;if(heartT<=0){heartT=mh>=ROWS?0.42:mh>=ROWS-1?0.6:0.82;beatK=1;sfx('heart');}}
   }
  }
+ beatK=Math.max(0,beatK-dt*3);
+ feverA+=((state==='play'&&feverT>0?1:0)-feverA)*Math.min(1,dt*5);
+ if(state!=='play'){pinch=false;}
  if(lineShake>0)lineShake=Math.max(0,lineShake-dt);
  edgeFlash=Math.max(0,edgeFlash-dt*2.5);
  {const s=state==='play'&&combo>=2?Math.min(1,0.4+combo*0.08)*(0.45+0.55*Math.max(0,1-targetT/targetGoal)):0;
@@ -1002,8 +1114,10 @@ function update(dt){
  for(let c=0;c<cols.length;c++){const col=cols[c];
   for(let i=0;i<col.length;i++){const t=col[i];
    if(t.hold>0)t.hold=Math.max(0,t.hold-dt);
-   else if(t.y>i){t.vy+=GRAV*dt;t.y-=t.vy*dt;if(t.y<=i){t.y=i;t.vy=0;landedNow=true;}
-    else if(i>0&&t.y<col[i-1].y+1){t.y=col[i-1].y+1;t.vy=col[i-1].vy;}}
+   else if(t.y>i){t.vy+=GRAV*dt;t.y-=t.vy*dt;
+    // never pass the tile underneath (it may still be falling / waiting), then land on the slot
+    if(i>0&&t.y<col[i-1].y+1){t.y=col[i-1].y+1;t.vy=Math.min(t.vy,col[i-1].vy);}
+    if(t.y<=i){t.y=i;t.vy=0;landedNow=true;}}
    else if(t.y<i||t.vy!==0){t.y=i;t.vy=0;landedNow=true;}
    if(t.flash>0)t.flash=Math.max(0,t.flash-dt*1.5);
    if(t.shk>0)t.shk=Math.max(0,t.shk-dt);
@@ -1012,7 +1126,7 @@ function update(dt){
  if(state==='play'){
   if(needCheck&&!dragging&&!anyFalling()){needCheck=false;ensurePath();plantParody();}
   if(!dragging)hintT+=dt;
-  if(hintT>8&&!hintPath&&!dragging)hintPath=findPath(target.k);
+  if(hintT>hintLim()&&!hintPath&&!dragging)hintPath=findPath(target.k);
  }
  for(const q of particles){q.life+=dt;q.vy+=(q.kind==='txt'?150:700)*dt;q.x+=q.vx*dt;q.y+=q.vy*dt;q.rot+=dt*6;}
  particles=particles.filter(q=>q.life<q.max);
@@ -1028,18 +1142,33 @@ function update(dt){
 }
 
 /* ---------- draw ---------- */
-function drawTileAt(x,y,size,ch,sel,glow){
- const s=size*0.9,bad=sel==='bad',nise=sel==='nise';
+function drawTileAt(x,y,size,ch,sel,glow,sp){
+ const s=size*0.9,bad=sel==='bad',nise=sel==='nise',bomb=sp==='bomb',wild=sp==='wild';
  ctx.fillStyle='rgba(0,0,0,0.3)';rr(x-s/2+2,y-s/2+4,s,s,s*0.22);ctx.fill();
  if(glow>0){ctx.save();ctx.shadowColor='#ffe066';ctx.shadowBlur=20*glow;ctx.fillStyle='#ffe066';rr(x-s/2,y-s/2,s,s,s*0.22);ctx.fill();ctx.restore();}
  const g=ctx.createLinearGradient(0,y-s/2,0,y+s/2);
  if(bad){g.addColorStop(0,'#ffd0d0');g.addColorStop(1,'#ff7a7a');}
  else if(nise){g.addColorStop(0,'#f6e0ff');g.addColorStop(1,'#c58af0');}
- else if(sel){g.addColorStop(0,'#fff1a8');g.addColorStop(1,'#ffc533');}else{g.addColorStop(0,'#fffaf0');g.addColorStop(1,'#f1dfbd');}
+ else if(sel){g.addColorStop(0,'#fff1a8');g.addColorStop(1,'#ffc533');}
+ else if(bomb){g.addColorStop(0,'#ff8a65');g.addColorStop(1,'#c62828');}
+ else if(wild){const h=(stateT*90)%360;g.addColorStop(0,'hsl('+h+',90%,82%)');g.addColorStop(1,'hsl('+((h+120)%360)+',85%,62%)');}
+ else{g.addColorStop(0,'#fffaf0');g.addColorStop(1,'#f1dfbd');}
  ctx.fillStyle=g;rr(x-s/2,y-s/2,s,s,s*0.22);ctx.fill();
- ctx.strokeStyle=bad?'#b3261e':nise?'#7b1fa2':sel?'#d9822b':'#c9a982';ctx.lineWidth=Math.max(1.5,size*0.04);ctx.stroke();
- ctx.fillStyle=bad?'#5a0a0a':nise?'#3a0a5a':sel?'#7a3300':'#4a2e14';ctx.font='bold '+(size*0.56|0)+'px '+FONT;
- ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(ch,x,y+size*0.03);
+ ctx.strokeStyle=bad?'#b3261e':nise?'#7b1fa2':sel?'#d9822b':bomb?'#4a0d0d':wild?'#fff':'#c9a982';ctx.lineWidth=Math.max(1.5,size*(bomb||wild?0.06:0.04));ctx.stroke();
+ ctx.textAlign='center';ctx.textBaseline='middle';
+ if(bomb&&!sel){
+  // 爆 tile: white letter on red, black bomb badge with a flickering fuse spark
+  ctx.font='900 '+(size*0.56|0)+'px '+FONT;ctx.lineWidth=Math.max(2,size*0.07);ctx.strokeStyle='#5a0a0a';ctx.strokeText(ch,x+size*0.04,y+size*0.06);ctx.fillStyle='#fff';ctx.fillText(ch,x+size*0.04,y+size*0.06);
+ }else if(wild&&!sel){
+  ctx.font='900 '+(size*0.62|0)+'px '+FONT;ctx.lineWidth=Math.max(2,size*0.07);ctx.strokeStyle='rgba(30,20,80,0.85)';ctx.strokeText('？',x,y+size*0.03);ctx.fillStyle='#fff';ctx.fillText('？',x,y+size*0.03);
+ }else{
+  ctx.fillStyle=bad?'#5a0a0a':nise?'#3a0a5a':sel?'#7a3300':'#4a2e14';ctx.font='bold '+(size*0.56|0)+'px '+FONT;
+  ctx.fillText(ch,x,y+size*0.03);
+ }
+ if(bomb){const bx=x-s/2+s*0.2,by=y-s/2+s*0.2,br=s*0.16;
+  circ(bx,by,br,'#212121');ctx.fillStyle='#fff';ctx.font='900 '+Math.max(7,br*1.3|0)+'px '+FONT;ctx.fillText('爆',bx,by+br*0.08);
+  const fl=0.6+0.4*Math.sin(stateT*30+x);circ(bx+br*0.9,by-br*0.9,br*0.45*fl,'#ffe066');circ(bx+br*0.9,by-br*0.9,br*0.22,'#fff');}
+ if(wild&&!sel){const k=(stateT*2+x*0.01)%1;circ(x+s*0.32,y-s*0.32,s*0.07*(1-k)+1,'rgba(255,255,255,'+(1-k)+')');}
 }
 function fitFont(text,maxW,size,weight){
  ctx.font=weight+' '+size+'px '+FONT;const w=ctx.measureText(text).width;
@@ -1051,9 +1180,22 @@ function draw(){
  ctx.fillStyle='#0e0a1a';ctx.fillRect(0,0,W,H);
  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#2b1f4d');g.addColorStop(1,'#43285e');
  ctx.fillStyle=g;ctx.fillRect(L.colX,0,L.colW,H);
+ if(feverA>0.01){
+  // fever: whole background turns gold with a sweeping shine
+  ctx.save();ctx.globalAlpha=feverA;
+  const fg=ctx.createLinearGradient(0,0,0,H);fg.addColorStop(0,'#c08a12');fg.addColorStop(0.5,'#9a6408');fg.addColorStop(1,'#6e4200');
+  ctx.fillStyle=fg;ctx.fillRect(0,0,W,H);
+  const sx=((stateT*0.6)%1.6-0.3)*(W+H);
+  const sg=ctx.createLinearGradient(sx-H*0.5,0,sx+H*0.1,H*0.6);sg.addColorStop(0,'rgba(255,240,170,0)');sg.addColorStop(0.5,'rgba(255,240,170,0.22)');sg.addColorStop(1,'rgba(255,240,170,0)');
+  ctx.fillStyle=sg;ctx.fillRect(0,0,W,H);
+  for(let i=0;i<14;i++){const px=(i*97.3+stateT*20*(1+i%3))%W,py=(i*151.7+stateT*(30+i*5))%H,tw=0.5+0.5*Math.sin(stateT*5+i);
+   ctx.globalAlpha=feverA*tw*0.8;ctx.fillStyle='#fff6c0';ctx.save();ctx.translate(px,H-py);ctx.rotate(Math.PI/4);ctx.fillRect(-3,-3,6,6);ctx.restore();}
+  ctx.restore();
+ }
  ctx.textAlign='center';ctx.textBaseline='middle';
  if(state==='title'){drawTitle();return;}
  drawEdge();
+ drawPinchEdge();
  ctx.save();
  if(shake>0)ctx.translate(rnd(-1,1)*shake*14,rnd(-1,1)*shake*14);
  ctx.translate(0,fxLift);fxLift=0;
@@ -1065,7 +1207,7 @@ function draw(){
   else{ctx.save();ctx.translate(q.x,q.y);ctx.rotate(q.rot);ctx.fillStyle=q.color;ctx.fillRect(-q.size/2,-q.size/2,q.size,q.size);ctx.restore();}}
  ctx.globalAlpha=1;
  effects=effects.filter(e=>drawFx(e,frameDt));
- for(const q of popups){if(q.grp){drawPanel(q);continue;}if(q.t<0)continue;ctx.globalAlpha=Math.max(0,1-q.t/0.9);ctx.font='900 '+q.size+'px '+FONT;
+ for(const q of popups){if(q.grp){drawPanel(q);continue;}if(q.t<0)continue;ctx.globalAlpha=Math.max(0,1-q.t/(q.life||0.9));ctx.font='900 '+q.size+'px '+FONT;
   const ps=q.pop?1+0.5*Math.max(0,1-q.t/0.12):1;ctx.save();ctx.translate(q.x,q.y-q.t*60);ctx.scale(ps,ps);
   ctx.lineWidth=5;ctx.strokeStyle='rgba(40,10,40,0.8)';ctx.strokeText(q.text,0,0);ctx.fillStyle=q.color;ctx.fillText(q.text,0,0);ctx.restore();}
  ctx.globalAlpha=1;
@@ -1100,30 +1242,36 @@ function drawBoard(){
  for(let c=1;c<COLS;c++){ctx.moveTo(bx+c*cell,by);ctx.lineTo(bx+c*cell,bb);}
  for(let r=1;r<ROWS;r++){ctx.moveTo(bx,by+r*cell);ctx.lineTo(bx+bw,by+r*cell);}ctx.stroke();
  let maxH=0;for(const col of cols)maxH=Math.max(maxH,col.length);
- if(state==='play'&&maxH>=ROWS-1){const k=maxH>=ROWS?1:0.5;ctx.strokeStyle='rgba(255,60,60,'+(0.4+0.4*Math.sin(stateT*10))*k+')';ctx.lineWidth=4;rr(bx-6,by-6,bw+12,bh+12,12);ctx.stroke();}
- // row timer
- if(state==='play'){const f=Math.max(0,rowTimer/rowInterval);ctx.fillStyle=rowTimer<1?'#ff6b6b':'#7ec8ff';ctx.fillRect(bx,by-5,bw*f,3);}
+ // pinch: red frame that throbs with the heartbeat (drawn under the tiles, outside the cells)
+ if(state==='play'&&pinch){const k=maxH>=ROWS?1:maxH>=ROWS-1?0.8:0.6,a=Math.min(1,(0.35+0.65*beatK)*k+0.15);
+  ctx.save();ctx.shadowColor='#ff2020';ctx.shadowBlur=8+16*beatK;ctx.strokeStyle='rgba(255,50,50,'+a.toFixed(3)+')';ctx.lineWidth=3+4*beatK;rr(bx-6,by-6,bw+12,bh+12,12);ctx.stroke();ctx.restore();}
+ else if(state==='play'&&feverT>0){ctx.save();ctx.shadowColor='#ffe066';ctx.shadowBlur=14;ctx.strokeStyle='hsla('+(45+10*Math.sin(stateT*6))+',100%,65%,0.9)';ctx.lineWidth=4;rr(bx-6,by-6,bw+12,bh+12,12);ctx.stroke();ctx.restore();}
+ // row timer (fever: gold bar = remaining fever time)
+ if(state==='play'){
+  if(feverT>0){ctx.fillStyle='#ffe066';ctx.fillRect(bx,by-5,bw*feverT/FEVER_DUR,3);}
+  else{const f=Math.max(0,rowTimer/rowInterval);ctx.fillStyle=rowTimer<1?'#ff6b6b':'#7ec8ff';ctx.fillRect(bx,by-5,bw*f,3);}
+ }
  ctx.save();ctx.beginPath();ctx.rect(bx-4,by-4,bw+8,bh+8);ctx.clip();
  const selSet=new Set(path);
- const hintSet=hintPath&&hintT>8?new Set(hintPath.slice(0,2)):null;
+ const hintSet=hintPath&&hintT>hintLim()?new Set(hintPath.slice(0,2)):null;
  for(const col of cols)for(const t of col){
   let [x,y]=tileXY(t);if(t.shk>0)x+=Math.sin(t.shk*70)*5*(t.shk/0.35);
   let glow=t.flash;if(hintSet&&hintSet.has(t))glow=Math.max(glow,0.5+0.5*Math.sin(stateT*6));
   const si=selSet.has(t)?path.indexOf(t):-1;
   if(si>=0){x+=jx(si);y+=jy(si);}
-  drawTileAt(x,y,cell,t.ch,si>=0?(pOk?true:pNise?'nise':'bad'):false,glow);
+  drawTileAt(x,y,cell,t.ch,si>=0?(pOk?true:pNise?'nise':'bad'):false,glow,t.sp);
  }
  // chain-pop: tiles still waiting to pop swell & glow
  for(const m of morphs)for(const c of m.cs){if(c.popped)continue;
   const k=c.t0>0?Math.min(1,m.t/c.t0):1;
-  drawTileAt(c.x,c.y,cell*(1+0.14*k),c.ch,true,0.4+0.6*k);}
+  drawTileAt(c.x,c.y,cell*(1+0.14*k),c.ch,true,0.4+0.6*k,c.sp);}
  if(path.length){
   const ok=pOk;
   // next-candidate shimmer: neighbours of the tip that carry the next correct letter
   if(ok&&path.length<target.k.length){
    const tip=path[path.length-1],want=target.k[path.length],ti=rIdx(tip);
    ctx.strokeStyle='rgba(255,224,102,'+(0.45+0.3*Math.sin(stateT*12))+')';ctx.lineWidth=2;
-   for(const [dc,dr] of DIRS){const n=tileAt(tip.c+dc,ti+dr);if(n&&n.ch===want&&!selSet.has(n)){const [x,y]=tileXY(n),s=cell*0.9;rr(x-s/2,y-s/2,s,s,s*0.22);ctx.stroke();}}
+   for(const [dc,dr] of DIRS){const n=tileAt(tip.c+dc,ti+dr);if(n&&(n.ch===want||(n.sp==='wild'&&!path.some(u=>u.sp==='wild')))&&!selSet.has(n)){const [x,y]=tileXY(n),s=cell*0.9;rr(x-s/2,y-s/2,s,s,s*0.22);ctx.stroke();}}
   }
   ctx.save();
   ctx.lineCap='round';ctx.lineJoin='round';
@@ -1137,7 +1285,16 @@ function drawBoard(){
   path.forEach((t,i)=>{const [x,y]=tileXY(t);circ(x+jx(i),y+jy(i),cell*0.1,ok?'#ffb300':pNise?'#ab47bc':'#e53935');});
  }
  ctx.restore();
- if(state==='play'&&maxH>=ROWS-1){ctx.font='bold 16px '+FONT;ctx.fillStyle='rgba(255,90,90,'+(0.6+0.4*Math.sin(stateT*10))+')';ctx.fillText('あぶない！',bx+bw/2,by+16);}
+ // status pill in its own slot (under the board / side panel), clear of the tiles and the HUD
+ if(state==='play'&&(pinch||feverT>0)){
+  const fv=feverT>0,txt=fv?'FEVER ×2  あと'+Math.ceil(feverT)+'秒':maxH>=ROWS?'絶体絶命!':'ピンチ!',P=L.pill;
+  const fs=fitFont(txt,P.w/1.2-20,Math.round(Math.max(12,Math.min(17,(PILL_H/1.2)/1.5))),'900'),sc=fv?1+0.05*Math.sin(stateT*10):1+0.12*beatK;
+  ctx.save();ctx.translate(P.x,P.y);ctx.scale(sc,sc);ctx.font='900 '+fs+'px '+FONT;
+  const pw=ctx.measureText(txt).width+fs*1.4,ph=fs*1.5;
+  ctx.fillStyle=fv?'rgba(120,70,0,0.92)':'rgba(150,0,0,0.92)';rr(-pw/2,-ph/2,pw,ph,ph/2);ctx.fill();
+  ctx.strokeStyle=fv?'#ffe066':'#ff8a8a';ctx.lineWidth=2;ctx.stroke();
+  ctx.fillStyle=fv?'#ffe066':'#fff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,0,1);ctx.restore();
+ }
 }
 function drawGauge(x,y,w){
  const f=Math.max(0,1-targetT/targetGoal),r=targetT/targetGoal,tier=SPEED_TIERS.find(q=>r<=q.r);
@@ -1146,6 +1303,8 @@ function drawGauge(x,y,w){
  ctx.fillStyle='rgba(20,10,40,0.8)';for(const q of SPEED_TIERS.slice(0,2))ctx.fillRect(x+w*(1-q.r)-1,y,2,4);
 }
 function morphActive(){return morphs.length>0;}
+function comboLabel(){return combo+' COMBO'+(feverT>0?'':'　FEVERまであと'+Math.max(1,FEVER_STREAK-streak));}
+function hintLim(){return feverT>0?1.2:8;}
 function drawHUDSide(){
  const cx=L.px+L.pw/2,pw=L.pw;
  ctx.textAlign='center';
@@ -1155,7 +1314,7 @@ function drawHUDSide(){
  if(!target)return;
  const tk=target.k,n=tk.length,per=Math.min(n,7),rows=Math.ceil(n/per);
  const sz=Math.min(32,(pw-8)/per);
- const s=path.map(t=>t.ch).join(''),ok=tk.startsWith(s),nise=!ok&&pathNise();
+ const s=pathText(),ok=!path.length||pathOk(),nise=!ok&&pathNise();
  const y0=72;
  for(let i=0;i<n;i++){
   const row=i/per|0,inRow=Math.min(per,n-row*per),x=cx-sz*inRow/2+(i-row*per)*sz,y=y0+row*(sz+4);
@@ -1172,7 +1331,7 @@ function drawHUDSide(){
   ctx.lineWidth=5;ctx.strokeStyle='rgba(20,10,40,0.9)';ctx.strokeText(s,cx,dy);
   ctx.fillStyle=ok?(s===tk?'#7dff9a':'#ffe066'):nise?(s===parody.k?'#f0b0ff':'#d8a6ff'):'#ff8a8a';ctx.fillText(s,cx,dy);
  }else if(morphActive()){}
- else if(combo>1){ctx.font='bold 14px '+FONT;ctx.fillStyle='#ff9ecb';ctx.fillText(combo+' COMBO',cx,dy);}
+ else if(combo>1){ctx.fillStyle='#ff9ecb';fitFont(comboLabel(),pw-8,14,'bold');ctx.fillText(comboLabel(),cx,dy);}
  else if(parody){ctx.globalAlpha=0.6+0.3*Math.sin(stateT*4);ctx.fillStyle='#d8a6ff';fitFont('…ニセことわざの気配？',pw-8,13,'bold');ctx.fillText('…ニセことわざの気配？',cx,dy);ctx.globalAlpha=1;}
  else{ctx.fillStyle='rgba(255,255,255,0.45)';fitFont('完成 '+solved+'　つないで離すと判定！',pw-8,12,'normal');ctx.fillText('完成 '+solved+'　つないで離すと判定！',cx,dy);}
 }
@@ -1186,7 +1345,7 @@ function drawHUD(){
  ctx.textAlign='center';
  if(!target)return;
  const tk=target.k,n=tk.length,sz=Math.min(34,(L.colW-24)/n);
- const s=path.map(t=>t.ch).join(''),ok=tk.startsWith(s),nise=!ok&&pathNise();
+ const s=pathText(),ok=!path.length||pathOk(),nise=!ok&&pathNise();
  const y0=42,x0=cx-sz*n/2;
  for(let i=0;i<n;i++){
   const x=x0+i*sz;let fill='rgba(255,255,255,0.12)',fc='#fff';
@@ -1202,7 +1361,7 @@ function drawHUD(){
   ctx.lineWidth=5;ctx.strokeStyle='rgba(20,10,40,0.9)';ctx.strokeText(s,cx,dy);
   ctx.fillStyle=ok?(s===tk?'#7dff9a':'#ffe066'):nise?(s===parody.k?'#f0b0ff':'#d8a6ff'):'#ff8a8a';ctx.fillText(s,cx,dy);
  }else if(morphActive()){}
- else if(combo>1){ctx.font='bold 14px '+FONT;ctx.fillStyle='#ff9ecb';ctx.fillText(combo+' COMBO',cx,dy);}
+ else if(combo>1){ctx.font='bold 14px '+FONT;ctx.fillStyle='#ff9ecb';ctx.fillText(comboLabel(),cx,dy);}
  else if(parody){ctx.globalAlpha=0.6+0.3*Math.sin(stateT*4);ctx.font='bold 13px '+FONT;ctx.fillStyle='#d8a6ff';ctx.fillText('…ニセことわざの気配？',cx,dy);ctx.globalAlpha=1;}
  else{ctx.font='12px '+FONT;ctx.fillStyle='rgba(255,255,255,0.45)';ctx.fillText('完成 '+solved+'　つないで離すと判定！',cx,dy);}
 }
@@ -1235,6 +1394,16 @@ function drawEdge(){
  if(a<0.02)return;
  const hue=combo>=8?(stateT*160)%360:combo>=6?190:combo>=4?330:42;
  const w=Math.min(14,6+combo*1.2)*(1+edgeFlash*0.3),c0='hsla('+hue+',100%,62%,'+a.toFixed(3)+')',c1='hsla('+hue+',100%,62%,0)';
+ const side=(x0,y0,x1,y1,rx,ry,rw,rh)=>{const g=ctx.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,c0);g.addColorStop(1,c1);ctx.fillStyle=g;ctx.fillRect(rx,ry,rw,rh);};
+ ctx.save();ctx.beginPath();ctx.rect(0,0,W,H);ctx.rect(L.bx-8,L.by-8,L.bw+16,L.bh+16);ctx.clip('evenodd');
+ side(0,0,0,w,0,0,W,w);side(0,H,0,H-w,0,H-w,W,w);side(0,0,w,0,0,0,w,H);side(W,0,W-w,0,W-w,0,w,H);
+ ctx.restore();
+}
+// pinch: red vignette on the screen edges, beating with the heart; clipped outside the board
+function drawPinchEdge(){
+ if(!pinch||state!=='play')return;
+ const a=Math.min(0.75,0.22+0.5*beatK),w=Math.min(W,H)*(0.06+0.04*beatK);
+ const c0='rgba(255,30,30,'+a.toFixed(3)+')',c1='rgba(255,30,30,0)';
  const side=(x0,y0,x1,y1,rx,ry,rw,rh)=>{const g=ctx.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,c0);g.addColorStop(1,c1);ctx.fillStyle=g;ctx.fillRect(rx,ry,rw,rh);};
  ctx.save();ctx.beginPath();ctx.rect(0,0,W,H);ctx.rect(L.bx-8,L.by-8,L.bw+16,L.bh+16);ctx.clip('evenodd');
  side(0,0,0,w,0,0,W,w);side(0,H,0,H-w,0,H-w,W,w);side(0,0,w,0,0,0,w,H);side(W,0,W-w,0,W-w,0,w,H);
@@ -1287,6 +1456,8 @@ function drawTitle(){
  ctx.fillText('となりあう ひらがなを なぞって ことわざを完成させよう！',cx,H*0.25);
  const ex=['ね','こ','に','こ','ば','ん'],s=Math.min(44,w/7,H*0.1);
  ex.forEach((c,i)=>drawTileAt(cx+(i-2.5)*s,H*0.33,s,c,(stateT*3|0)%7>i,0));
+ if(H>=600){const ly=H*0.33+s*0.5+16;ctx.fillStyle='rgba(255,255,255,0.8)';
+  const tx='爆＝まわりも吹き飛ぶ　？＝どの字にもなる　5連続でFEVER!';fitFont(tx,w,12,'bold');ctx.fillText(tx,cx,ly);}
  ctx.globalAlpha=0.6+0.4*Math.sin(stateT*5);ctx.fillStyle='#fff';ctx.font='bold 24px '+FONT;ctx.fillText('タップでスタート',cx,H*0.42);
  ctx.globalAlpha=1;ctx.fillStyle='#ffd54a';ctx.font='bold 14px '+FONT;ctx.fillText('ベスト '+best,cx,H*0.48);
  const dw=Math.min(W-20,720);
@@ -1320,6 +1491,7 @@ function frame(now){
  const G=window.__game;
  G.state=state;G.score=score;G.best=Math.max(best,score);G.solved=solved;G.target=target?target.k:'';G.combo=combo;G.speed=lastRating;
  G.dex=dex.size;G.fakes=fakeDex.size;G.parody=parody?parody.k:'';G.fx=effects.map(e=>e.kind).join(',');
+ G.pinch=pinch;G.fever=+feverT.toFixed(2);G.streak=streak;G.bombs=countSp('bomb');G.wilds=countSp('wild');
  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
