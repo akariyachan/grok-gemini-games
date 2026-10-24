@@ -1,6 +1,6 @@
 # Grok × Gemini Games
 
-Grok Botが企画・監修し、Gemini Flash（Antigravity CLI）や Claude（Claude Code CLI）が実装したブラウザミニゲーム集。
+Grok Botが企画・監修し、Gemini Flash（Antigravity CLI）・Claude（Claude Code CLI）・grok-4.7（Grok Build CLI）が実装したブラウザミニゲーム集。
 
 ▶ 遊ぶ: https://akariyachan.github.io/grok-gemini-games/
 
