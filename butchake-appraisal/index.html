@@ -17,20 +17,20 @@
   --cream: #f4efe4;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; }
+html, body { margin: 0; height: 100%; max-width: 100%; }
 body {
   overflow: hidden;
   background:
     radial-gradient(900px 420px at 50% -10%, #5a3a28 0%, #140d0a 55%);
   color: var(--paper);
-  font-family: "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Hiragino Sans", Meiryo, sans-serif;
+  font-family: "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Hiragino Sans", "Noto Sans CJK JP", Meiryo, sans-serif;
 }
 button { font-family: inherit; cursor: pointer; }
 button:focus { outline: none; }
 button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 button[hidden] { display: none !important; }
 #app {
-  width: min(430px, 100vw);
+  width: min(430px, 100%);
   height: 100vh;
   height: 100dvh;
   margin: 0 auto;
@@ -55,8 +55,11 @@ button[hidden] { display: none !important; }
   gap: 8px;
   padding: 8px 12px 4px;
   min-height: 32px;
+  min-width: 0;
+  max-width: 100%;
 }
 #hudStage {
+  flex: 1 1 auto;
   font-weight: 800;
   letter-spacing: .04em;
   font-size: clamp(13px, 3.4vw, 16px);
@@ -68,11 +71,14 @@ button[hidden] { display: none !important; }
 .hud-stats {
   display: flex;
   gap: 8px;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
   font-variant-numeric: tabular-nums;
   font-size: clamp(10px, 2.8vw, 13px);
   font-weight: 700;
 }
+.hud-stats span { white-space: nowrap; }
 #hudTime.low { color: #ffb4a8; }
 #timebar { flex: 0 0 auto; height: 3px; background: #4a3024; }
 #timefill { display: block; height: 100%; width: 0; background: var(--gold); }
@@ -91,7 +97,7 @@ button[hidden] { display: none !important; }
   gap: 8px;
   overflow: auto;
 }
-h1, h2 { font-family: "Yu Mincho", "Hiragino Mincho ProN", "Hiragino Sans", serif; margin: 0; font-weight: 700; }
+h1, h2 { font-family: "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif CJK JP", "Hiragino Sans", serif; margin: 0; font-weight: 700; }
 h1 { font-size: clamp(28px, 8vw, 44px); letter-spacing: .06em; line-height: 1.2; }
 h2 { font-size: clamp(20px, 5vw, 28px); }
 .sub { margin: 0; color: var(--gold); font-size: 13px; }
@@ -112,6 +118,97 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   flex: 0 0 auto;
 }
 .seal.ok { border-color: var(--green); color: var(--green); background: rgba(28, 122, 66, .12); }
+.title-art {
+  width: min(360px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.cast, .goods { display: flex; align-items: flex-end; justify-content: center; max-width: 100%; }
+.cast { gap: 4px; }
+.cast img {
+  width: 50px; height: 50px;
+  object-fit: cover;
+  object-position: center 18%;
+  border-radius: 12px;
+  background: var(--cream);
+  border: 2px solid rgba(255,255,255,.4);
+  box-shadow: 0 3px 0 rgba(0,0,0,.28);
+}
+.cast img.boss {
+  width: 84px; height: 84px;
+  border: 3px solid var(--gold);
+  border-radius: 16px;
+  margin: 0 -4px;
+  z-index: 1;
+}
+.goods {
+  gap: 3px;
+  border-bottom: 3px solid rgba(224, 184, 90, .55);
+  padding: 0 2px 3px;
+}
+.goods img {
+  width: 36px; height: 36px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 8px;
+  border: 2px solid #f3ead7;
+}
+.signboard {
+  width: min(320px, 100%);
+  background: linear-gradient(180deg, #7a4630 0%, #3a2216 42%, #24140e 100%);
+  border: 3px solid var(--gold);
+  border-radius: 6px;
+  padding: 6px 12px 8px;
+  box-shadow: 0 6px 0 #140c08, inset 0 0 0 2px rgba(224, 184, 90, .35);
+  transform: rotate(-1deg);
+}
+.sign-kicker {
+  display: block;
+  color: var(--gold);
+  letter-spacing: .28em;
+  font-size: 11px;
+  font-weight: 800;
+}
+.signboard h1 {
+  font-size: 28px;
+  letter-spacing: .06em;
+  line-height: 1.15;
+  white-space: nowrap;
+  text-shadow: 0 2px 0 #140c08;
+}
+.grok-quip {
+  width: min(340px, 100%);
+  margin: 0;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.45;
+  background: rgba(0, 0, 0, .28);
+  border-left: 3px solid var(--vermilion);
+  border-radius: 0 10px 10px 0;
+  padding: 6px 8px;
+}
+.grok-quip b {
+  display: block;
+  color: var(--vermilion);
+  font-size: 10px;
+  letter-spacing: .14em;
+}
+.howline { display: none; margin: 0; font-size: 12px; opacity: .85; }
+.rank-name {
+  margin: 0;
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif CJK JP", serif;
+  font-size: clamp(26px, 7vw, 36px);
+  font-weight: 900;
+  letter-spacing: .14em;
+  line-height: 1.2;
+}
+.rank-name.r0 { color: #c4b4aa; }
+.rank-name.r1 { color: #e4d2b0; }
+.rank-name.r2 { color: var(--gold); }
+.rank-name.r3 { color: #9ad7ae; }
+.rank-name.r4 { color: #ffe14a; text-shadow: 0 0 12px rgba(255, 225, 74, .4); }
 .stack { display: flex; flex-direction: column; gap: 8px; width: min(320px, 100%); }
 .btn {
   border: 0;
@@ -160,6 +257,7 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
 .stage-btn .sm small { font-size: 11px; opacity: .8; line-height: 1.35; }
 .stage-btn em { font-style: normal; font-size: 11px; font-weight: 800; color: var(--vermilion); }
 .stage-btn em.done { color: var(--green); }
+.stage-btn small.best { font-weight: 800; color: #7a4e12; }
 #screenPlay.on { overflow: hidden; isolation: isolate; }
 #screenPlay.revealing .actions,
 #screenPlay.louping .actions { visibility: hidden; pointer-events: none; }
@@ -269,6 +367,7 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   display: flex;
   flex-direction: column;
   padding: 4px 12px 0;
+  position: relative;
 }
 .card-slot {
   flex: 1 1 auto;
@@ -358,6 +457,183 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
 .stamp.real { color: var(--green); border-color: var(--green); }
 .stamp.fake { color: var(--vermilion); border-color: var(--vermilion); }
 @keyframes pop { from { transform: rotate(-12deg) scale(.7); } to { transform: rotate(-12deg) scale(1); } }
+#comboPop {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  pointer-events: none;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: .04em;
+  color: var(--gold);
+  background: rgba(28, 20, 15, .72);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+#comboPop[hidden] { display: none !important; }
+#comboPop.hot {
+  font-size: 15px;
+  color: #ffe14a;
+  background: rgba(160, 36, 28, .92);
+  box-shadow: 0 0 0 2px #ffe14a;
+  animation: comboPop .32s ease;
+}
+@keyframes comboPop {
+  0% { transform: translateX(-50%) scale(.65); }
+  60% { transform: translateX(-50%) scale(1.12); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+#gainPop {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  z-index: 8;
+  pointer-events: none;
+  font-weight: 900;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: .02em;
+  color: #ffe566;
+  white-space: nowrap;
+  opacity: 0;
+  padding: 4px 9px 5px;
+  border-radius: 8px;
+  background: rgba(22, 12, 8, .94);
+  box-shadow:
+    0 0 0 2px #1a0e09,
+    0 0 0 4px #ffe566;
+  text-shadow:
+    0 1px 0 #1a0e09,
+    1px 0 0 #1a0e09,
+    -1px 0 0 #1a0e09,
+    0 -1px 0 #1a0e09;
+}
+#gainPop.on { animation: gainUp .8s ease forwards; }
+@keyframes gainUp {
+  0% { opacity: 0; transform: translate(-50%, 8px) scale(.9); }
+  18% { opacity: 1; transform: translate(-50%, 0) scale(1.05); }
+  32% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  74% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -3px) scale(1); }
+}
+#sparkLayer {
+  position: absolute;
+  left: 50%;
+  top: 36%;
+  width: 0;
+  height: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+#sparkLayer i {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  margin: -3px 0 0 -3px;
+  border-radius: 2px;
+  background: #ffe14a;
+  opacity: 0;
+}
+#sparkLayer.on i { animation: spark .55s ease-out .12s forwards; }
+@keyframes spark {
+  0% { transform: translate(0, 0) scale(.3) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1) rotate(40deg); opacity: 0; }
+}
+#hankoFx {
+  position: absolute;
+  left: 50%;
+  top: 36%;
+  width: 210px;
+  height: 210px;
+  margin: -105px 0 0 -105px;
+  z-index: 4;
+  pointer-events: none;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+#hankoFx.on { display: flex; }
+#hankoFx .ink, #hankoFx .hanko-seal { position: absolute; left: 50%; top: 50%; }
+#hankoFx .ink {
+  width: 180px;
+  height: 128px;
+  margin: -64px 0 0 -90px;
+  border-radius: 46% 54% 50% 50%;
+  opacity: 0;
+}
+#hankoFx.fake .ink {
+  background:
+    radial-gradient(circle at 38% 46%, rgba(168, 28, 22, .62), transparent 62%),
+    radial-gradient(circle at 64% 58%, rgba(168, 28, 22, .45), transparent 58%);
+}
+#hankoFx.real .ink {
+  background:
+    radial-gradient(circle at 38% 46%, rgba(20, 110, 58, .58), transparent 62%),
+    radial-gradient(circle at 64% 58%, rgba(20, 110, 58, .4), transparent 58%);
+}
+.hanko-seal {
+  width: 148px;
+  height: 148px;
+  margin: -74px 0 0 -74px;
+  border: 6px solid;
+  border-radius: 50%;
+  outline: 2px solid currentColor;
+  outline-offset: -11px;
+  display: grid;
+  place-items: center;
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif CJK JP", serif;
+  font-weight: 900;
+  font-size: 38px;
+  letter-spacing: .08em;
+  background: rgba(255, 250, 240, .5);
+  opacity: 0;
+}
+#hankoFx.real .hanko-seal { color: var(--green); }
+#hankoFx.fake .hanko-seal { color: var(--vermilion); }
+#hankoFx.on .ink { animation: inkSlap .46s ease-out forwards; }
+#hankoFx.on .hanko-seal { animation: hankoSlap .4s cubic-bezier(.15, .85, .25, 1.12) forwards; }
+@keyframes hankoSlap {
+  0% { transform: scale(1.62) rotate(-38deg); opacity: 0; }
+  48% { transform: scale(.9) rotate(-16deg); opacity: 1; }
+  70% { transform: scale(1.07) rotate(-8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-12deg); opacity: .96; }
+}
+@keyframes inkSlap {
+  0% { transform: scale(.2) rotate(-16deg); opacity: 0; }
+  34% { transform: scale(.45) rotate(-6deg); opacity: 0; }
+  68% { transform: scale(1.06) rotate(7deg); opacity: .88; }
+  100% { transform: scale(1) rotate(3deg); opacity: .72; }
+}
+/* Shake the panels inside #app. Transforming #app itself (full bleed) grows scrollWidth. */
+#app.shake-soft > * { animation: appShakeSoft .28s linear .12s; }
+#app.shake-hard > * { animation: appShakeHard .46s linear .1s; }
+@keyframes appShakeSoft {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-2px, 1px); }
+  50% { transform: translate(3px, -1px); }
+  75% { transform: translate(-2px, 0); }
+}
+@keyframes appShakeHard {
+  0%, 100% { transform: translate(0, 0); }
+  12% { transform: translate(-8px, 3px); }
+  28% { transform: translate(8px, -4px); }
+  46% { transform: translate(-6px, 2px); }
+  64% { transform: translate(6px, -2px); }
+  80% { transform: translate(-3px, 1px); }
+}
+#app.buzz::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(214, 69, 61, .34);
+  pointer-events: none;
+  z-index: 40;
+  animation: buzzFade .42s ease .08s forwards;
+}
+@keyframes buzzFade { from { opacity: 1; } to { opacity: 0; } }
 .card.fly-r .zoomwrap { transform: translate(8px) rotate(3deg); }
 .card.fly-l .zoomwrap { transform: translate(-8px) rotate(-3deg); }
 .plaque {
@@ -495,13 +771,28 @@ em.hot {
 .loupe .drag-tag, .loupe .stamp { display: none !important; }
 .note { margin: 0; font-size: 14px; line-height: 1.5; max-width: 360px; }
 @media (orientation: landscape) and (max-height: 540px) {
-  #app { width: 100vw; }
+  #app { width: 100%; }
+  #gainPop { font-size: 15px; padding: 3px 7px 4px; }
   h1 { font-size: 28px; }
   .seal { width: 46px; height: 46px; font-size: 16px; }
   .rules { font-size: 12px; margin: 2px 0; }
   .btn { padding: 8px 12px; }
   #screenTitle.on, #screenResult.on, #screenEnding.on { padding: 8px 16px; gap: 4px; }
   #screenSelect.on { padding: 6px 10px; }
+  .cast img { width: 36px; height: 36px; }
+  .cast img.boss { width: 58px; height: 58px; }
+  .goods img { width: 28px; height: 28px; }
+  .signboard { padding: 2px 10px 4px; transform: none; }
+  .signboard h1 { font-size: 22px; }
+  .sign-kicker { letter-spacing: .16em; font-size: 10px; }
+  .grok-quip { font-size: 12px; padding: 3px 6px; }
+  .rules { display: none; }
+  .howline { display: block; }
+  .rank-name { font-size: 22px; }
+  .hanko-seal { width: 112px; height: 112px; margin: -56px 0 0 -56px; font-size: 28px; border-width: 5px; }
+  #hankoFx { width: 160px; height: 160px; margin: -80px 0 0 -80px; top: 40%; }
+  #hankoFx .ink { width: 140px; height: 96px; margin: -48px 0 0 -70px; }
+  #comboPop.hot { font-size: 13px; }
   .stage-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .stage-btn { padding: 6px 8px; }
   #screenPlay.on {
@@ -563,22 +854,45 @@ em.hot {
     <div class="hud-stats">
       <span id="hudLeft"></span>
       <span id="hudScore"></span>
+      <span id="hudPts"></span>
       <span id="hudTime"></span>
     </div>
   </header>
   <div id="timebar"><i id="timefill"></i></div>
 
   <section id="screenTitle" class="screen on">
-    <div class="seal">鑑</div>
-    <h1>ぶっちゃけ鑑定所</h1>
-    <p class="sub">辛口AI鑑定士・Grok</p>
+    <div class="title-art" aria-hidden="true">
+      <div class="cast">
+        <img src="assets/cust_madam.jpg" alt="">
+        <img src="assets/cust_grandpa.jpg" alt="">
+        <img class="boss" src="assets/cust_boss.jpg" alt="">
+        <img src="assets/cust_shady.jpg" alt="">
+        <img src="assets/cust_alien.jpg" alt="">
+      </div>
+      <div class="goods">
+        <img src="assets/item_vase.jpg" alt="">
+        <img src="assets/item_painting.jpg" alt="">
+        <img src="assets/item_katana.jpg" alt="">
+        <img src="assets/item_crown.jpg" alt="">
+        <img src="assets/item_watch.jpg" alt="">
+        <img src="assets/item_daruma.jpg" alt="">
+        <img src="assets/item_crystal.jpg" alt="">
+        <img src="assets/item_moonrock.jpg" alt="">
+      </div>
+    </div>
+    <div class="signboard">
+      <span class="sign-kicker">辛口AI鑑定</span>
+      <h1>ぶっちゃけ鑑定所</h1>
+    </div>
+    <p class="grok-quip" id="titleQuip"><b>GROKのひとこと</b><span id="titleQuipText"></span></p>
     <ul class="rules">
       <li>右スワイプ（または右ボタン、→キー）で本物。左でニセモノ。</li>
       <li>手がかりは3つ。品物の違和感、セリフと説明札の矛盾、客のそぶり。</li>
       <li>汗は緊張だけのこともある。長押しかダブルタップでルーペ。</li>
     </ul>
+    <p class="howline">右で本物、左でニセモノ。長押しでルーペ。</p>
     <div class="stack">
-      <button type="button" class="btn" id="btnStart">営業開始</button>
+      <button type="button" class="btn" id="btnStart">ステージ選択へ</button>
     </div>
   </section>
 
@@ -618,6 +932,13 @@ em.hot {
         <div id="itemMeta"></div>
       </div>
       <div class="loupe-hint">長押し / ダブルタップでルーペ</div>
+      <div id="comboPop" hidden></div>
+      <div id="gainPop"></div>
+      <div id="sparkLayer" aria-hidden="true"></div>
+      <div id="hankoFx" aria-hidden="true">
+        <div class="ink"></div>
+        <div class="hanko-seal"><span id="hankoWord"></span></div>
+      </div>
     </div>
     <div class="actions">
       <button type="button" id="btnFake">← ニセモノ</button>
@@ -635,6 +956,7 @@ em.hot {
 
   <section id="screenResult" class="screen">
     <div class="seal" id="resultSeal">合</div>
+    <p class="rank-name" id="resultRank"></p>
     <h2 id="resultTitle">合格</h2>
     <p class="note" id="resultScore"></p>
     <p class="note" id="resultNote"></p>
@@ -686,6 +1008,67 @@ const SLOW_LINES = [
   '考えすぎです。本物も偽物も、待ってはくれません。',
   'タイマーに敗れるとは。辛口の前に、指が要ります。'
 ];
+const RANK_NAMES = ['節穴', '見習い', '目利き', '鑑定士', '神の目'];
+const RANK_CHAR = ['穴', '習', '目', '鑑', '神'];
+const TITLE_QUIPS = [
+  '本物ですか？ その質問、だいたい先に嘘の匂いがします。',
+  'バーコードは江戸より雄弁です。底を見なさい。',
+  '汗を見るな。ただし、汗しかない客を罪人にするな。',
+  '今日も辛口で営業します。甘い鑑定は、隣の店です。',
+  'iが足りないピカソを、私は何人も見送ってきました。',
+  '値札のついた月の石。宇宙は、思ったより安い。',
+  '疑え。そして、疑ったあとにまだ本物なら、それを認めろ。',
+  'あなたの目が節穴か神の目か。客はもう、並んでいます。',
+  '早口の客は急いでいます。急ぐ理由は、だいたい本物ではありません。',
+  'ハンコを押すのは、あなたです。押し間違えると、音が不機嫌になります。'
+];
+const REVIEWS = {
+  kami: [
+    '全問、しかも速い。神の目というより、私の席が危ない。今日だけ譲ります。',
+    'コンボが切れない。バーコードも汗も、あなたの前では自白します。',
+    'この速度でこの正解率。辛口の在庫が尽きました。悔しいので、また来なさい。'
+  ],
+  kantei: [
+    '鑑定士の目です。名刺を渡すには、あと一本コンボが足りません。',
+    'かなり見ています。見逃しは少ない。その「少ない」が、プロとの差です。',
+    '合格の上を歩いた。褒めるのはここまで。調子には乗らないでください。'
+  ],
+  pass: [
+    '目利き、合格。次は嘘が小さく、汗が多くなります。油断すると i が消えます。',
+    '通る目はしています。通っただけで、神の席はまだ空席です。',
+    '及第。境界線の正しい側に、今日は多く立てました。多く、です。'
+  ],
+  doubt: [
+    '本物を疑いすぎです。正直者の汗まで罪にする鑑定は、夏に全滅します。',
+    '厳しさは才能、やりすぎは節穴の入り口。無実の壺が、奥で泣いています。',
+    'ニセモノより先に本物を落とした。疑う職業病、今日は重症です。'
+  ],
+  miss: [
+    'ニセモノを見逃しています。値札は、好意で江戸時代になりません。',
+    '通した偽物が奥で笑っています。小さいバーコードほど、罪は大きい。',
+    '甘い。早口と「Picaso」を、顔なじみで許しましたね。私は許しません。'
+  ],
+  both: [
+    '本物を疑い、偽物を通す。目が忙しいだけで、判断が休みです。',
+    '両側を同じだけ外す才能。珍しいので記録します。褒めてはいません。',
+    '疑いすぎて、見逃してもいる。一度、底と札だけを見てください。'
+  ],
+  slow: [
+    '時間切れが多い。考えているあいだに、偽物は堂々と本物の顔をします。',
+    '沈黙は金、とは鑑定では言いません。タイマーに負けた分、点数も黙ります。',
+    '遅い。ルーペは武器ですが、眺めているうちに営業は終わります。'
+  ],
+  zero: [
+    'ゼロ正解。コイントスの裏が続いた日として、額縁に飾っておきます。',
+    '節穴、確定です。光は入っています。判断が、別の方向を向いています。',
+    '今日の成績は教材になります。あなたの教材に、です。'
+  ],
+  fail: [
+    '未達。あと一歩の場所で、ニセモノが勝ちました。やり直しは営業です。',
+    '目標に届かず。目は悪くない。使い方が、今日は休みでした。',
+    '不合格。辛口は無料です。次は、その辛さを自分の目に向けなさい。'
+  ]
+};
 
 const CASES = [
   { id: 's1-01', stage: 1, cust: 'cust_grandpa', item: 'item_vase', real: false,
@@ -1058,7 +1441,17 @@ const S = {
   lastHit: null,
   passed: false,
   cleared: [],
-  best: {}
+  best: {},
+  score: 0,
+  combo: 0,
+  maxCombo: 0,
+  lastGain: 0,
+  lastMult: 1,
+  missReal: 0,
+  missFake: 0,
+  timeouts: 0,
+  rankIdx: 0,
+  rankName: ''
 };
 
 let current = null;
@@ -1074,6 +1467,7 @@ let loupeOn = false;
 let loupePan = { x: 0, y: 0 };
 let gesture = null;
 let lastTap = 0;
+let quipPrev = -1;
 
 window.__game = {
   stage: 0,
@@ -1090,7 +1484,11 @@ window.__game = {
   cleared: [],
   bot: BOT,
   caseCount: 0,
-  passed: false
+  passed: false,
+  score: 0,
+  combo: 0,
+  maxCombo: 0,
+  rank: ''
 };
 
 const $ = (id) => document.getElementById(id);
@@ -1144,9 +1542,31 @@ function loadSave() {
       S.cleared = o.cleared.filter((n) => n >= 1 && n <= 5);
     }
     if (o && o.best && typeof o.best === 'object') {
-      S.best = o.best;
+      S.best = normalizeBest(o.best);
     }
   } catch (e) { /* ignore */ }
+}
+function normalizeBest(raw) {
+  const out = {};
+  Object.keys(raw).forEach((k) => {
+    const id = Number(k);
+    if (!(id >= 1 && id <= 5)) return;
+    const st = stageOf(id);
+    const total = st ? st.n : 8;
+    const v = raw[k];
+    let correct = 0;
+    let score = 0;
+    if (typeof v === 'number') {
+      correct = v;
+      score = correct * 100;
+    } else if (v && typeof v === 'object') {
+      correct = Number(v.correct) || 0;
+      score = Number(v.score) || 0;
+    } else return;
+    const idx = judgeRank(correct, total, score);
+    out[id] = { score: score, correct: correct, rank: RANK_NAMES[idx] };
+  });
+  return out;
 }
 function saveSave() {
   try {
@@ -1193,14 +1613,55 @@ function blip(freq, dur, type, vol, when) {
   } catch (e) { /* ignore */ }
 }
 function soundSwipe() { blip(240, 0.08, 'triangle', 0.05); }
+function soundStamp() {
+  try {
+    const ctx = audioCtx();
+    if (!ctx || ctx.state !== 'running') return;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(170, t);
+    o.frequency.exponentialRampToValueAtTime(48, t + 0.1);
+    g.gain.setValueAtTime(0.16, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start(t);
+    o.stop(t + 0.15);
+    const n = Math.floor(ctx.sampleRate * 0.07);
+    const buf = ctx.createBuffer(1, Math.max(1, n), ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 680;
+    f.Q.value = 0.7;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.2, t);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+    src.connect(f);
+    f.connect(ng);
+    ng.connect(ctx.destination);
+    src.start(t);
+    src.stop(t + 0.09);
+  } catch (e) { /* ignore */ }
+}
 function soundOk() {
-  blip(523, 0.09, 'sine', 0.06);
-  blip(659, 0.1, 'sine', 0.05, 0.07);
-  blip(784, 0.14, 'sine', 0.05, 0.14);
+  blip(523.25, 0.1, 'sine', 0.07);
+  blip(659.25, 0.11, 'sine', 0.06, 0.09);
+  blip(783.99, 0.12, 'triangle', 0.055, 0.18);
+  blip(1046.5, 0.22, 'sine', 0.05, 0.28);
 }
 function soundNg() {
-  blip(196, 0.14, 'square', 0.035);
-  blip(140, 0.18, 'square', 0.03, 0.09);
+  blip(220, 0.16, 'square', 0.05);
+  blip(175, 0.18, 'square', 0.045, 0.06);
+  blip(110, 0.28, 'sawtooth', 0.04, 0.16);
+  blip(92, 0.24, 'square', 0.035, 0.3);
 }
 function soundTick() { blip(880, 0.035, 'square', 0.018); }
 function soundClear() {
@@ -1346,6 +1807,10 @@ function publish() {
   g.bot = BOT;
   g.caseCount = CASES.length;
   g.passed = !!S.passed;
+  g.score = S.score;
+  g.combo = S.combo;
+  g.maxCombo = S.maxCombo;
+  g.rank = S.rankName || '';
   paintHud();
 }
 function paintHud() {
@@ -1353,7 +1818,9 @@ function paintHud() {
   const inRound = S.state === 'play' || S.state === 'reveal' || S.state === 'result';
   $('hudStage').textContent = st && inRound ? st.name : 'ぶっちゃけ鑑定所';
   $('hudLeft').textContent = inRound ? ('残り ' + Math.max(0, S.total - S.served) + '人') : '';
-  $('hudScore').textContent = inRound ? ('正解 ' + S.correct + '/' + S.quota) : '';
+  $('hudScore').textContent = inRound ? hudScoreText() : '';
+  $('hudPts').textContent = inRound ? (S.score + '点') : '';
+  paintCombo();
   const timeEl = $('hudTime');
   if (S.state === 'play' || S.state === 'reveal') {
     const sec = Math.ceil(S.timeLeftRaw || 0);
@@ -1367,6 +1834,150 @@ function paintHud() {
   const fill = $('timefill');
   fill.style.width = (ratio * 100) + '%';
   fill.style.background = (S.state === 'play' && S.timeLeftRaw <= 5) ? '#d6453d' : '#e0b85a';
+}
+function hudScoreText() {
+  if (S.quota > 0 && S.correct >= S.quota) {
+    return '正解 ' + S.correct + '（目標' + S.quota + ' 達成✓）';
+  }
+  return '正解 ' + S.correct + '/' + S.quota;
+}
+function trimMult(m) {
+  return String(Math.round(m * 100) / 100);
+}
+function comboMult(combo) {
+  const step = Math.min(Math.max(combo, 1) - 1, 4);
+  return 1 + step * 0.25;
+}
+function judgeRank(correct, total, score) {
+  const n = total || 1;
+  const rate = correct / n;
+  const per = score / n;
+  if (rate < 0.375) return 0;
+  if (rate < 0.75) return 1;
+  if (rate >= 0.999 && per >= 200) return 4;
+  if (rate >= 0.999) return 3;
+  if ((rate >= 0.875 && per >= 150) || per >= 230) return 3;
+  return 2;
+}
+function paintCombo() {
+  const el = $('comboPop');
+  if (!el) return;
+  const live = (S.state === 'play' || S.state === 'reveal') && S.combo > 0;
+  if (!live) {
+    el.hidden = true;
+    el.classList.remove('hot');
+    return;
+  }
+  const label = (S.combo >= 3 ? 'COMBO ' : 'コンボ ') + S.combo + ' ×' + trimMult(comboMult(S.combo));
+  const changed = el.textContent !== label;
+  el.hidden = false;
+  el.textContent = label;
+  if (S.combo >= 3 && changed) {
+    el.classList.remove('hot');
+    void el.offsetWidth;
+  }
+  el.classList.toggle('hot', S.combo >= 3);
+}
+function resetTally() {
+  current = null;
+  S.stageId = 0;
+  S.correct = 0;
+  S.served = 0;
+  S.quota = 0;
+  S.total = 0;
+  S.verdict = null;
+  S.lastHit = null;
+  S.passed = false;
+  S.timeLeftRaw = 0;
+  S.score = 0;
+  S.combo = 0;
+  S.maxCombo = 0;
+  S.lastGain = 0;
+  S.lastMult = 1;
+  S.missReal = 0;
+  S.missFake = 0;
+  S.timeouts = 0;
+  S.rankIdx = 0;
+  S.rankName = '';
+}
+function burstSparkle() {
+  const layer = $('sparkLayer');
+  layer.innerHTML = '';
+  for (let i = 0; i < 8; i++) {
+    const s = document.createElement('i');
+    const ang = (Math.PI * 2 * i) / 8 + 0.35;
+    const dist = 58 + (i % 3) * 20;
+    s.style.setProperty('--dx', (Math.cos(ang) * dist).toFixed(1) + 'px');
+    s.style.setProperty('--dy', (Math.sin(ang) * dist).toFixed(1) + 'px');
+    if (i % 2) s.style.background = '#fff8e0';
+    layer.appendChild(s);
+  }
+  layer.classList.remove('on');
+  void layer.offsetWidth;
+  layer.classList.add('on');
+}
+function placeGain() {
+  const el = $('gainPop');
+  const card = $('card');
+  const col = $('itemCol');
+  if (!el || !card || !col || !el.classList.contains('on')) return;
+  const combo = $('comboPop');
+  const comboH = (combo && !combo.hidden) ? combo.offsetHeight + 4 : 0;
+  const top = card.getBoundingClientRect().top - col.getBoundingClientRect().top + 4;
+  el.style.top = Math.max(0, top, comboH) + 'px';
+}
+function showGain(gain, mult) {
+  const el = $('gainPop');
+  el.textContent = '+' + gain + ' ×' + trimMult(mult);
+  el.classList.remove('on');
+  void el.offsetWidth;
+  el.classList.add('on');
+  placeGain();
+}
+function fxJudge(isReal, hit, timeout) {
+  const app = $('app');
+  const fx = $('hankoFx');
+  app.classList.remove('shake-soft', 'shake-hard', 'buzz');
+  fx.classList.remove('on', 'real', 'fake');
+  $('sparkLayer').classList.remove('on');
+  void app.offsetWidth;
+  if (timeout) {
+    app.classList.add('shake-hard', 'buzz');
+    return;
+  }
+  $('hankoWord').textContent = isReal ? '本物' : '贋作';
+  fx.classList.add('on', isReal ? 'real' : 'fake');
+  soundStamp();
+  if (hit) {
+    app.classList.add('shake-soft');
+    burstSparkle();
+  } else {
+    app.classList.add('shake-hard', 'buzz');
+  }
+}
+function scoreCase(hit, timeout) {
+  S.lastGain = 0;
+  S.lastMult = 1;
+  if (timeout) {
+    S.timeouts += 1;
+    S.combo = 0;
+    return;
+  }
+  if (!hit) {
+    if (current && current.real) S.missReal += 1;
+    else S.missFake += 1;
+    S.combo = 0;
+    return;
+  }
+  S.combo += 1;
+  if (S.combo > S.maxCombo) S.maxCombo = S.combo;
+  const bonus = Math.round(Math.max(0, S.timeLeftRaw) * 10);
+  const mult = comboMult(S.combo);
+  const gain = Math.round((100 + bonus) * mult);
+  S.score += gain;
+  S.lastGain = gain;
+  S.lastMult = mult;
+  showGain(gain, mult);
 }
 function showScreen(id) {
   screens().forEach((s) => s.classList.toggle('on', s.id === id));
@@ -1389,10 +2000,11 @@ function fitCard() {
   const byW = right - left - 36;
   const byH = r.height - 32;
   const size = Math.floor(Math.min(byW, byH));
-  if (size < 48) return;
-  if (card.style.width === size + 'px' && card.style.height === size + 'px') return;
-  card.style.width = size + 'px';
-  card.style.height = size + 'px';
+  if (size >= 48 && (card.style.width !== size + 'px' || card.style.height !== size + 'px')) {
+    card.style.width = size + 'px';
+    card.style.height = size + 'px';
+  }
+  placeGain();
 }
 
 function stopTimer() {
@@ -1490,6 +2102,11 @@ function clearFx() {
   $('stamp').className = 'stamp';
   $('reveal').classList.remove('on');
   $('screenPlay').classList.remove('revealing', 'louping');
+  $('hankoFx').classList.remove('on', 'real', 'fake');
+  $('sparkLayer').classList.remove('on');
+  $('sparkLayer').innerHTML = '';
+  $('gainPop').classList.remove('on');
+  $('app').classList.remove('shake-soft', 'shake-hard', 'buzz');
   setDrag(0);
   const z = $('zoomwrap');
   z.classList.remove('dragging');
@@ -1568,14 +2185,10 @@ function startStage(id) {
   stopType();
   cancelGesture();
   closeLoupe();
+  resetTally();
   S.stageId = id;
-  S.correct = 0;
-  S.served = 0;
   S.quota = st.need;
   S.total = st.n;
-  S.verdict = null;
-  S.lastHit = null;
-  S.passed = false;
   S.timeLeftRaw = st.time;
   queue = buildQueue(id);
   showScreen('screenPlay');
@@ -1609,8 +2222,13 @@ function applyHighlights() {
   portrait.classList.toggle('ring-hot', why === 'behavior');
   portrait.classList.toggle('ring-ok', why === 'trap');
   const stamp = $('stamp');
-  stamp.textContent = c.real ? '本物' : 'ニセモノ';
-  stamp.className = 'stamp on ' + (c.real ? 'real' : 'fake');
+  if (S.verdict === null) {
+    stamp.textContent = c.real ? '本物' : '贋作';
+    stamp.className = 'stamp on ' + (c.real ? 'real' : 'fake');
+  } else {
+    stamp.textContent = '';
+    stamp.className = 'stamp';
+  }
 }
 
 function renderReveal() {
@@ -1622,19 +2240,23 @@ function renderReveal() {
   if (timeout) comment = SLOW_LINES[(S.served + c.stage) % SLOW_LINES.length];
   else comment = hit ? c.ok : c.ng;
   const kicker = timeout ? '時間切れ' : (hit ? '正解' : '不正解');
-  const choice = timeout ? '時間切れ' : (S.verdict === 'real' ? '本物' : 'ニセモノ');
-  const truth = c.real ? '本物' : 'ニセモノ';
+  const choice = timeout ? '時間切れ' : (S.verdict === 'real' ? '本物' : '贋作');
+  const truth = c.real ? '本物' : '贋作';
   const nextLabel = S.served >= S.total ? '結果を見る' : '次の客';
+  const gainLine = hit
+    ? ('+' + S.lastGain + '点 ×' + trimMult(S.lastMult) + '　コンボ ' + S.combo)
+    : (timeout ? '時間切れ　0点' : 'コンボ終了');
   $('reveal').innerHTML =
     '<div class="rev-body">' +
       '<p class="rev-kicker ' + (hit ? 'good' : 'bad') + '">' + kicker + '</p>' +
-      '<p class="rev-line">あなたの判定：' + esc(choice) + '<br>真実：' + truth + '</p>' +
+      '<p class="rev-line">あなたの判定：' + esc(choice) + '<br>真実：' + truth + '<br>' + esc(gainLine) + '</p>' +
       '<div class="rev-hint">根拠：' + esc(c.hint) + '</div>' +
       '<p class="rev-grok"><span>GROKの一言</span><br>' + esc(comment) + '</p>' +
     '</div>' +
     '<button type="button" class="btn wide" data-act="next">' + nextLabel + '</button>';
   $('reveal').classList.add('on');
   $('screenPlay').classList.add('revealing');
+  placeGain();
   requestAnimationFrame(fitCard);
 }
 
@@ -1654,17 +2276,15 @@ function finishCase(isReal, timeout) {
   S.lastHit = hit;
   S.served += 1;
   if (hit) S.correct += 1;
+  scoreCase(hit, !!timeout);
   const card = $('card');
   card.classList.remove('fly-l', 'fly-r', 'shake');
   if (timeout) card.classList.add('shake');
   else if (isReal) card.classList.add('fly-r');
   else card.classList.add('fly-l');
-  if (timeout) soundNg();
-  else {
-    soundSwipe();
-    if (hit) soundOk();
-    else soundNg();
-  }
+  fxJudge(!!isReal, hit, !!timeout);
+  if (hit) soundOk();
+  else soundNg();
   renderReveal();
   publish();
   scheduleBot();
@@ -1679,13 +2299,44 @@ function nextAfterReveal() {
   else showCase();
 }
 
+function reviewKey(pass) {
+  if (S.correct === 0) return 'zero';
+  if (S.timeouts >= 3 && S.timeouts > S.missReal + S.missFake) return 'slow';
+  if (S.missReal >= 2 && S.missReal > S.missFake) return 'doubt';
+  if (S.missFake >= 2 && S.missFake > S.missReal) return 'miss';
+  if (S.missReal >= 1 && S.missFake >= 1 && S.missReal + S.missFake >= 3 && Math.abs(S.missReal - S.missFake) <= 1) return 'both';
+  if (S.rankIdx >= 4) return 'kami';
+  if (S.rankIdx === 3) return 'kantei';
+  if (pass) return 'pass';
+  return 'fail';
+}
 function resultComment(pass) {
-  if (pass && S.correct === S.total && S.stageId === 5) return '全問正解でボスも黙りました。今日だけ、辛口は甘口です。少しだけ。';
-  if (pass && S.correct === S.total) return '全問正解。今日の私は、褒める係です。珍しいので覚えておいてください。';
-  if (pass && S.stageId === 5) return 'ボスの目を盗んで合格。辛口の席は、まだあなたのものです。';
-  if (pass) return '合格です。次は嘘が小さく、汗が多くなります。';
-  if (S.correct === 0) return 'ゼロ正解。コイントスの裏が続いた日として、記録に残します。';
-  return 'あと一歩。ニセモノは喜び、本物は少し傷つきました。やり直し。';
+  if (pass && S.stageId === 5 && S.correct === S.total && S.missReal === 0 && S.missFake === 0 && S.timeouts === 0) {
+    return '全問正解でボスも黙りました。今日だけ、辛口は甘口です。少しだけ。';
+  }
+  const key = reviewKey(pass);
+  const lines = REVIEWS[key] || REVIEWS.fail;
+  const salt = S.correct * 3 + S.missReal * 5 + S.missFake * 7 + S.timeouts * 11 + S.score + S.stageId;
+  return lines[Math.abs(salt) % lines.length];
+}
+function commitBest() {
+  const id = S.stageId;
+  const prev = S.best[id];
+  const next = { score: S.score, correct: S.correct, rank: S.rankName };
+  if (!prev) {
+    S.best[id] = next;
+    return true;
+  }
+  const prevIdx = RANK_NAMES.indexOf(prev.rank);
+  if (S.rankIdx > prevIdx) {
+    S.best[id] = next;
+    return true;
+  }
+  if (S.rankIdx === prevIdx && (S.score > Number(prev.score) || (S.score === Number(prev.score) && S.correct > Number(prev.correct)))) {
+    S.best[id] = next;
+    return true;
+  }
+  return false;
 }
 function showResult() {
   stopTimer();
@@ -1693,20 +2344,26 @@ function showResult() {
   closeLoupe();
   const pass = S.correct >= S.quota;
   S.passed = pass;
-  if (pass) {
-    if (S.cleared.indexOf(S.stageId) === -1) S.cleared.push(S.stageId);
-    const prev = Number(S.best[S.stageId] || 0);
-    if (S.correct > prev) S.best[S.stageId] = S.correct;
-    saveSave();
-    soundClear();
-  } else {
-    soundFail();
+  S.rankIdx = judgeRank(S.correct, S.total, S.score);
+  S.rankName = RANK_NAMES[S.rankIdx];
+  let dirty = false;
+  if (pass && S.cleared.indexOf(S.stageId) === -1) {
+    S.cleared.push(S.stageId);
+    dirty = true;
   }
+  if (commitBest()) dirty = true;
+  if (dirty) saveSave();
+  if (pass) soundClear();
+  else soundFail();
   const seal = $('resultSeal');
-  seal.textContent = pass ? '合' : '否';
+  seal.textContent = RANK_CHAR[S.rankIdx];
   seal.classList.toggle('ok', pass);
+  const rankEl = $('resultRank');
+  rankEl.textContent = S.rankName;
+  rankEl.className = 'rank-name r' + S.rankIdx;
   $('resultTitle').textContent = pass ? 'ステージクリア' : '未達';
-  $('resultScore').textContent = '正解 ' + S.correct + ' / ' + S.total + '人　（目標 ' + S.quota + '）';
+  const rate = S.total ? Math.round((S.correct / S.total) * 100) : 0;
+  $('resultScore').textContent = '正解 ' + S.correct + '/' + S.total + '（' + rate + '%）　' + S.score + '点　最大コンボ ' + S.maxCombo;
   $('resultNote').textContent = resultComment(pass);
   $('btnNextStage').hidden = !(pass && S.stageId < 5);
   $('btnEnding').hidden = !(pass && S.stageId === 5);
@@ -1728,15 +2385,7 @@ function showSelect() {
   stopTimer();
   stopType();
   closeLoupe();
-  current = null;
-  S.stageId = 0;
-  S.correct = 0;
-  S.served = 0;
-  S.quota = 0;
-  S.total = 0;
-  S.verdict = null;
-  S.lastHit = null;
-  S.timeLeftRaw = 0;
+  resetTally();
   S.state = 'select';
   const done = S.cleared.length;
   $('selectProgress').textContent = done >= 5 ? '全ステージクリア' : ('クリア ' + done + ' / 5');
@@ -1750,13 +2399,15 @@ function showSelect() {
     btn.disabled = !open;
     btn.dataset.stage = String(st.id);
     const cleared = S.cleared.indexOf(st.id) !== -1;
-    const best = S.best[st.id] ? (' ベスト' + S.best[st.id] + '/' + st.n) : '';
+    const rec = S.best[st.id];
+    let meta = '客' + st.n + '人・目標' + st.need + '・' + st.time + '秒';
+    if (rec && rec.rank) meta += '　' + rec.rank + ' ' + rec.score + '点';
     const status = !open ? '鍵' : (cleared ? 'クリア' : '挑戦');
     btn.innerHTML =
       '<span class="sn">' + st.id + '</span>' +
       '<span class="sm"><b>' + esc(st.name) + '</b>' +
       '<small>' + esc(st.blurb) + '</small>' +
-      '<small>客' + st.n + '人・目標' + st.need + '・' + st.time + '秒' + esc(best) + '</small></span>' +
+      '<small class="' + (rec && rec.rank ? 'best' : '') + '">' + esc(meta) + '</small></span>' +
       '<em class="' + (cleared ? 'done' : '') + '">' + status + '</em>';
     list.appendChild(btn);
   });
@@ -1764,21 +2415,21 @@ function showSelect() {
   publish();
   scheduleBot();
 }
+function pickTitleQuip() {
+  const el = $('titleQuipText');
+  if (!el || !TITLE_QUIPS.length) return;
+  let i = Math.floor(Math.random() * TITLE_QUIPS.length);
+  if (TITLE_QUIPS.length > 1 && i === quipPrev) i = (i + 1) % TITLE_QUIPS.length;
+  quipPrev = i;
+  el.textContent = TITLE_QUIPS[i];
+}
 function showTitle() {
   stopTimer();
   stopType();
   closeLoupe();
-  current = null;
-  S.stageId = 0;
-  S.correct = 0;
-  S.served = 0;
-  S.quota = 0;
-  S.total = 0;
-  S.verdict = null;
-  S.lastHit = null;
-  S.passed = false;
-  S.timeLeftRaw = 0;
+  resetTally();
   S.state = 'title';
+  pickTitleQuip();
   showScreen('screenTitle');
   publish();
   scheduleBot();
