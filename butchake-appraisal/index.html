@@ -1,0 +1,2048 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>ぶっちゃけ鑑定所</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232a1810'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='18' fill='%23e0b85a'%3E鑑%3C/text%3E%3C/svg%3E">
+<style>
+:root {
+  --ink: #1c140f;
+  --paper: #f6f0e4;
+  --paper2: #efe2c8;
+  --vermilion: #d6453d;
+  --green: #1c7a42;
+  --gold: #e0b85a;
+  --wood: #2a1810;
+  --cream: #f4efe4;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  overflow: hidden;
+  background:
+    radial-gradient(900px 420px at 50% -10%, #5a3a28 0%, #140d0a 55%);
+  color: var(--paper);
+  font-family: "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Hiragino Sans", Meiryo, sans-serif;
+}
+button { font-family: inherit; cursor: pointer; }
+button:focus { outline: none; }
+button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+button[hidden] { display: none !important; }
+#app {
+  width: min(430px, 100vw);
+  height: 100vh;
+  height: 100dvh;
+  margin: 0 auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.04), transparent 80px),
+    linear-gradient(180deg, #3a2418 0%, #2a1810 42%, #22140e 100%);
+  box-shadow: 0 0 0 2px #6b4a30;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+#hud {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px 4px;
+  min-height: 32px;
+}
+#hudStage {
+  font-weight: 800;
+  letter-spacing: .04em;
+  font-size: clamp(13px, 3.4vw, 16px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.hud-stats {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(10px, 2.8vw, 13px);
+  font-weight: 700;
+}
+#hudTime.low { color: #ffb4a8; }
+#timebar { flex: 0 0 auto; height: 3px; background: #4a3024; }
+#timefill { display: block; height: 100%; width: 0; background: var(--gold); }
+.screen { display: none; flex: 1 1 auto; min-height: 0; position: relative; }
+.screen.on { display: flex; flex-direction: column; }
+#screenTitle.on, #screenResult.on, #screenEnding.on {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 18px 18px 22px;
+  gap: 8px;
+  overflow: auto;
+}
+#screenSelect.on {
+  padding: 10px 12px 12px;
+  gap: 8px;
+  overflow: auto;
+}
+h1, h2 { font-family: "Yu Mincho", "Hiragino Mincho ProN", "Hiragino Sans", serif; margin: 0; font-weight: 700; }
+h1 { font-size: clamp(28px, 8vw, 44px); letter-spacing: .06em; line-height: 1.2; }
+h2 { font-size: clamp(20px, 5vw, 28px); }
+.sub { margin: 0; color: var(--gold); font-size: 13px; }
+.rules { margin: 6px 0 8px; text-align: left; font-size: 13px; line-height: 1.55; max-width: 360px; }
+.rules li { margin: 2px 0; }
+.seal {
+  width: 62px; height: 62px;
+  border: 3px solid var(--vermilion);
+  color: var(--vermilion);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 22px;
+  transform: rotate(-8deg);
+  margin: 0 auto 2px;
+  background: rgba(214, 69, 61, .08);
+  flex: 0 0 auto;
+}
+.seal.ok { border-color: var(--green); color: var(--green); background: rgba(28, 122, 66, .12); }
+.stack { display: flex; flex-direction: column; gap: 8px; width: min(320px, 100%); }
+.btn {
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 800;
+  font-size: 16px;
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: 0 4px 0 #6b4a30;
+}
+.btn:active { transform: translateY(2px); box-shadow: none; }
+.btn.ghost {
+  background: transparent;
+  color: var(--paper);
+  box-shadow: none;
+  border: 1px solid rgba(255,255,255,.28);
+}
+.btn.wide { width: 100%; }
+.stage-list { display: flex; flex-direction: column; gap: 8px; }
+.stage-btn {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  padding: 8px 10px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 3px 0 rgba(0,0,0,.18);
+}
+.stage-btn:disabled { opacity: .45; box-shadow: none; }
+.stage-btn .sn {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--ink);
+  color: var(--gold);
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+.stage-btn .sm { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.stage-btn .sm b { font-size: 14px; }
+.stage-btn .sm small { font-size: 11px; opacity: .8; line-height: 1.35; }
+.stage-btn em { font-style: normal; font-size: 11px; font-weight: 800; color: var(--vermilion); }
+.stage-btn em.done { color: var(--green); }
+#screenPlay.on { overflow: hidden; isolation: isolate; }
+#screenPlay.revealing .actions,
+#screenPlay.louping .actions { visibility: hidden; pointer-events: none; }
+.cust {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px 0;
+  max-height: 32%;
+  min-height: 0;
+}
+.portrait-wrap { width: clamp(76px, 18vh, 118px); flex: 0 0 auto; position: relative; }
+.portrait {
+  width: 100%;
+  aspect-ratio: 1;
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--cream);
+  box-shadow: 0 4px 0 rgba(0,0,0,.2);
+}
+.portrait img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: center 18%;
+  display: block;
+  background: var(--cream);
+}
+.portrait.shifty img { animation: swim .5s ease-in-out infinite; }
+@keyframes swim {
+  0%, 100% { transform: translateX(-6px); }
+  50% { transform: translateX(7px); }
+}
+.portrait.ring-hot { box-shadow: 0 0 0 3px var(--vermilion); }
+.portrait.ring-ok { box-shadow: 0 0 0 3px var(--green); }
+.sweat { display: none; position: absolute; inset: 0; pointer-events: none; }
+.portrait.is-sweat .sweat { display: block; }
+.sweat span {
+  position: absolute;
+  width: 7px; height: 11px;
+  background: linear-gradient(#f4fbff, #3aa0dc);
+  border-radius: 50% 50% 46% 46%;
+  opacity: .95;
+  animation: drip 1.15s ease-in infinite;
+}
+.sweat span:nth-child(1) { left: 22%; top: 16%; }
+.sweat span:nth-child(2) { left: 70%; top: 22%; animation-delay: .35s; }
+.sweat span:nth-child(3) { left: 46%; top: 12%; animation-delay: .65s; width: 6px; }
+@keyframes drip {
+  0% { transform: translateY(0); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(16px); opacity: 0; }
+}
+.cust-name { text-align: center; font-size: 10px; margin-top: 2px; opacity: .88; }
+.tells {
+  position: absolute;
+  left: 0; right: 0; bottom: 20px;
+  display: none;
+  flex-wrap: wrap;
+  gap: 2px;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: none;
+}
+.tells.on { display: flex; }
+.tells span {
+  font-size: 10px;
+  background: rgba(28,20,15,.82);
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+.tells span.hot { background: var(--vermilion); }
+.tells span.ok { background: var(--green); }
+.bubble {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 16px;
+  padding: 8px 10px;
+  font-size: clamp(12px, 3.1vw, 15px);
+  line-height: 1.45;
+  box-shadow: 0 4px 0 rgba(0,0,0,.15);
+  max-height: 100%;
+  overflow: auto;
+}
+.bubble:before {
+  content: "";
+  position: absolute;
+  left: -7px; top: 18px;
+  border: 8px solid transparent;
+  border-right-color: var(--paper);
+  border-left: 0;
+}
+.bubble.fast { animation: jabber .11s linear infinite; }
+@keyframes jabber {
+  50% { transform: translateX(2px); }
+}
+.bubble.mark, .plaque.mark { box-shadow: 0 0 0 2px var(--gold), 0 4px 0 rgba(0,0,0,.15); }
+.item-col {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 12px 0;
+}
+.card-slot {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  flex: 0 0 auto;
+  background: #fff;
+  border-radius: 18px;
+  border: 3px solid #f3ead7;
+  box-shadow: 0 7px 0 rgba(90, 58, 32, .45);
+  touch-action: none;
+}
+.card.shake { animation: shake .28s linear; }
+@keyframes shake {
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+.zoomwrap {
+  position: absolute;
+  inset: 0;
+  border-radius: 15px;
+  overflow: hidden;
+  background: #fff;
+  transform-origin: 50% 50%;
+  transition: transform .18s ease;
+}
+.zoomwrap.dragging { transition: none; }
+.zoomwrap > img,
+.zoomwrap > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.zoomwrap > img {
+  object-fit: contain;
+  background: #fff;
+  pointer-events: none;
+}
+#clueSvg { pointer-events: none; overflow: visible; }
+#clueSvg .hot { filter: drop-shadow(0 0 1.4px #ff2a2a) drop-shadow(0 0 1.4px #ff2a2a); }
+#clueSvg .okhot { filter: drop-shadow(0 0 1.4px #1f9d55) drop-shadow(0 0 1.4px #1f9d55); }
+.drag-tag {
+  position: absolute;
+  top: 10px;
+  z-index: 3;
+  font-weight: 900;
+  font-size: 20px;
+  opacity: 0;
+  pointer-events: none;
+  text-shadow: 0 1px 0 #fff;
+}
+.drag-tag.left { left: 8px; color: var(--vermilion); }
+.drag-tag.right { right: 8px; color: var(--green); }
+.stamp {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  margin: auto;
+  width: max-content;
+  max-width: 82%;
+  height: max-content;
+  max-height: 42%;
+  padding: 4px 10px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(14px, 4.4vmin, 24px);
+  font-weight: 900;
+  line-height: 1.15;
+  border: 4px solid;
+  border-radius: 12px;
+  transform: rotate(-12deg);
+  background: rgba(255,255,255,.28);
+  pointer-events: none;
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+.stamp.on { display: flex; animation: pop .22s ease; }
+.stamp.real { color: var(--green); border-color: var(--green); }
+.stamp.fake { color: var(--vermilion); border-color: var(--vermilion); }
+@keyframes pop { from { transform: rotate(-12deg) scale(.7); } to { transform: rotate(-12deg) scale(1); } }
+.card.fly-r .zoomwrap { transform: translate(8px) rotate(3deg); }
+.card.fly-l .zoomwrap { transform: translate(-8px) rotate(-3deg); }
+.plaque {
+  flex: 0 0 auto;
+  margin-top: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 6px 10px 7px;
+  position: relative;
+  box-shadow: 0 3px 0 rgba(0,0,0,.12);
+}
+.plaque:before {
+  content: "";
+  position: absolute;
+  left: 16px; top: -7px;
+  width: 10px; height: 10px;
+  border: 2px solid var(--vermilion);
+  border-radius: 50%;
+  background: var(--paper);
+}
+#itemName { font-weight: 800; font-size: clamp(13px, 3.2vw, 16px); }
+#itemMeta { font-size: clamp(11px, 2.6vw, 13px); line-height: 1.35; }
+.loupe-hint {
+  flex: 0 0 auto;
+  text-align: center;
+  font-size: 10px;
+  opacity: .72;
+  padding: 3px 0 0;
+}
+.actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px 12px;
+}
+.actions button {
+  flex: 1;
+  border: 0;
+  border-radius: 14px;
+  min-height: 48px;
+  color: #fff;
+  font-weight: 800;
+  font-size: clamp(14px, 3.8vw, 18px);
+  box-shadow: 0 4px 0 rgba(0,0,0,.25);
+}
+.actions button:active { transform: translateY(2px); box-shadow: none; }
+#btnFake { background: #b4332a; }
+#btnReal { background: #1f7a45; }
+.reveal {
+  position: absolute;
+  left: 8px; right: 8px; bottom: 8px;
+  z-index: 5;
+  max-height: 46%;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 16px;
+  padding: 10px;
+  border: 2px solid var(--gold);
+  box-shadow: 0 12px 30px rgba(0,0,0,.35);
+}
+.reveal.on { display: flex; }
+#screenPlay.revealing .item-col { padding-bottom: 40%; }
+.rev-body { overflow: auto; min-height: 0; }
+.rev-kicker { font-weight: 900; font-size: 18px; margin: 0; }
+.rev-kicker.good { color: var(--green); }
+.rev-kicker.bad { color: var(--vermilion); }
+.rev-line { margin: 2px 0; font-size: 13px; }
+.rev-hint {
+  margin: 4px 0;
+  font-size: 13px;
+  font-weight: 800;
+  background: #fff4c2;
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+.rev-grok {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.rev-grok span {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  color: var(--vermilion);
+}
+em.hot {
+  background: #ffe14a;
+  color: #1a120c;
+  font-style: normal;
+  padding: 0 2px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--vermilion);
+}
+.loupe {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: rgba(12, 8, 6, .94);
+  display: none;
+  flex-direction: column;
+  padding: 8px;
+  gap: 8px;
+}
+.loupe.on { display: flex; }
+.loupe-view {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #fff;
+  touch-action: none;
+}
+.loupe-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--paper);
+  font-size: 12px;
+  background: #1a100c;
+  border-radius: 12px;
+  padding: 8px 10px;
+  position: relative;
+  z-index: 2;
+}
+#btnLoupeClose { min-width: 88px; padding: 8px 12px; }
+.loupe .drag-tag, .loupe .stamp { display: none !important; }
+.note { margin: 0; font-size: 14px; line-height: 1.5; max-width: 360px; }
+@media (orientation: landscape) and (max-height: 540px) {
+  #app { width: 100vw; }
+  h1 { font-size: 28px; }
+  .seal { width: 46px; height: 46px; font-size: 16px; }
+  .rules { font-size: 12px; margin: 2px 0; }
+  .btn { padding: 8px 12px; }
+  #screenTitle.on, #screenResult.on, #screenEnding.on { padding: 8px 16px; gap: 4px; }
+  #screenSelect.on { padding: 6px 10px; }
+  .stage-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .stage-btn { padding: 6px 8px; }
+  #screenPlay.on {
+    display: grid;
+    grid-template-columns: minmax(148px, 30%) minmax(0, 1fr) minmax(104px, 132px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  #screenPlay .cust {
+    grid-column: 1; grid-row: 1;
+    max-height: none;
+    height: auto;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: hidden;
+    padding: 6px;
+  }
+  #screenPlay .item-col { grid-column: 2; grid-row: 1; height: 100%; padding-bottom: 8px; }
+  #screenPlay .actions {
+    grid-column: 3; grid-row: 1;
+    flex-direction: column;
+    justify-content: center;
+    padding: 6px;
+  }
+  #screenPlay .actions button { min-height: 0; flex: 1; font-size: 14px; }
+  .portrait-wrap { width: min(96px, 30vh); align-self: center; }
+  .bubble { font-size: 12px; flex: 1; }
+  .bubble:before {
+    left: 16px; top: -7px;
+    border: 7px solid transparent;
+    border-bottom-color: var(--paper);
+    border-top: 0;
+    border-right-color: transparent;
+  }
+  .loupe-hint { display: none; }
+  #screenPlay.revealing {
+    grid-template-columns: minmax(120px, 24%) minmax(0, 1fr) minmax(200px, 34%);
+  }
+  .reveal {
+    left: auto;
+    width: min(270px, 32vw);
+    top: 6px;
+    bottom: 6px;
+    max-height: none;
+  }
+  #screenPlay.revealing .item-col { padding-bottom: 8px; }
+}
+@media (max-height: 700px) and (orientation: portrait) {
+  .cust { max-height: 28%; }
+  .actions { padding: 6px 10px 8px; }
+  .actions button { min-height: 44px; }
+  .plaque { margin-top: 6px; padding: 4px 8px 5px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="hud">
+    <div id="hudStage">ぶっちゃけ鑑定所</div>
+    <div class="hud-stats">
+      <span id="hudLeft"></span>
+      <span id="hudScore"></span>
+      <span id="hudTime"></span>
+    </div>
+  </header>
+  <div id="timebar"><i id="timefill"></i></div>
+
+  <section id="screenTitle" class="screen on">
+    <div class="seal">鑑</div>
+    <h1>ぶっちゃけ鑑定所</h1>
+    <p class="sub">辛口AI鑑定士・Grok</p>
+    <ul class="rules">
+      <li>右スワイプ（または右ボタン、→キー）で本物。左でニセモノ。</li>
+      <li>手がかりは3つ。品物の違和感、セリフと説明札の矛盾、客のそぶり。</li>
+      <li>汗は緊張だけのこともある。長押しかダブルタップでルーペ。</li>
+    </ul>
+    <div class="stack">
+      <button type="button" class="btn" id="btnStart">営業開始</button>
+    </div>
+  </section>
+
+  <section id="screenSelect" class="screen">
+    <h2>ステージ</h2>
+    <p class="sub" id="selectProgress"></p>
+    <div id="stageList" class="stage-list"></div>
+    <button type="button" class="btn ghost" id="btnSelectTitle">タイトルへ</button>
+  </section>
+
+  <section id="screenPlay" class="screen">
+    <div class="cust">
+      <div class="portrait-wrap">
+        <div class="portrait" id="portrait">
+          <img id="custImg" alt="">
+          <div class="sweat" id="sweat"><span></span><span></span><span></span></div>
+        </div>
+        <div class="cust-name" id="custName"></div>
+        <div class="tells" id="tells"></div>
+      </div>
+      <div class="bubble" id="bubble"><p id="line" style="margin:0"></p></div>
+    </div>
+    <div class="item-col" id="itemCol">
+      <div class="card-slot" id="cardSlot">
+        <div class="card" id="card">
+          <div class="zoomwrap" id="zoomwrap">
+            <img id="itemImg" alt="">
+            <svg id="clueSvg" viewBox="0 0 100 100"></svg>
+            <div class="drag-tag left" id="tagL">ニセモノ</div>
+            <div class="drag-tag right" id="tagR">本物</div>
+            <div class="stamp" id="stamp"></div>
+          </div>
+        </div>
+      </div>
+      <div class="plaque" id="plaque">
+        <div id="itemName"></div>
+        <div id="itemMeta"></div>
+      </div>
+      <div class="loupe-hint">長押し / ダブルタップでルーペ</div>
+    </div>
+    <div class="actions">
+      <button type="button" id="btnFake">← ニセモノ</button>
+      <button type="button" id="btnReal">本物 →</button>
+    </div>
+    <div class="reveal" id="reveal" aria-live="polite"></div>
+    <div class="loupe" id="loupe">
+      <div class="loupe-view" id="loupeView"></div>
+      <div class="loupe-bar">
+        <span>ドラッグで細部を見る</span>
+        <button type="button" class="btn" id="btnLoupeClose">閉じる</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="screenResult" class="screen">
+    <div class="seal" id="resultSeal">合</div>
+    <h2 id="resultTitle">合格</h2>
+    <p class="note" id="resultScore"></p>
+    <p class="note" id="resultNote"></p>
+    <div class="stack">
+      <button type="button" class="btn" id="btnRetry">もう一度</button>
+      <button type="button" class="btn" id="btnNextStage">次のステージ</button>
+      <button type="button" class="btn" id="btnEnding">大団円へ</button>
+      <button type="button" class="btn ghost" id="btnToSelect">ステージ選択</button>
+    </div>
+  </section>
+
+  <section id="screenEnding" class="screen">
+    <div class="seal ok">完</div>
+    <h2>鑑定、終了</h2>
+    <p class="note">町の壺から宇宙の石まで、見ました。バーコードはどこにでも生えます。辛口は、まだ営業中です。</p>
+    <div class="stack">
+      <button type="button" class="btn" id="btnEndSelect">ステージ選択</button>
+      <button type="button" class="btn ghost" id="btnEndTitle">タイトルへ</button>
+    </div>
+  </section>
+</div>
+<script>
+'use strict';
+const params = new URLSearchParams(location.search);
+const BOT = params.get('bot') === '1';
+const BOT_FAST = params.get('fast') === '1';
+const SAVE_KEY = 'butchake-appraisal-v1';
+
+const STAGES = [
+  { id: 1, name: '町の骨董市', blurb: '手がかりは見やすめ。まずは目を慣らして。', n: 8, need: 6, time: 18, scale: 1, opacity: 1 },
+  { id: 2, name: '質屋', blurb: '少し小さく、少し薄い。汗には要注意。', n: 8, need: 6, time: 14, scale: 0.85, opacity: 0.9 },
+  { id: 3, name: '美術オークション', blurb: 'サインの一字が、値をゼロにする。', n: 8, need: 6, time: 12, scale: 0.68, opacity: 0.75 },
+  { id: 4, name: '宇宙の密輸品', blurb: '違和感は小さい。ルーペを使え。', n: 8, need: 6, time: 10, scale: 0.52, opacity: 0.62 },
+  { id: 5, name: '最後の大鑑定', blurb: 'ボスは笑って出す。嘘か、本当か。', n: 8, need: 6, time: 8, scale: 0.4, opacity: 0.52 }
+];
+
+const NAMES = {
+  cust_grandpa: '木村のじいちゃん',
+  cust_madam: '黒川夫人',
+  cust_salaryman: '山田課長',
+  cust_shady: '謎の男',
+  cust_alien: 'グリー星人',
+  cust_boss: 'ボス・ウルフ'
+};
+
+const TELL_LABEL = { sweat: '汗', shifty: '目が泳ぐ', fast: '早口' };
+const SLOW_LINES = [
+  '時間切れ。鑑定士の沈黙は、だいたい相手の勝ちです。',
+  '考えすぎです。本物も偽物も、待ってはくれません。',
+  'タイマーに敗れるとは。辛口の前に、指が要ります。'
+];
+
+const CASES = [
+  { id: 's1-01', stage: 1, cust: 'cust_grandpa', item: 'item_vase', real: false,
+    say: '江戸時代の壺じゃ。蔵で百年、眠っとったんじゃよ。',
+    name: '染付牡丹文壺', meta: ['推定：江戸時代', '状態：良好', '伝来：旧家の蔵'],
+    clues: [{ kind: 'barcode', x: 50, y: 80 }], act: '', why: 'visual',
+    hint: '壺の高台のバーコード',
+    ok: 'バーコード付きの江戸時代、斬新ですね。レジは蔵の奥ですか。',
+    ng: '高台のバーコード、見えてますよ。江戸はまだ、読み取り端末を待っていました。' },
+  { id: 's1-02', stage: 1, cust: 'cust_shady', item: 'item_katana', real: false,
+    say: '家宝の刀です。絶対に本物。疑うなら、買ってください。',
+    name: '家宝の刀', meta: ['時代：鎌倉', '銘：なし', '状態：美品'],
+    clues: [{ kind: 'sticker', text: 'おもちゃ', x: 52, y: 46, rot: -48 }], act: '', why: 'visual',
+    hint: '刀に貼られた「おもちゃ」シール',
+    ok: '家宝に「おもちゃ」。真剣なのは、営業トークだけですね。',
+    ng: '鞘の「おもちゃ」、達磨…いや刀が泣いてます。家宝というより、おまけです。' },
+  { id: 's1-03', stage: 1, cust: 'cust_salaryman', item: 'item_watch', real: false,
+    say: '祖父の懐中時計です。戦前から、針だけが休んでいます。',
+    name: '金の懐中時計', meta: ['製造：昭和初期', '機構：手巻き', '状態：停止'],
+    clues: [{ kind: 'engrave', text: 'MADE IN 2019', x: 42, y: 64 }], act: '', why: 'visual',
+    hint: '文字盤の「MADE IN 2019」',
+    ok: '戦前の時計に「MADE IN 2019」。タイムトラベルものとしては、安い方です。',
+    ng: '文字盤の下、2019年製です。祖父の記憶が、令和で上書きされていますね。' },
+  { id: 's1-04', stage: 1, cust: 'cust_madam', item: 'item_painting', real: false,
+    say: 'ピカソのキュビスムよ。サロンで一目惚れしたの。',
+    name: 'キュビスムの肖像', meta: ['作者：パブロ・ピカソ', '年代：1910年代', '額：付き'],
+    clues: [{ kind: 'sign', text: 'Picaso', x: 73, y: 74 }], act: '', why: 'visual',
+    hint: '右下のサイン「Picaso」',
+    ok: 'サインが「Picaso」。iが一個、価値がゼロです。',
+    ng: '右下を見て。ピカソがiを落としてます。落としたのは字母だけじゃありません。' },
+  { id: 's1-05', stage: 1, cust: 'cust_shady', item: 'item_moonrock', real: false,
+    say: '本物の月の石です。値札なんて、付いていたためしがない。',
+    name: '月の石', meta: ['種別：月面の石', '状態：乾燥', '所持：個人'],
+    clues: [{ kind: 'price', text: '¥980', x: 63, y: 60 }], act: '', why: 'visual',
+    hint: '石に付いた値札「¥980」',
+    ok: '値札のない月、のはずが¥980。重力より、値付けが正直です。',
+    ng: '石の¥980、見えてます。月までの運賃にしては、ずいぶん庶民的ですね。' },
+  { id: 's1-06', stage: 1, cust: 'cust_grandpa', item: 'item_daruma', real: false,
+    say: '祖父が[[100年前]]に買っただるまじゃ。高崎の本物じゃよ。',
+    name: '高崎だるま', meta: ['産地：群馬・高崎', '[[製造：1975年]]', '材質：張子'],
+    clues: [], act: '', why: 'contra',
+    hint: 'セリフの「100年前」と札の「1975年」',
+    ok: '100年前なのに1975年。祖父のカレンダー、ずいぶん優遇されています。',
+    ng: '札に1975年とあります。100年前とは、だいたい50年ほど仲違いしています。' },
+  { id: 's1-07', stage: 1, cust: 'cust_madam', item: 'item_vase', real: true,
+    say: '祖母の嫁入り道具です。明治の染付と、目録にあります。',
+    name: '染付牡丹文壺', meta: ['年代：明治', '産地：有田', '来歴：嫁入り道具'],
+    clues: [], act: '', why: 'clean',
+    hint: '手がかりなし。申告と説明札が一致',
+    ok: '矛盾なし、シールなし。珍しく平和な明治です。',
+    ng: 'これは本物です。疑うのは鑑定士の職業病。わかります、私もそうです。' },
+  { id: 's1-08', stage: 1, cust: 'cust_madam', item: 'item_daruma', real: true,
+    say: '初めてなので緊張して…。実家のだるまです。昭和のものです。',
+    name: '張子だるま', meta: ['年代：昭和30年代', '産地：高崎', '材質：張子'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は緊張だけ。品と申告に矛盾なし',
+    ok: '汗をかいているだけの正直者。疑わなくて正解です。今日の私は優しい。',
+    ng: '緊張してただけの正直者を疑うとは、私も人のこと言えませんね。' },
+  { id: 's1-09', stage: 1, cust: 'cust_salaryman', item: 'item_watch', real: true,
+    say: '父の形見です。昭和40年の就職祝いに買ったと聞いています。',
+    name: '懐中時計', meta: ['製造：昭和40年', '種類：手巻き', '状態：稼働'],
+    clues: [], act: '', why: 'clean',
+    hint: '申告の年と製造年が一致',
+    ok: '年号がぴったり。形見にバーコードは付いていません。珍しい。',
+    ng: '札もセリフも昭和40年。疑う材料は、在庫切れです。' },
+  { id: 's1-10', stage: 1, cust: 'cust_grandpa', item: 'item_katana', real: true,
+    say: '祖父が戦後も手放さなかった刀じゃ。登録証もある。',
+    name: '脇差', meta: ['時代：江戸末期', '登録：教育委員会', '長さ：45cm'],
+    clues: [], act: '', why: 'clean',
+    hint: '時代・登録が申告と一致。違和感なし',
+    ok: '登録まで揃った刀。おもちゃのシールが無いだけで、今日は合格です。',
+    ng: '説明と時代が噛み合っています。疑うなら、その目を研いでください。' },
+
+  { id: 's2-01', stage: 2, cust: 'cust_shady', item: 'item_crystal', real: false,
+    say: '宮廷秘蔵の紫水晶です。質流れの掘り出し物。',
+    name: '紫水晶', meta: ['原産：ブラジル', '等級：申告AAA', '処理：顧客談'],
+    clues: [{ kind: 'sticker', text: 'レプリカ', x: 50, y: 78 }], act: '', why: 'visual',
+    hint: '結晶の裾の「レプリカ」',
+    ok: '質流れの前に、工場を流れています。「レプリカ」の三文字、小さいけど正直。',
+    ng: '裾にレプリカ。小さい字ほど、よく本当のことを言います。' },
+  { id: 's2-02', stage: 2, cust: 'cust_madam', item: 'item_crown', real: false,
+    say: '欧州の王家から流出した冠ですわ。[[18世紀]]の品。',
+    name: '金の冠', meta: ['素材：真鍮・ガラス', '[[製造：2016年]]', '宝石：模造'],
+    clues: [], act: '', why: 'contra',
+    hint: '「18世紀」と札の「2016年・真鍮」',
+    ok: '18世紀のガラス玉。王家も量販店も、遠い親戚かもしれません。',
+    ng: '札は2016年、真鍮にガラス。王家の流出というより、倉庫の流出です。' },
+  { id: 's2-03', stage: 2, cust: 'cust_salaryman', item: 'item_vase', real: false,
+    say: '李朝の壺として預かっています。鑑定書は、今取りに行っています。',
+    name: '青磁風の壺', meta: ['時代：申告李朝', '鑑定：未着', '預かり：質札'],
+    clues: [{ kind: 'barcode', x: 50, y: 80, sc: 0.85 }], act: '', why: 'visual',
+    hint: '高台の小さなバーコード',
+    ok: '鑑定書より先に、バーコードが到着しています。',
+    ng: '腰にバーコード。李朝は、流通革命を起こしていたんですね。' },
+  { id: 's2-04', stage: 2, cust: 'cust_grandpa', item: 'item_watch', real: true,
+    say: '質に入れたまま亡くなった友人の時計じゃ。昭和の品で間違いない。',
+    name: '懐中時計', meta: ['製造：昭和28年', '預かり：質札4821', '機構：手巻き'],
+    clues: [{ kind: 'mark', text: '4821', x: 42, y: 66, harmless: true }], act: 'sweat', why: 'trap',
+    hint: '文字盤の4821は質札番号と一致。汗は悲しみか金利',
+    ok: '汗と質札番号、どっちも本物の緊張です。番号まで一致している。悪くない。',
+    ng: '質札番号まで一致しています。汗を罪にする鑑定は、サウナで全員を逮捕します。' },
+  { id: 's2-05', stage: 2, cust: 'cust_grandpa', item: 'item_katana', real: true,
+    say: '借金の形に預かったが、登録はちゃんとしとる。江戸末期じゃ。',
+    name: '脇差', meta: ['時代：江戸末期', '登録：あり', '預かり：質流れ前'],
+    clues: [], act: '', why: 'clean',
+    hint: '登録と時代が一致。違和感なし',
+    ok: '質屋でも、登録のある刀は刀です。今日は紙が勝った。',
+    ng: '時代も登録も揃っています。質屋の空気だけで、鋼を偽物にしないでください。' },
+  { id: 's2-06', stage: 2, cust: 'cust_shady', item: 'item_crystal', real: false,
+    say: 'エネルギーの結晶です。説明は不要。今すぐ決めて。',
+    name: 'エネルギー結晶', meta: ['種類：申告アメジスト', '処理：不明', '由来：顧客申告のみ'],
+    clues: [], act: 'fast,shifty', why: 'behavior',
+    hint: '早口と、左右に泳ぐ目。証明はなし',
+    ok: '目が泳いで早口。結晶より、口のほうがエネルギー高い。ニセモノです。',
+    ng: '目が左右に、口が倍速。説明できない結晶には、だいたい理由があります。' },
+  { id: 's2-07', stage: 2, cust: 'cust_madam', item: 'item_painting', real: true,
+    say: '母がパリで買ったピカソの小品です。1950年、サインも一致しています。',
+    name: '肖像小品', meta: ['作者：ピカソ', '年：1950', 'サイン：Picasso'],
+    clues: [{ kind: 'sign', text: 'Picasso', x: 72, y: 74, harmless: true }], act: '', why: 'clean',
+    hint: 'サインは正しい「Picasso」。問題なし',
+    ok: 'サインは「Picasso」。iが揃っています。今回は母の話、信用していい。',
+    ng: 'スペルは正しい。間違いを探しすぎて、本物を見逃しました。あるあるです。' },
+  { id: 's2-08', stage: 2, cust: 'cust_salaryman', item: 'item_daruma', real: false,
+    say: '会社の玄関に置いてあった開運だるま。創業時からのものです。',
+    name: '開運だるま', meta: ['年代：申告創業時', '用途：招福', '由来：社屋'],
+    clues: [{ kind: 'price', text: '¥980', x: 50, y: 30 }], act: '', why: 'visual',
+    hint: '額の値札「¥980」',
+    ok: '創業の魂に¥980。福より、値札が新しい。',
+    ng: 'おでこの¥980。創業時の物価にしては、冷静すぎます。' },
+  { id: 's2-09', stage: 2, cust: 'cust_madam', item: 'item_crown', real: true,
+    say: '祖母の婚礼の冠です。鑑定が初めてで、手が震え…汗が。',
+    name: '婚礼の小冠', meta: ['年代：大正', '素材：金・ガーネット', '用途：婚礼'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は初鑑定の緊張。年と素材は一致',
+    ok: '宣言どおり本物。汗は冠の重さじゃなく、緊張の重さです。',
+    ng: '汗を証拠にする鑑定士は、夏の会議室で全滅します。これは本物。' },
+  { id: 's2-10', stage: 2, cust: 'cust_shady', item: 'item_vase', real: false,
+    say: '子供のころ、[[50年以上前]]に祖父と買った壺です。未使用に近いでしょう。',
+    name: '染付壺', meta: ['[[製造：2019年]]', '状態：未使用に近い', '箱：なし'],
+    clues: [], act: 'shifty', why: 'contra',
+    hint: '「50年以上前」と札の「2019年」',
+    ok: '50年前なのに2019年製、未使用。年号が質流れしています。目も一緒に。',
+    ng: '札の2019年と、50年前が喧嘩しています。目が泳ぐのは、年号のせいです。' },
+
+  { id: 's3-01', stage: 3, cust: 'cust_madam', item: 'item_painting', real: false,
+    say: 'カタログ番号付きのピカソです。落札予定で来ましたの。',
+    name: 'キュビスム肖像', meta: ['作者：P. Picasso', '制作：1907年頃', 'Lot：18'],
+    clues: [{ kind: 'sign', text: 'Picaso', x: 73, y: 74, sc: 0.92 }], act: '', why: 'visual',
+    hint: 'ごく小さいサイン「Picaso」',
+    ok: 'カタログは立派、サインは「Picaso」。一字でロットごと沈みます。',
+    ng: '右下を拡大しましたか。iがいないピカソは、別人です。' },
+  { id: 's3-02', stage: 3, cust: 'cust_salaryman', item: 'item_painting', real: false,
+    say: '応接に掛けていた[[ルノワール]]です。会社の資産として出品します。',
+    name: '額縁つき肖像', meta: ['[[作者不詳・ピカソ風]]', '購入：インテリア店', '証明：なし'],
+    clues: [], act: '', why: 'contra',
+    hint: '口ではルノワール、札は「作者不詳・ピカソ風」',
+    ok: 'ルノワールがキュビスムをやったら、私も名前を変えます。札が正直です。',
+    ng: '絵はピカソ風、口はルノワール。説明札が先に、作者不詳と白状しています。' },
+  { id: 's3-03', stage: 3, cust: 'cust_madam', item: 'item_painting', real: true,
+    say: '母のコレクションです。サインも年も、カタログと一致しています。',
+    name: '肖像', meta: ['作者：ピカソ', 'サイン：Picasso', '年：1912'],
+    clues: [{ kind: 'sign', text: 'Picasso', x: 72, y: 74, harmless: true, sc: 0.9 }], act: '', why: 'clean',
+    hint: '綴りは正しい「Picasso」。問題なし',
+    ok: 'スペルは完璧。疑い深い目が、今日は正しく疑わなかった。成長ですね。',
+    ng: '「Picasso」は正しい綴りです。間違い探しで、本物を処刑しないでください。' },
+  { id: 's3-04', stage: 3, cust: 'cust_shady', item: 'item_crown', real: false,
+    say: '没落貴族から預かった冠です。オークション初出し。',
+    name: '王冠', meta: ['時代：申告19世紀', '宝石：申告ルビー', '証明：口頭'],
+    clues: [{ kind: 'engrave', text: 'MADE IN CHINA', x: 50, y: 74, sc: 0.9 }], act: '', why: 'visual',
+    hint: '冠の帯の「MADE IN CHINA」',
+    ok: '貴族の冠の内側に、とても現代的な生産国。ルビーより正直。',
+    ng: '帯の薄い字、生産国です。ルーペは飾りじゃありません。' },
+  { id: 's3-05', stage: 3, cust: 'cust_salaryman', item: 'item_painting', real: true,
+    say: '落札の代理で緊張しています。依頼主所蔵、ピカソの真筆です。',
+    name: 'キュビスム肖像', meta: ['作者：パブロ・ピカソ', '年：1909', '鑑定：登録済'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は代理人の職務。登録と申告は一致',
+    ok: '代理人が汗をかくのは職務です。真筆側で正解。',
+    ng: '緊張した代理人をニセモノ扱い。依頼主に謝るのは、あなたです。' },
+  { id: 's3-06', stage: 3, cust: 'cust_grandpa', item: 'item_vase', real: false,
+    say: 'オークションに出す壺じゃ。江戸の献上ものじゃよ。手が震えてのう。',
+    name: '染付大壺', meta: ['時代：申告江戸', '伝来：旧家', '箱：なし'],
+    clues: [{ kind: 'barcode', x: 50, y: 80, sc: 0.78 }], act: 'sweat', why: 'visual',
+    hint: '高台の小さなバーコード。汗は関係なし',
+    ok: '献上ものの足にJAN。将軍もポイントカード派でしたか。汗は別件です。',
+    ng: '高台のバーコード、ルーペ案件です。汗に目を奪われましたね。江戸はそこまで便利じゃありません。' },
+  { id: 's3-07', stage: 3, cust: 'cust_madam', item: 'item_crown', real: true,
+    say: '婚礼の冠です。大正15年、祖母のもの。石はガーネットですわ。',
+    name: '婚礼の冠', meta: ['年代：大正15年', '石：ガーネット', '地金：金'],
+    clues: [], act: '', why: 'clean',
+    hint: '年も石も申告と一致',
+    ok: '年も石も一致。冠が本物でも、私の髪には乗りませんが。',
+    ng: '矛盾がありません。キラキラに弱い鑑定は、ここで負けます。' },
+  { id: 's3-08', stage: 3, cust: 'cust_shady', item: 'item_painting', real: false,
+    say: '真筆です。質問は受け付けません。ハンマーの前に決めてください。',
+    name: '肖像画', meta: ['作者：申告ピカソ', '証明：なし', '出品：当日'],
+    clues: [], act: 'fast,shifty', why: 'behavior',
+    hint: '証明なし。早口で、目が泳ぐ',
+    ok: '証明なし、早口、目が泳ぐ。ハンマーより先に却下です。',
+    ng: '証明がない上に、目と口が忙しい。急かす客は、だいたい急な理由があります。' },
+  { id: 's3-09', stage: 3, cust: 'cust_salaryman', item: 'item_daruma', real: false,
+    say: '近代美術としてのだるまです。[[作家の一点物]]で、箱はありませんが真作です。',
+    name: '赤だるま', meta: ['[[量産品・型番DR-04]]', '購入：雑貨店', '箱：なし'],
+    clues: [], act: '', why: 'contra',
+    hint: '「一点物」と札の「型番DR-04」',
+    ok: '一点物の型番。近代美術の定義が、レジ横まで広がりました。',
+    ng: '札に型番DR-04。一点物が量産で来ると、私のコメントも量産したくなります。' },
+  { id: 's3-10', stage: 3, cust: 'cust_madam', item: 'item_crystal', real: true,
+    say: '内包物のある天然水晶です。傷ではなく、自然の模様と鑑定書にあります。緊張して…。',
+    name: '紫水晶', meta: ['処理：なし', '内包：天然', '産地：ブラジル'],
+    clues: [{ kind: 'crack', x: 50, y: 42, harmless: true }], act: 'sweat', why: 'trap',
+    hint: '筋は天然の内包。汗は会場の緊張',
+    ok: '内包物は天然の履歴書。汗は会場の暖房。両方、本物側です。',
+    ng: '傷に見えたそれは、説明どおりの内包。緊張と天然を、ニセモノにしないで。' },
+
+  { id: 's4-01', stage: 4, cust: 'cust_alien', item: 'item_moonrock', real: false,
+    say: 'これが月の石。ぼくの星の隣で拾った。ほんもの。',
+    name: '月面標本', meta: ['採取：申告・静かの海', '重量：240g', '書類：口頭'],
+    clues: [{ kind: 'price', text: '¥980', x: 62, y: 58, sc: 0.9 }], act: '', why: 'visual',
+    hint: '石の小さな値札「¥980」',
+    ok: '静かの海に¥980。送料のほうが高くつきそうです。',
+    ng: '値札です、ルーペで。月の石が均一価格なのは、100均の重力です。' },
+  { id: 's4-02', stage: 4, cust: 'cust_alien', item: 'item_moonrock', real: false,
+    say: 'データ入りの月の石。地球の学者に渡したい。電源はいらない。',
+    name: '月岩石', meta: ['種別：玄武岩', '電源：不要', '端子：なし（申告）'],
+    clues: [{ kind: 'usb', x: 66, y: 46 }], act: '', why: 'visual',
+    hint: '岩の横腹のUSB端子',
+    ok: '電源不要の石に端子。充電しながら周回していたんですね。',
+    ng: '岩にUSB。月のファームウェア、更新し忘れです。' },
+  { id: 's4-03', stage: 4, cust: 'cust_alien', item: 'item_crystal', real: false,
+    say: 'ぼくの母星の水晶。[[1万年]]かけて育った。光るのは自然だ。',
+    name: '異星結晶', meta: ['[[成形：樹脂・2022年]]', '発光：LED', '電源：ボタン電池'],
+    clues: [{ kind: 'led', x: 50, y: 34 }], act: '', why: 'mix',
+    hint: '結晶のLEDと、札の「樹脂・2022年」',
+    ok: '1万年の樹脂、2022年製。LEDのほうが、年号より正直です。',
+    ng: '光の点と、札の樹脂。1万年は、パッケージのキャッチコピーです。' },
+  { id: 's4-04', stage: 4, cust: 'cust_alien', item: 'item_katana', real: true,
+    say: '地球の刀。登録番号は札と同じ。ぼくは盗んでいない。',
+    name: '日本刀', meta: ['種別：日本刀', '時代：江戸末期', '登録：4120'],
+    clues: [], act: '', why: 'clean',
+    hint: '登録と時代が一致。顔は無罪',
+    ok: '登録まで一致。宇宙人の方が、書類に真面目です。',
+    ng: '緑の顔を容疑にしましたね。書類は揃っています。顔は無罪です。' },
+  { id: 's4-05', stage: 4, cust: 'cust_alien', item: 'item_crystal', real: true,
+    say: '地球の税関が怖くて汗が…。でも結晶は母星の天然です。',
+    name: '母星の水晶', meta: ['産地：ケプラー星系', '処理：なし', '申告：一致'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は税関の恐怖。結晶に加工の跡なし',
+    ok: '税関で汗をかくのは、宇宙人でも人間でも、正直者に多いです。',
+    ng: '汗イコール密輸、と短絡しましたね。今回の結晶は天然です。' },
+  { id: 's4-06', stage: 4, cust: 'cust_alien', item: 'item_watch', real: false,
+    say: '地球の古代文明の時計。ぼくが軌道上で保管していた。',
+    name: '古代の計時装置', meta: ['文明：申告・古代地球', '機構：手巻き', '出所：軌道上'],
+    clues: [{ kind: 'engrave', text: 'MADE IN 2019', x: 42, y: 64, sc: 0.85 }], act: '', why: 'visual',
+    hint: '文字盤の極小「MADE IN 2019」',
+    ok: '古代文明の「MADE IN 2019」。軌道上の保管は、年号を若返らせるんですね。',
+    ng: '裏…文字盤の2019、ルーペ必須。古代はもう少し古いです。' },
+  { id: 's4-07', stage: 4, cust: 'cust_shady', item: 'item_moonrock', real: false,
+    say: '宇宙から来た石。出所は聞かないで。今なら特別価格。',
+    name: '未登録の石', meta: ['書類：なし', '採取地：申告のみ', '価格：要相談'],
+    clues: [], act: 'fast,shifty', why: 'behavior',
+    hint: '書類なし。早口で目が泳ぐ',
+    ok: '書類なし、目は宇宙より忙しい。特別価格の前に、特別にニセモノ。',
+    ng: '出所を聞くな、は出所を聞く合図です。早口の石は、だいたい地上産。' },
+  { id: 's4-08', stage: 4, cust: 'cust_alien', item: 'item_crystal', real: true,
+    say: '発光は天然の蛍光です。LEDではありません。産地は札のとおり。',
+    name: '蛍光水晶', meta: ['発光：天然蛍光', '電源：不要', '産地：母星'],
+    clues: [], act: '', why: 'clean',
+    hint: '端子も矛盾もなし。申告どおり',
+    ok: '自分からLEDではないと言う正直さ。今回は、言葉どおりです。',
+    ng: '矛盾なし、端子なし。光っているだけで罪にすると、夜景も逮捕です。' },
+  { id: 's4-09', stage: 4, cust: 'cust_salaryman', item: 'item_crown', real: false,
+    say: '税関で止まった冠です。輸入案件で、古代の冠だと説明を受けています。',
+    name: '古代冠（通関待ち）', meta: ['申告：古代欧州', '書類：不備', '区分：工芸品'],
+    clues: [{ kind: 'barcode', x: 76, y: 48, sc: 0.8 }], act: '', why: 'visual',
+    hint: '冠の端の極小バーコード',
+    ok: '通関待ちの古代にバーコード。インボイスのほうが、まだ古いでしょう。',
+    ng: '宝石の脇に極小バーコード。書類より先に、線の本数を数えてください。' },
+  { id: 's4-10', stage: 4, cust: 'cust_alien', item: 'item_moonrock', real: true,
+    say: '試料番号は74220。汗は船酔いです。石は本物。',
+    name: '月の石', meta: ['試料番号：74220', '採取：アポロ17号', '譲渡：研究用'],
+    clues: [{ kind: 'mark', text: '74220', x: 48, y: 82, harmless: true, size: 2.8 }], act: 'sweat', why: 'trap',
+    hint: '台座の74220は札と同じ。汗は船酔い',
+    ok: '番号一致、汗は船酔い。宇宙酔いを密輸に数えなくて正解。',
+    ng: '台座の番号は札と同じ74220。船酔いをニセモノ認定とは、重力に厳しい。' },
+
+  { id: 's5-01', stage: 5, cust: 'cust_madam', item: 'item_painting', real: false,
+    say: '最後の出品です。ピカソ、真筆。ルーペをお持ちなら、どうぞ。',
+    name: '小品・肖像', meta: ['作者：申告ピカソ', '年：1911', '証明：口頭'],
+    clues: [{ kind: 'sign', text: 'Picaso', x: 73, y: 74, sc: 0.82 }], act: '', why: 'visual',
+    hint: '右下の薄いサイン「Picaso」',
+    ok: '最後の出品で、iを忘れる。ルーペが、カタログより偉い。',
+    ng: '薄い「Picaso」。大鑑定でこれを見逃すと、私の席が泣きます。' },
+  { id: 's5-02', stage: 5, cust: 'cust_salaryman', item: 'item_painting', real: true,
+    say: '最終ロットの代理です。汗は会場のせいです。サインはカタログどおり。',
+    name: '肖像', meta: ['作者：ピカソ', 'サイン：Picasso', '年：1912'],
+    clues: [{ kind: 'sign', text: 'Picasso', x: 72, y: 74, harmless: true, sc: 0.82 }], act: 'sweat', why: 'trap',
+    hint: '綴りは正しい「Picasso」。汗は会場の熱',
+    ok: '正しい綴りを、熱い会場で守った。代理人、合格です。あなたも。',
+    ng: '「Picasso」は合っています。汗と綴りを、同じ容疑にしないでください。' },
+  { id: 's5-03', stage: 5, cust: 'cust_grandpa', item: 'item_katana', real: false,
+    say: 'これが[[源氏伝来の宝刀]]じゃ。最後に、本当のことを言うての。',
+    name: '伝来刀', meta: ['[[量産模造・平成28年]]', '材質：合金', '登録：なし'],
+    clues: [], act: '', why: 'contra',
+    hint: '「源氏伝来」と札の「平成28年・模造」',
+    ok: '源氏が平成28年に量産を始めた、という新説です。採用しません。',
+    ng: '札が先に、平成の模造と書いています。源氏は、その頃もう会議に出ていません。' },
+  { id: 's5-04', stage: 5, cust: 'cust_grandpa', item: 'item_vase', real: true,
+    say: '明治の染付じゃ。蔵の目録と、この札は同じことを言うとる。',
+    name: '染付壺', meta: ['年代：明治', '産地：有田', '目録：一致'],
+    clues: [], act: '', why: 'clean',
+    hint: '目録・札・セリフが一致。違和感なし',
+    ok: '三者が同じことを言う。大鑑定で、これが一番こわい平和です。',
+    ng: '矛盾がありません。最後だからと、全部を嘘にしないでください。' },
+  { id: 's5-05', stage: 5, cust: 'cust_shady', item: 'item_daruma', real: false,
+    say: '開運の達磨です。汗は照明のせい。願いは本物、中身も本物。',
+    name: '開運だるま', meta: ['年代：申告・明治', '産地：高崎', '箱：なし'],
+    clues: [{ kind: 'sticker', text: 'おもちゃ', x: 50, y: 30, sc: 0.78 }], act: 'sweat', why: 'visual',
+    hint: '額の小さな「おもちゃ」。汗は照明でも罪ではないが、シールは罪',
+    ok: '照明の汗より、額の「おもちゃ」。願いは届いても、鑑定は届きません。',
+    ng: '小さい「おもちゃ」、ルーペの仕事です。汗に免じて許す鑑定は、ここまでです。' },
+  { id: 's5-06', stage: 5, cust: 'cust_shady', item: 'item_crown', real: false,
+    say: '最後の冠です。質問は無し。今この場で決めて。本物です。',
+    name: '冠', meta: ['時代：申告不詳', '証明：なし', '出品：飛び込み'],
+    clues: [], act: 'fast,shifty', why: 'behavior',
+    hint: '証明なし。早口、目が泳ぐ',
+    ok: '大鑑定の飛び込みで、目と口がフル回転。冠より先に、人が落ちます。',
+    ng: '証明がない冠を、早口で本物と言う。その速度が、答えです。' },
+  { id: 's5-07', stage: 5, cust: 'cust_salaryman', item: 'item_watch', real: true,
+    say: '父の形見です。昭和45年の退職記念。手が汗ばむのは、緊張です。',
+    name: '懐中時計', meta: ['製造：昭和45年', '由来：退職記念', '機構：手巻き'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '年が一致。汗は形見の前の緊張',
+    ok: '形見の年号、ぴったり。汗は愛着か、この会場の空調か。本物です。',
+    ng: '昭和45年で一致しています。形見の汗を、偽造の汗にしないでください。' },
+  { id: 's5-08', stage: 5, cust: 'cust_alien', item: 'item_crystal', real: false,
+    say: '母星の最終標本。光は自然。文字は、たぶん星の言葉。',
+    name: '最終標本', meta: ['発光：申告・自然', '産地：母星', '電源：不要（申告）'],
+    clues: [{ kind: 'led', x: 50, y: 32, sc: 0.85 }, { kind: 'engrave', text: '樹脂', x: 50, y: 80, size: 4.2, sc: 0.9 }],
+    act: '', why: 'visual',
+    hint: '小さなLEDと、裾の「樹脂」',
+    ok: '星の言葉が「樹脂」。翻訳が、一番やさしい嘘でした。',
+    ng: '点と、裾の二文字。ルーペは宇宙より近いです。使ってください。' },
+
+  { id: 's5-b1', stage: 5, cust: 'cust_boss', item: 'item_vase', real: false, boss: true,
+    say: '三代続く家宝の壺だ。私を疑うとは、いい目をしている。',
+    name: '家宝の染付壺', meta: ['伝来：三代', '時代：申告江戸', '高台：印あり'],
+    clues: [{ kind: 'barcode', x: 50, y: 80, sc: 0.72, op: 0.85 }], act: '', why: 'visual',
+    hint: '高台に薄く残るバーコード',
+    ok: 'ボスの眼光より、底のバーコードのほうが雄弁です。三代目はレジ係ですか。',
+    ng: '睨まれて見逃しましたね。家宝の高台に、ごく薄いバーコード。ルーペはボスより偉い。' },
+  { id: 's5-b2', stage: 5, cust: 'cust_boss', item: 'item_crown', real: true, boss: true,
+    say: 'これは本物の冠だ。手が汗をかくのは、重いだけだ。時代は江戸後期。',
+    name: '伝来の金冠', meta: ['時代：江戸後期', '素材：金・珊瑚', '来歴：明確'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は冠の重さ。申告と札に矛盾なし',
+    ok: '重い冠、正直な汗。ボスの言葉、今回は額面どおりです。',
+    ng: '緊張…いや重さで汗をかいただけです。疑うとは、私も人のこと言えませんね。' }
+];
+
+const S = {
+  state: 'boot',
+  stageId: 0,
+  correct: 0,
+  served: 0,
+  quota: 0,
+  total: 0,
+  timeLeftRaw: 0,
+  verdict: null,
+  lastHit: null,
+  passed: false,
+  cleared: [],
+  best: {}
+};
+
+let current = null;
+let queue = [];
+let botStage = Math.min(5, Math.max(1, Number(params.get('stage')) || 1));
+let timerId = 0;
+let typeId = 0;
+let botT = 0;
+let lastTickSec = 99;
+let audioUnlocked = false;
+let audioCtxObj = null;
+let loupeOn = false;
+let loupePan = { x: 0, y: 0 };
+let gesture = null;
+let lastTap = 0;
+
+window.__game = {
+  stage: 0,
+  correct: 0,
+  served: 0,
+  state: 'boot',
+  quota: 0,
+  total: 0,
+  timeLeft: 0,
+  caseId: null,
+  truth: null,
+  verdict: null,
+  lastHit: null,
+  cleared: [],
+  bot: BOT,
+  caseCount: 0,
+  passed: false
+};
+
+const $ = (id) => document.getElementById(id);
+const screens = () => Array.from(document.querySelectorAll('.screen'));
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+}
+function plain(s) {
+  return String(s).replace(/\[\[|\]\]/g, '');
+}
+function rich(s, hot) {
+  const re = /\[\[(.+?)\]\]/g;
+  let out = '';
+  let last = 0;
+  let m;
+  const src = String(s);
+  while ((m = re.exec(src))) {
+    out += esc(src.slice(last, m.index));
+    out += hot ? '<em class="hot">' + esc(m[1]) + '</em>' : esc(m[1]);
+    last = m.index + m[0].length;
+  }
+  out += esc(src.slice(last));
+  return out;
+}
+function actsOf(c) {
+  return String(c.act || '').split(',').map((x) => x.trim()).filter(Boolean);
+}
+function stageOf(id) {
+  return STAGES[id - 1] || null;
+}
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i];
+    a[i] = a[j];
+    a[j] = t;
+  }
+  return a;
+}
+
+function loadSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    const o = JSON.parse(raw);
+    if (o && Array.isArray(o.cleared)) {
+      S.cleared = o.cleared.filter((n) => n >= 1 && n <= 5);
+    }
+    if (o && o.best && typeof o.best === 'object') {
+      S.best = o.best;
+    }
+  } catch (e) { /* ignore */ }
+}
+function saveSave() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ cleared: S.cleared, best: S.best }));
+  } catch (e) { /* ignore */ }
+}
+function unlocked(id) {
+  return id === 1 || S.cleared.indexOf(id - 1) !== -1;
+}
+
+function audioCtx() {
+  if (!audioUnlocked) return null;
+  if (audioCtxObj) return audioCtxObj;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  try { audioCtxObj = new AC(); } catch (e) { return null; }
+  return audioCtxObj;
+}
+function unlockAudio() {
+  audioUnlocked = true;
+  try {
+    const ctx = audioCtx();
+    if (ctx && ctx.state === 'suspended') {
+      const p = ctx.resume();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    }
+  } catch (e) { /* ignore */ }
+}
+function blip(freq, dur, type, vol, when) {
+  try {
+    const ctx = audioCtx();
+    if (!ctx || ctx.state !== 'running') return;
+    const t = ctx.currentTime + (when || 0);
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(Math.max(0.0001, vol), t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start(t);
+    o.stop(t + dur + 0.02);
+  } catch (e) { /* ignore */ }
+}
+function soundSwipe() { blip(240, 0.08, 'triangle', 0.05); }
+function soundOk() {
+  blip(523, 0.09, 'sine', 0.06);
+  blip(659, 0.1, 'sine', 0.05, 0.07);
+  blip(784, 0.14, 'sine', 0.05, 0.14);
+}
+function soundNg() {
+  blip(196, 0.14, 'square', 0.035);
+  blip(140, 0.18, 'square', 0.03, 0.09);
+}
+function soundTick() { blip(880, 0.035, 'square', 0.018); }
+function soundClear() {
+  [523, 659, 784, 1046].forEach((f, i) => blip(f, 0.12, 'sine', 0.05, i * 0.08));
+}
+function soundFail() {
+  [392, 349, 311, 262].forEach((f, i) => blip(f, 0.12, 'triangle', 0.04, i * 0.09));
+}
+function soundUi() { blip(640, 0.05, 'sine', 0.035); }
+
+function textWidth(text, fontSize) {
+  let w = 0;
+  const s = String(text);
+  for (let i = 0; i < s.length; i++) {
+    w += s.charCodeAt(i) > 255 ? fontSize * 1.02 : fontSize * 0.62;
+  }
+  return w;
+}
+function textEl(text, size, fill, family, weight) {
+  return '<text x="0" y="0" text-anchor="middle" dominant-baseline="middle" font-size="' + size +
+    '" font-family="' + family + '" font-weight="' + weight + '" fill="' + fill +
+    '" stroke="#fff" stroke-width="0.7" paint-order="stroke" stroke-linejoin="round">' +
+    esc(text) + '</text>';
+}
+function hashBars(seedText) {
+  let seed = 2166136261;
+  const key = String(seedText || 'bc');
+  for (let i = 0; i < key.length; i++) {
+    seed ^= key.charCodeAt(i);
+    seed = Math.imul(seed, 16777619);
+  }
+  const widths = [];
+  for (let i = 0; i < 13; i++) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    widths.push((seed % 2) + 1);
+  }
+  return widths;
+}
+function drawKind(c) {
+  const kind = c.kind;
+  if (kind === 'barcode') {
+    const widths = hashBars(c.text || 'JAN');
+    const unit = 0.72;
+    const gap = 0.38;
+    let total = 0;
+    widths.forEach((bw) => { total += bw * unit + gap; });
+    let cursor = -total / 2;
+    let html = '<rect x="' + (-total / 2 - 1).toFixed(2) + '" y="-5.2" width="' + (total + 2).toFixed(2) + '" height="10.4" rx="0.5" fill="#fff"/>';
+    widths.forEach((bw) => {
+      const w = bw * unit;
+      html += '<rect x="' + cursor.toFixed(2) + '" y="-4" width="' + w.toFixed(2) + '" height="8" fill="#141414"/>';
+      cursor += w + gap;
+    });
+    return html;
+  }
+  if (kind === 'sign') {
+    return textEl(c.text || 'Picaso', c.size || 5.1, '#1a120c', 'Segoe Script, Brush Script MT, cursive', '700');
+  }
+  if (kind === 'engrave') {
+    return textEl(c.text || 'MADE IN 2019', c.size || 3.35, '#3a2918', 'ui-monospace, Menlo, monospace', '800');
+  }
+  if (kind === 'sticker') {
+    const label = c.text || 'おもちゃ';
+    const fs = c.size || 4.6;
+    const w = Math.max(12, textWidth(label, fs) + 3.2);
+    const h = fs + 3.4;
+    return '<rect x="' + (-w / 2) + '" y="' + (-h / 2) + '" width="' + w + '" height="' + h +
+      '" rx="1.2" fill="#ffe14a" stroke="#1a1a1a" stroke-width="0.45"/>' +
+      textEl(label, fs, '#1a1a1a', 'sans-serif', '800');
+  }
+  if (kind === 'price') {
+    const label = c.text || '¥980';
+    const fs = c.size || 4.4;
+    const w = Math.max(14, textWidth(label, fs) + 3.4);
+    const h = fs + 3.6;
+    return '<line x1="-5" y1="' + (-h / 2) + '" x2="-5" y2="' + (-h / 2 - 3.2) + '" stroke="#c23b2e" stroke-width="0.45"/>' +
+      '<circle cx="-5" cy="' + (-h / 2 - 3.8) + '" r="0.9" fill="none" stroke="#c23b2e" stroke-width="0.4"/>' +
+      '<rect x="' + (-w / 2) + '" y="' + (-h / 2) + '" width="' + w + '" height="' + h +
+      '" rx="0.8" fill="#fffdf6" stroke="#c23b2e" stroke-width="0.5"/>' +
+      textEl(label, fs, '#c23b2e', 'sans-serif', '800');
+  }
+  if (kind === 'usb') {
+    return '<rect x="-6.2" y="-3.4" width="12.4" height="6.8" rx="1" fill="#fff"/>' +
+      '<rect x="-5" y="-2.2" width="10" height="4.4" rx="1.5" fill="#222"/>' +
+      '<rect x="-1.8" y="-0.9" width="3.6" height="1.8" rx="0.35" fill="#9ad7ff"/>';
+  }
+  if (kind === 'led') {
+    return '<circle r="4.4" fill="#c6ff73" opacity="0.55"/>' +
+      '<circle r="1.7" fill="#f4ffd8" stroke="#2a4d12" stroke-width="0.35"/>';
+  }
+  if (kind === 'mark') {
+    return textEl(c.text || '4821', c.size || 3.3, '#2a2118', 'ui-monospace, monospace', '700');
+  }
+  if (kind === 'crack') {
+    return '<path d="M-8,-3 C-4,-1 -3,2 -1,1 S 3,-2 8,2" fill="none" stroke="#ffffff" stroke-width="1.15" stroke-linecap="round"/>' +
+      '<path d="M-8,-3 C-4,-1 -3,2 -1,1 S 3,-2 8,2" fill="none" stroke="#5b4a78" stroke-width="0.45" stroke-linecap="round"/>';
+  }
+  return '';
+}
+function renderClues(list, dim) {
+  const svg = $('clueSvg');
+  const clues = list || [];
+  svg.innerHTML = clues.map((c, i) => {
+    const sc = dim.scale * (c.sc || 1);
+    const op = dim.opacity * (c.op || 1);
+    const rot = c.rot || 0;
+    return '<g class="cg ' + (c.harmless ? 'harmless' : 'suspect') + '" data-i="' + i +
+      '" transform="translate(' + c.x + ' ' + c.y + ') rotate(' + rot + ') scale(' + sc + ')" opacity="' + op + '">' +
+      drawKind(c) + '</g>';
+  }).join('');
+}
+function highlightClues(mode) {
+  const svg = $('clueSvg');
+  const nodes = svg.querySelectorAll('.cg');
+  nodes.forEach((g) => {
+    const c = current && current.clues ? current.clues[Number(g.getAttribute('data-i'))] : null;
+    g.classList.remove('hot', 'okhot');
+    if (!c) return;
+    if (mode === 'suspect' && !c.harmless) {
+      g.setAttribute('opacity', '1');
+      g.classList.add('hot');
+    } else if (mode === 'harmless' && c.harmless) {
+      g.setAttribute('opacity', '1');
+      g.classList.add('okhot');
+    }
+  });
+}
+
+function publish() {
+  const g = window.__game;
+  g.stage = S.stageId;
+  g.correct = S.correct;
+  g.served = S.served;
+  g.state = S.state;
+  g.quota = S.quota;
+  g.total = S.total;
+  g.timeLeft = Math.ceil(S.timeLeftRaw || 0);
+  g.caseId = current ? current.id : null;
+  g.truth = current ? !!current.real : null;
+  g.verdict = S.verdict;
+  g.lastHit = S.lastHit;
+  g.cleared = S.cleared.slice();
+  g.bot = BOT;
+  g.caseCount = CASES.length;
+  g.passed = !!S.passed;
+  paintHud();
+}
+function paintHud() {
+  const st = stageOf(S.stageId);
+  const inRound = S.state === 'play' || S.state === 'reveal' || S.state === 'result';
+  $('hudStage').textContent = st && inRound ? st.name : 'ぶっちゃけ鑑定所';
+  $('hudLeft').textContent = inRound ? ('残り ' + Math.max(0, S.total - S.served) + '人') : '';
+  $('hudScore').textContent = inRound ? ('正解 ' + S.correct + '/' + S.quota) : '';
+  const timeEl = $('hudTime');
+  if (S.state === 'play' || S.state === 'reveal') {
+    const sec = Math.ceil(S.timeLeftRaw || 0);
+    timeEl.textContent = String(sec);
+    timeEl.classList.toggle('low', S.state === 'play' && sec <= 5);
+  } else {
+    timeEl.textContent = '';
+    timeEl.classList.remove('low');
+  }
+  const ratio = st && (S.state === 'play' || S.state === 'reveal') ? Math.max(0, Math.min(1, (S.timeLeftRaw || 0) / st.time)) : 0;
+  const fill = $('timefill');
+  fill.style.width = (ratio * 100) + '%';
+  fill.style.background = (S.state === 'play' && S.timeLeftRaw <= 5) ? '#d6453d' : '#e0b85a';
+}
+function showScreen(id) {
+  screens().forEach((s) => s.classList.toggle('on', s.id === id));
+  if (id === 'screenPlay') {
+    requestAnimationFrame(fitCard);
+  }
+}
+function fitCard() {
+  const slot = $('cardSlot');
+  const card = $('card');
+  if (!slot || !card) return;
+  if (!$('screenPlay').classList.contains('on')) return;
+  const r = slot.getBoundingClientRect();
+  const vw = document.documentElement.clientWidth;
+  // Keep the card, its drop shadow, and the 3deg / 8px verdict tilt inside the screen
+  // and above the plaque. 18px is the screen inset; 36px / 32px is tilt + shadow slack.
+  const edge = 18;
+  const left = Math.max(r.left, edge);
+  const right = Math.min(r.right, vw - edge);
+  const byW = right - left - 36;
+  const byH = r.height - 32;
+  const size = Math.floor(Math.min(byW, byH));
+  if (size < 48) return;
+  if (card.style.width === size + 'px' && card.style.height === size + 'px') return;
+  card.style.width = size + 'px';
+  card.style.height = size + 'px';
+}
+
+function stopTimer() {
+  if (timerId) {
+    clearInterval(timerId);
+    timerId = 0;
+  }
+}
+function stopType() {
+  if (typeId) {
+    clearInterval(typeId);
+    typeId = 0;
+  }
+}
+function startTimer() {
+  stopTimer();
+  const st = stageOf(S.stageId);
+  const total = st ? st.time : 10;
+  const t0 = performance.now();
+  S.timeLeftRaw = total;
+  lastTickSec = Math.ceil(total);
+  paintHud();
+  window.__game.timeLeft = lastTickSec;
+  timerId = setInterval(() => {
+    if (S.state !== 'play') {
+      stopTimer();
+      return;
+    }
+    const left = total - (performance.now() - t0) / 1000;
+    S.timeLeftRaw = Math.max(0, left);
+    const sec = Math.ceil(S.timeLeftRaw);
+    if (sec !== lastTickSec) {
+      if (sec <= 5 && sec > 0) soundTick();
+      lastTickSec = sec;
+    }
+    window.__game.timeLeft = sec;
+    paintHud();
+    if (left <= 0) {
+      stopTimer();
+      timeUp();
+    }
+  }, 100);
+}
+
+function setDrag(dx) {
+  $('tagR').style.opacity = dx > 0 ? String(Math.min(1, dx / 72)) : '0';
+  $('tagL').style.opacity = dx < 0 ? String(Math.min(1, -dx / 72)) : '0';
+}
+function cancelGesture() {
+  if (gesture && gesture.hold) clearTimeout(gesture.hold);
+  gesture = null;
+}
+function applyLoupe() {
+  const z = $('zoomwrap');
+  z.classList.add('dragging');
+  z.style.transform = 'translate(' + loupePan.x + 'px,' + loupePan.y + 'px) scale(2.45)';
+}
+function clampPan() {
+  const r = $('loupeView').getBoundingClientRect();
+  const limX = Math.max(40, r.width * 0.72);
+  const limY = Math.max(40, r.height * 0.72);
+  loupePan.x = Math.max(-limX, Math.min(limX, loupePan.x));
+  loupePan.y = Math.max(-limY, Math.min(limY, loupePan.y));
+  applyLoupe();
+}
+function openLoupe() {
+  if (loupeOn || S.state !== 'play') return;
+  loupeOn = true;
+  loupePan = { x: 0, y: 0 };
+  $('loupe').classList.add('on');
+  $('screenPlay').classList.add('louping');
+  $('loupeView').appendChild($('zoomwrap'));
+  applyLoupe();
+}
+function closeLoupe() {
+  if (!loupeOn) return;
+  loupeOn = false;
+  $('loupe').classList.remove('on');
+  $('screenPlay').classList.remove('louping');
+  const z = $('zoomwrap');
+  $('card').appendChild(z);
+  z.classList.remove('dragging');
+  z.style.transform = '';
+  loupePan = { x: 0, y: 0 };
+}
+
+function clearFx() {
+  const portrait = $('portrait');
+  portrait.classList.remove('is-sweat', 'sweat', 'shifty', 'ring-hot', 'ring-ok');
+  $('bubble').classList.remove('fast', 'mark');
+  $('plaque').classList.remove('mark');
+  $('tells').classList.remove('on');
+  $('tells').innerHTML = '';
+  $('card').classList.remove('fly-l', 'fly-r', 'shake');
+  $('stamp').className = 'stamp';
+  $('reveal').classList.remove('on');
+  $('screenPlay').classList.remove('revealing', 'louping');
+  setDrag(0);
+  const z = $('zoomwrap');
+  z.classList.remove('dragging');
+  if (!loupeOn) z.style.transform = '';
+}
+
+function typeLine(text, fast) {
+  stopType();
+  const el = $('line');
+  const full = plain(text);
+  if (fast || BOT) {
+    el.textContent = full;
+    return;
+  }
+  let i = 0;
+  el.textContent = '';
+  typeId = setInterval(() => {
+    i += 1;
+    el.textContent = full.slice(0, i);
+    if (i >= full.length) stopType();
+  }, 26);
+}
+
+function showCase() {
+  stopTimer();
+  stopType();
+  cancelGesture();
+  closeLoupe();
+  clearFx();
+  current = queue.shift() || null;
+  if (!current) {
+    showResult();
+    return;
+  }
+  const c = current;
+  const st = stageOf(S.stageId);
+  $('custImg').src = 'assets/' + c.cust + '.jpg';
+  $('custImg').alt = NAMES[c.cust] || '客';
+  $('custName').textContent = NAMES[c.cust] || '';
+  $('itemImg').src = 'assets/' + c.item + '.jpg';
+  $('itemImg').alt = c.name;
+  $('itemName').textContent = c.name;
+  $('itemMeta').innerHTML = c.meta.map((m) => '<div>' + rich(m, false) + '</div>').join('');
+  $('line').textContent = '';
+  const acts = actsOf(c);
+  $('portrait').classList.toggle('is-sweat', acts.indexOf('sweat') !== -1);
+  $('portrait').classList.toggle('shifty', acts.indexOf('shifty') !== -1);
+  $('bubble').classList.toggle('fast', acts.indexOf('fast') !== -1);
+  renderClues(c.clues, { scale: st.scale, opacity: st.opacity });
+  S.verdict = null;
+  S.lastHit = null;
+  S.state = 'play';
+  typeLine(c.say, acts.indexOf('fast') !== -1);
+  showScreen('screenPlay');
+  startTimer();
+  publish();
+  scheduleBot();
+  requestAnimationFrame(fitCard);
+}
+
+function buildQueue(stageId) {
+  const st = stageOf(stageId);
+  const pool = CASES.filter((c) => c.stage === stageId && !c.boss);
+  const bosses = CASES.filter((c) => c.stage === stageId && c.boss);
+  const take = st.n - (bosses.length ? 1 : 0);
+  const picked = shuffle(pool).slice(0, take);
+  if (bosses.length) picked.push(bosses[Math.floor(Math.random() * bosses.length)]);
+  return picked;
+}
+
+function startStage(id) {
+  const st = stageOf(id);
+  if (!st) return;
+  if (!CASES.length) return;
+  stopTimer();
+  stopType();
+  cancelGesture();
+  closeLoupe();
+  S.stageId = id;
+  S.correct = 0;
+  S.served = 0;
+  S.quota = st.need;
+  S.total = st.n;
+  S.verdict = null;
+  S.lastHit = null;
+  S.passed = false;
+  S.timeLeftRaw = st.time;
+  queue = buildQueue(id);
+  showScreen('screenPlay');
+  showCase();
+}
+
+function applyHighlights() {
+  const c = current;
+  const why = c.why;
+  const hotContra = why === 'contra' || why === 'mix';
+  $('line').innerHTML = rich(c.say, hotContra);
+  $('itemMeta').innerHTML = c.meta.map((m) => '<div>' + rich(m, hotContra) + '</div>').join('');
+  $('bubble').classList.toggle('mark', hotContra);
+  $('plaque').classList.toggle('mark', hotContra);
+  if (why === 'visual' || why === 'mix') highlightClues('suspect');
+  else if ((why === 'clean' || why === 'trap' || why === 'contra') && c.clues.some((x) => x.harmless)) highlightClues('harmless');
+  const acts = actsOf(c);
+  const tells = $('tells');
+  tells.innerHTML = '';
+  if (acts.length) {
+    acts.forEach((a) => {
+      const chip = document.createElement('span');
+      chip.textContent = TELL_LABEL[a] || a;
+      if (why === 'behavior') chip.className = 'hot';
+      if (why === 'trap' && a === 'sweat') chip.className = 'ok';
+      tells.appendChild(chip);
+    });
+    tells.classList.add('on');
+  }
+  const portrait = $('portrait');
+  portrait.classList.toggle('ring-hot', why === 'behavior');
+  portrait.classList.toggle('ring-ok', why === 'trap');
+  const stamp = $('stamp');
+  stamp.textContent = c.real ? '本物' : 'ニセモノ';
+  stamp.className = 'stamp on ' + (c.real ? 'real' : 'fake');
+}
+
+function renderReveal() {
+  const c = current;
+  const timeout = S.verdict === null;
+  const hit = !!S.lastHit;
+  applyHighlights();
+  let comment;
+  if (timeout) comment = SLOW_LINES[(S.served + c.stage) % SLOW_LINES.length];
+  else comment = hit ? c.ok : c.ng;
+  const kicker = timeout ? '時間切れ' : (hit ? '正解' : '不正解');
+  const choice = timeout ? '時間切れ' : (S.verdict === 'real' ? '本物' : 'ニセモノ');
+  const truth = c.real ? '本物' : 'ニセモノ';
+  const nextLabel = S.served >= S.total ? '結果を見る' : '次の客';
+  $('reveal').innerHTML =
+    '<div class="rev-body">' +
+      '<p class="rev-kicker ' + (hit ? 'good' : 'bad') + '">' + kicker + '</p>' +
+      '<p class="rev-line">あなたの判定：' + esc(choice) + '<br>真実：' + truth + '</p>' +
+      '<div class="rev-hint">根拠：' + esc(c.hint) + '</div>' +
+      '<p class="rev-grok"><span>GROKの一言</span><br>' + esc(comment) + '</p>' +
+    '</div>' +
+    '<button type="button" class="btn wide" data-act="next">' + nextLabel + '</button>';
+  $('reveal').classList.add('on');
+  $('screenPlay').classList.add('revealing');
+  requestAnimationFrame(fitCard);
+}
+
+function finishCase(isReal, timeout) {
+  if (S.state !== 'play' || !current) return;
+  S.state = 'reveal';
+  stopTimer();
+  stopType();
+  cancelGesture();
+  closeLoupe();
+  const z = $('zoomwrap');
+  z.classList.remove('dragging');
+  z.style.transform = '';
+  setDrag(0);
+  const hit = !timeout && !!isReal === !!current.real;
+  S.verdict = timeout ? null : (isReal ? 'real' : 'fake');
+  S.lastHit = hit;
+  S.served += 1;
+  if (hit) S.correct += 1;
+  const card = $('card');
+  card.classList.remove('fly-l', 'fly-r', 'shake');
+  if (timeout) card.classList.add('shake');
+  else if (isReal) card.classList.add('fly-r');
+  else card.classList.add('fly-l');
+  if (timeout) soundNg();
+  else {
+    soundSwipe();
+    if (hit) soundOk();
+    else soundNg();
+  }
+  renderReveal();
+  publish();
+  scheduleBot();
+}
+function judge(isReal) { finishCase(!!isReal, false); }
+function timeUp() { finishCase(false, true); }
+
+function nextAfterReveal() {
+  if (S.state !== 'reveal') return;
+  soundUi();
+  if (S.served >= S.total) showResult();
+  else showCase();
+}
+
+function resultComment(pass) {
+  if (pass && S.correct === S.total && S.stageId === 5) return '全問正解でボスも黙りました。今日だけ、辛口は甘口です。少しだけ。';
+  if (pass && S.correct === S.total) return '全問正解。今日の私は、褒める係です。珍しいので覚えておいてください。';
+  if (pass && S.stageId === 5) return 'ボスの目を盗んで合格。辛口の席は、まだあなたのものです。';
+  if (pass) return '合格です。次は嘘が小さく、汗が多くなります。';
+  if (S.correct === 0) return 'ゼロ正解。コイントスの裏が続いた日として、記録に残します。';
+  return 'あと一歩。ニセモノは喜び、本物は少し傷つきました。やり直し。';
+}
+function showResult() {
+  stopTimer();
+  stopType();
+  closeLoupe();
+  const pass = S.correct >= S.quota;
+  S.passed = pass;
+  if (pass) {
+    if (S.cleared.indexOf(S.stageId) === -1) S.cleared.push(S.stageId);
+    const prev = Number(S.best[S.stageId] || 0);
+    if (S.correct > prev) S.best[S.stageId] = S.correct;
+    saveSave();
+    soundClear();
+  } else {
+    soundFail();
+  }
+  const seal = $('resultSeal');
+  seal.textContent = pass ? '合' : '否';
+  seal.classList.toggle('ok', pass);
+  $('resultTitle').textContent = pass ? 'ステージクリア' : '未達';
+  $('resultScore').textContent = '正解 ' + S.correct + ' / ' + S.total + '人　（目標 ' + S.quota + '）';
+  $('resultNote').textContent = resultComment(pass);
+  $('btnNextStage').hidden = !(pass && S.stageId < 5);
+  $('btnEnding').hidden = !(pass && S.stageId === 5);
+  S.state = 'result';
+  showScreen('screenResult');
+  publish();
+  scheduleBot();
+}
+
+function showEnding() {
+  stopTimer();
+  S.state = 'ending';
+  S.passed = true;
+  showScreen('screenEnding');
+  publish();
+  scheduleBot();
+}
+function showSelect() {
+  stopTimer();
+  stopType();
+  closeLoupe();
+  current = null;
+  S.stageId = 0;
+  S.correct = 0;
+  S.served = 0;
+  S.quota = 0;
+  S.total = 0;
+  S.verdict = null;
+  S.lastHit = null;
+  S.timeLeftRaw = 0;
+  S.state = 'select';
+  const done = S.cleared.length;
+  $('selectProgress').textContent = done >= 5 ? '全ステージクリア' : ('クリア ' + done + ' / 5');
+  const list = $('stageList');
+  list.innerHTML = '';
+  STAGES.forEach((st) => {
+    const open = unlocked(st.id);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'stage-btn';
+    btn.disabled = !open;
+    btn.dataset.stage = String(st.id);
+    const cleared = S.cleared.indexOf(st.id) !== -1;
+    const best = S.best[st.id] ? (' ベスト' + S.best[st.id] + '/' + st.n) : '';
+    const status = !open ? '鍵' : (cleared ? 'クリア' : '挑戦');
+    btn.innerHTML =
+      '<span class="sn">' + st.id + '</span>' +
+      '<span class="sm"><b>' + esc(st.name) + '</b>' +
+      '<small>' + esc(st.blurb) + '</small>' +
+      '<small>客' + st.n + '人・目標' + st.need + '・' + st.time + '秒' + esc(best) + '</small></span>' +
+      '<em class="' + (cleared ? 'done' : '') + '">' + status + '</em>';
+    list.appendChild(btn);
+  });
+  showScreen('screenSelect');
+  publish();
+  scheduleBot();
+}
+function showTitle() {
+  stopTimer();
+  stopType();
+  closeLoupe();
+  current = null;
+  S.stageId = 0;
+  S.correct = 0;
+  S.served = 0;
+  S.quota = 0;
+  S.total = 0;
+  S.verdict = null;
+  S.lastHit = null;
+  S.passed = false;
+  S.timeLeftRaw = 0;
+  S.state = 'title';
+  showScreen('screenTitle');
+  publish();
+  scheduleBot();
+}
+
+function botAnswer() {
+  if (S.state !== 'play' || !current) return;
+  const tell = Math.random() < 0.7;
+  judge(tell ? !!current.real : !current.real);
+}
+function botResult() {
+  if (S.state !== 'result') return;
+  if (S.correct >= S.quota) {
+    if (S.stageId >= 5) showEnding();
+    else startStage(S.stageId + 1);
+  } else {
+    startStage(S.stageId);
+  }
+}
+function scheduleBot() {
+  if (!BOT) return;
+  if (botT) clearTimeout(botT);
+  const fast = BOT_FAST;
+  const d = {
+    title: fast ? 30 : 240,
+    select: fast ? 30 : 240,
+    play: fast ? 80 : 620,
+    reveal: fast ? 40 : 480,
+    result: fast ? 40 : 400
+  };
+  if (S.state === 'title') botT = setTimeout(showSelect, d.title);
+  else if (S.state === 'select') botT = setTimeout(() => startStage(botStage), d.select);
+  else if (S.state === 'play') botT = setTimeout(botAnswer, d.play);
+  else if (S.state === 'reveal') botT = setTimeout(nextAfterReveal, d.reveal);
+  else if (S.state === 'result') botT = setTimeout(botResult, d.result);
+}
+
+function onDown(e) {
+  if (S.state !== 'play') return;
+  if (e.button !== undefined && e.button !== 0) return;
+  if (e.target.closest && e.target.closest('button')) return;
+  e.preventDefault();
+  const host = loupeOn ? $('loupeView') : $('itemCol');
+  try { host.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  const startX = e.clientX;
+  const startY = e.clientY;
+  gesture = {
+    id: e.pointerId,
+    x: startX,
+    y: startY,
+    lastX: startX,
+    lastY: startY,
+    moved: false,
+    loupe: false,
+    panning: loupeOn,
+    panX: loupePan.x,
+    panY: loupePan.y,
+    hold: 0
+  };
+  if (!loupeOn) {
+    gesture.hold = setTimeout(() => {
+      if (!gesture || gesture.moved || S.state !== 'play') return;
+      gesture.loupe = true;
+      openLoupe();
+      gesture.panning = true;
+      gesture.panX = 0;
+      gesture.panY = 0;
+      gesture.x = gesture.lastX;
+      gesture.y = gesture.lastY;
+    }, 460);
+  }
+}
+function onMove(e) {
+  if (!gesture || e.pointerId !== gesture.id) return;
+  gesture.lastX = e.clientX;
+  gesture.lastY = e.clientY;
+  const dx = e.clientX - gesture.x;
+  const dy = e.clientY - gesture.y;
+  if (gesture.panning || gesture.loupe) {
+    loupePan.x = gesture.panX + dx;
+    loupePan.y = gesture.panY + dy;
+    clampPan();
+    gesture.panX = loupePan.x;
+    gesture.panY = loupePan.y;
+    gesture.x = e.clientX;
+    gesture.y = e.clientY;
+    return;
+  }
+  if (Math.hypot(dx, dy) > 10) {
+    gesture.moved = true;
+    if (gesture.hold) clearTimeout(gesture.hold);
+  }
+  if (gesture.moved) {
+    const z = $('zoomwrap');
+    z.classList.add('dragging');
+    z.style.transform = 'translate(' + dx + 'px) rotate(' + (dx / 18) + 'deg)';
+    setDrag(dx);
+  }
+}
+function onUp(e) {
+  if (!gesture || e.pointerId !== gesture.id) return;
+  if (gesture.hold) clearTimeout(gesture.hold);
+  const dx = e.clientX - gesture.x;
+  const dy = e.clientY - gesture.y;
+  const g = gesture;
+  gesture = null;
+  if (g.panning || g.loupe) return;
+  if (g.moved && Math.abs(dx) > 64 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+    judge(dx > 0);
+    return;
+  }
+  const z = $('zoomwrap');
+  z.classList.remove('dragging');
+  z.style.transform = '';
+  setDrag(0);
+  const now = Date.now();
+  if (!g.moved && now - lastTap < 300) {
+    openLoupe();
+    lastTap = 0;
+  } else if (!g.moved) {
+    lastTap = now;
+  }
+}
+
+function validate() {
+  if (CASES.length < 40) throw new Error('cases ' + CASES.length);
+  const ids = new Set();
+  const custs = new Set();
+  const items = new Set();
+  const stages = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  const need = ['id', 'stage', 'cust', 'item', 'real', 'say', 'name', 'meta', 'clues', 'act', 'why', 'hint', 'ok', 'ng'];
+  const knownC = ['cust_grandpa', 'cust_madam', 'cust_salaryman', 'cust_shady', 'cust_alien', 'cust_boss'];
+  const knownI = ['item_vase', 'item_painting', 'item_moonrock', 'item_watch', 'item_katana', 'item_crystal', 'item_crown', 'item_daruma'];
+  CASES.forEach((c) => {
+    need.forEach((k) => { if (!(k in c)) throw new Error('missing ' + k + ' ' + c.id); });
+    if (ids.has(c.id)) throw new Error('dup ' + c.id);
+    ids.add(c.id);
+    if (knownC.indexOf(c.cust) === -1) throw new Error('cust ' + c.id);
+    if (knownI.indexOf(c.item) === -1) throw new Error('item ' + c.id);
+    stages[c.stage] = (stages[c.stage] || 0) + 1;
+    custs.add(c.cust);
+    items.add(c.item);
+    const blob = c.say + c.meta.join('');
+    const suspect = (c.clues || []).some((x) => !x.harmless);
+    if ((c.why === 'contra' || c.why === 'mix') && blob.indexOf('[[') === -1) throw new Error('no mark ' + c.id);
+    if ((c.why === 'visual' || c.why === 'behavior' || c.why === 'clean' || c.why === 'trap') && blob.indexOf('[[') !== -1) throw new Error('stray ' + c.id);
+    if ((c.why === 'visual' || c.why === 'mix') && !suspect) throw new Error('no visual ' + c.id);
+    if (c.why === 'contra' && suspect) throw new Error('contra visual ' + c.id);
+    if (c.why === 'behavior' && !/(shifty|fast)/.test(c.act)) throw new Error('no act ' + c.id);
+    if (c.why === 'behavior' && suspect) throw new Error('behavior clue ' + c.id);
+    if (c.why === 'trap' && (!c.real || c.act.indexOf('sweat') === -1)) throw new Error('trap ' + c.id);
+    if ((c.why === 'clean' || c.why === 'trap') && !c.real) throw new Error('not real ' + c.id);
+    if ((c.why === 'clean' || c.why === 'trap') && suspect) throw new Error('real suspect ' + c.id);
+    if ((c.why === 'visual' || c.why === 'contra' || c.why === 'behavior' || c.why === 'mix') && c.real) throw new Error('fake real ' + c.id);
+    if (c.real && /(shifty|fast)/.test(c.act || '')) throw new Error('honest tell ' + c.id);
+    if (c.boss && (c.stage !== 5 || c.cust !== 'cust_boss')) throw new Error('boss ' + c.id);
+    if (c.cust === 'cust_boss' && !c.boss) throw new Error('boss flag ' + c.id);
+  });
+  [1, 2, 3, 4].forEach((s) => { if (stages[s] < 8) throw new Error('short ' + s); });
+  const bosses = CASES.filter((c) => c.stage === 5 && c.boss).length;
+  const rest = CASES.filter((c) => c.stage === 5 && !c.boss).length;
+  if (bosses < 1 || rest < 7) throw new Error('boss pool');
+  knownC.forEach((n) => { if (!custs.has(n)) throw new Error('missing cust ' + n); });
+  knownI.forEach((n) => { if (!items.has(n)) throw new Error('missing item ' + n); });
+}
+
+function bind() {
+  document.addEventListener('pointerdown', unlockAudio);
+  document.addEventListener('keydown', unlockAudio);
+  $('btnStart').addEventListener('click', () => { soundUi(); showSelect(); });
+  $('btnSelectTitle').addEventListener('click', () => { soundUi(); showTitle(); });
+  $('btnEndSelect').addEventListener('click', () => { soundUi(); showSelect(); });
+  $('btnEndTitle').addEventListener('click', () => { soundUi(); showTitle(); });
+  $('btnToSelect').addEventListener('click', () => { soundUi(); showSelect(); });
+  $('btnRetry').addEventListener('click', () => { soundUi(); startStage(S.stageId); });
+  $('btnNextStage').addEventListener('click', () => { soundUi(); startStage(S.stageId + 1); });
+  $('btnEnding').addEventListener('click', () => { soundUi(); showEnding(); });
+  $('stageList').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-stage]');
+    if (!btn || btn.disabled) return;
+    soundUi();
+    startStage(Number(btn.dataset.stage));
+  });
+  $('btnFake').addEventListener('click', () => judge(false));
+  $('btnReal').addEventListener('click', () => judge(true));
+  $('reveal').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act="next"]');
+    if (b) nextAfterReveal();
+  });
+  $('btnLoupeClose').addEventListener('click', () => closeLoupe());
+  const col = $('itemCol');
+  col.addEventListener('pointerdown', onDown);
+  col.addEventListener('pointermove', onMove);
+  col.addEventListener('pointerup', onUp);
+  col.addEventListener('pointercancel', onUp);
+  col.addEventListener('contextmenu', (e) => e.preventDefault());
+  $('loupeView').addEventListener('pointerdown', onDown);
+  $('loupeView').addEventListener('pointermove', onMove);
+  $('loupeView').addEventListener('pointerup', onUp);
+  $('loupeView').addEventListener('pointercancel', onUp);
+  document.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      if (S.state === 'play') judge(false);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      if (S.state === 'play') judge(true);
+    } else if (e.key === 'Enter') {
+      if (S.state === 'reveal') { e.preventDefault(); nextAfterReveal(); }
+      else if (S.state === 'title') { e.preventDefault(); showSelect(); }
+      else if (S.state === 'result') {
+        e.preventDefault();
+        if (S.passed && S.stageId >= 5) showEnding();
+        else if (S.passed && S.stageId < 5) startStage(S.stageId + 1);
+        else startStage(S.stageId);
+      }
+    } else if (e.key === 'Escape' && loupeOn) {
+      closeLoupe();
+    }
+  });
+  window.addEventListener('resize', fitCard);
+  if (window.ResizeObserver) {
+    const slot = $('cardSlot');
+    if (slot) new ResizeObserver(() => fitCard()).observe(slot);
+  }
+  if (params.get('review') === '1') {
+    window.__review = {
+      startStage: startStage,
+      showId: (id) => {
+        const c = CASES.find((x) => x.id === id);
+        if (!c) return;
+        const st = stageOf(c.stage);
+        S.stageId = c.stage;
+        S.correct = 0;
+        S.served = 0;
+        S.quota = 1;
+        S.total = 1;
+        S.passed = false;
+        queue = [c];
+        showScreen('screenPlay');
+        showCase();
+        if (st) { /* stage scale already applied in showCase */ }
+      }
+    };
+  }
+}
+
+function preload() {
+  const srcs = [];
+  Object.keys(NAMES).forEach((n) => srcs.push('assets/' + n + '.jpg'));
+  ['item_vase', 'item_painting', 'item_moonrock', 'item_watch', 'item_katana', 'item_crystal', 'item_crown', 'item_daruma']
+    .forEach((n) => srcs.push('assets/' + n + '.jpg'));
+  srcs.forEach((src) => { const img = new Image(); img.src = src; });
+}
+
+function boot() {
+  validate();
+  loadSave();
+  bind();
+  preload();
+  showTitle();
+}
+boot();
+</script>
+</body>
+</html>
