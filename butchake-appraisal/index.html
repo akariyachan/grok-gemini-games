@@ -84,7 +84,7 @@ button[hidden] { display: none !important; }
 #timefill { display: block; height: 100%; width: 0; background: var(--gold); }
 .screen { display: none; flex: 1 1 auto; min-height: 0; position: relative; }
 .screen.on { display: flex; flex-direction: column; }
-#screenTitle.on, #screenResult.on, #screenEnding.on {
+#screenTitle.on, #screenResult.on, #screenEnding.on, #screenTalk.on {
   justify-content: center;
   align-items: center;
   text-align: center;
@@ -390,7 +390,9 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   line-height: 1.35;
   color: #8a3b32;
   margin-bottom: 3px;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .who:empty { display: none; margin: 0; }
 .qa {
@@ -487,6 +489,14 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
 #clueSvg { pointer-events: none; overflow: visible; }
 #clueSvg .hot { filter: drop-shadow(0 0 1.4px #ff2a2a) drop-shadow(0 0 1.4px #ff2a2a); }
 #clueSvg .okhot { filter: drop-shadow(0 0 1.4px #1f9d55) drop-shadow(0 0 1.4px #1f9d55); }
+#clueSvg .cg.tutor {
+  filter: drop-shadow(0 0 1.6px #ffe14a) drop-shadow(0 0 2.4px #ff9a1f);
+  animation: tutorPulse 1s ease-in-out infinite;
+}
+@keyframes tutorPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .4; }
+}
 .drag-tag {
   position: absolute;
   top: 10px;
@@ -694,6 +704,33 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   64% { transform: translate(6px, -2px); }
   80% { transform: translate(-3px, 1px); }
 }
+#app.flash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #fff8e4;
+  pointer-events: none;
+  z-index: 46;
+  opacity: 0;
+  animation: flashPop .4s ease-out;
+}
+@keyframes flashPop {
+  0% { opacity: .88; }
+  36% { opacity: .4; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app.flash::before { animation: none; opacity: 0; }
+}
+#hankoFx.barrage.on .hanko-seal { animation: hankoBarrage .9s cubic-bezier(.2, .8, .2, 1) forwards; }
+@keyframes hankoBarrage {
+  0% { transform: scale(1.7) rotate(-30deg); opacity: 0; }
+  18% { transform: scale(.88) rotate(-14deg); opacity: 1; }
+  34% { transform: scale(1.32) rotate(8deg); opacity: 1; }
+  52% { transform: scale(.9) rotate(-10deg); opacity: 1; }
+  70% { transform: scale(1.18) rotate(4deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-8deg); opacity: .96; }
+}
 #app.buzz::after {
   content: "";
   position: absolute;
@@ -762,6 +799,7 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   box-shadow: 0 4px 0 rgba(0,0,0,.25);
 }
 .judge-row button:active { transform: translateY(2px); box-shadow: none; }
+.judge-row button:disabled { opacity: .38; }
 #btnFake { background: #b4332a; }
 #btnReal { background: #1f7a45; }
 #btnAsk {
@@ -875,7 +913,12 @@ em.hot {
   .seal { width: 46px; height: 46px; font-size: 16px; }
   .rules { font-size: 12px; margin: 2px 0; }
   .btn { padding: 8px 12px; }
-  #screenTitle.on, #screenResult.on, #screenEnding.on { padding: 8px 16px; gap: 4px; }
+  #screenTitle.on, #screenResult.on, #screenEnding.on, #screenTalk.on { padding: 8px 16px; gap: 4px; }
+  .talk-cast img { width: 36px; height: 36px; }
+  .talk-lines p { font-size: 12px; padding: 3px 6px; }
+  .event-panel { padding: 6px; gap: 4px; }
+  .event-panel button { padding: 6px; font-size: 12px; }
+  .fame { font-size: 13px; }
   #screenSelect.on { padding: 6px 10px; }
   .cast img { width: 36px; height: 36px; }
   .cast img.boss { width: 58px; height: 58px; }
@@ -1049,6 +1092,119 @@ em.hot {
 .badge.fake { background: #fde8e6; color: var(--vermilion); }
 .badge.return { background: #fff4c2; color: #7a4e12; margin-right: 0; }
 .badge.revenge { background: #fde8e6; color: var(--vermilion); margin-right: 0; }
+.badge.ev { background: #efe2c8; color: #2a1810; margin-right: 0; }
+.fame { margin: 0; color: var(--gold); font-weight: 900; letter-spacing: .08em; font-size: 15px; }
+.talk-cast {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+.talk-cast img {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  object-fit: cover;
+  object-position: center 18%;
+  background: var(--cream);
+  flex: 0 0 auto;
+}
+.talk-lines {
+  width: min(420px, 100%);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+.talk-lines p {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 6px 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.talk-lines b { color: var(--vermilion); }
+.rival-bar, .compare {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  margin: 0 0 4px;
+  padding: 3px 6px;
+  border-radius: 10px;
+  background: rgba(20, 12, 8, .72);
+  color: var(--paper);
+  font-size: 11px;
+  font-weight: 800;
+}
+.rival-bar[hidden], .compare[hidden], .coach[hidden], .event-panel[hidden] { display: none !important; }
+.rival-bar img, .compare img {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #fff;
+  flex: 0 0 auto;
+}
+.compare img { object-fit: contain; }
+.rival-bar span, .compare span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.coach {
+  flex: 0 0 auto;
+  margin-top: 4px;
+  background: rgba(28, 20, 15, .9);
+  color: #ffe14a;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+  border-radius: 8px;
+  padding: 4px 8px;
+  pointer-events: none;
+  overflow: hidden;
+}
+.event-panel {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: calc(100% - 16px);
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 8px;
+  border: 2px solid var(--gold);
+  box-shadow: 0 10px 24px rgba(0,0,0,.35);
+}
+.event-panel p { margin: 0; font-weight: 800; font-size: 13px; text-align: center; }
+.event-panel button {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  background: var(--wood);
+  color: var(--paper);
+  font-weight: 800;
+  padding: 8px;
+  font-size: 13px;
+}
 @media (orientation: landscape) and (max-height: 540px) {
   .codex-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
   #screenCodex.on { padding: 6px 10px; }
@@ -1107,6 +1263,7 @@ em.hot {
       <li>手がかりは3つ。品物の違和感、セリフと説明札の矛盾、客のそぶり。</li>
       <li>汗は緊張だけのこともある。長押しかダブルタップでルーペ。</li>
       <li>「質問する」は1人2回まで。タイマーを少し使って、動揺や矛盾を引き出す。</li>
+      <li>あなたは新米店主。評判★は、ステージをクリアするたびに上がる。</li>
     </ul>
     <p class="howline">右で本物、左でニセモノ。質問は2回まで。長押しでルーペ。</p>
     <div class="stack">
@@ -1139,6 +1296,7 @@ em.hot {
       </div>
     </div>
     <div class="item-col" id="itemCol">
+      <div id="rivalBar" class="rival-bar" hidden></div>
       <div class="card-slot" id="cardSlot">
         <div class="card" id="card">
           <div class="zoomwrap" id="zoomwrap">
@@ -1150,10 +1308,12 @@ em.hot {
           </div>
         </div>
       </div>
+      <div id="compare" class="compare" hidden></div>
       <div class="plaque" id="plaque">
         <div id="itemName"></div>
         <div id="itemMeta"></div>
       </div>
+      <div id="coach" class="coach" hidden></div>
       <div class="loupe-hint">長押し / ダブルタップでルーペ</div>
       <div id="comboPop" hidden></div>
       <div id="gainPop"></div>
@@ -1171,6 +1331,7 @@ em.hot {
       </div>
     </div>
     <div class="reveal" id="reveal" aria-live="polite"></div>
+    <div id="eventPanel" class="event-panel" hidden></div>
     <div class="loupe" id="loupe">
       <div class="loupe-view" id="loupeView"></div>
       <div class="loupe-bar">
@@ -1185,6 +1346,7 @@ em.hot {
     <p class="rank-name" id="resultRank"></p>
     <h2 id="resultTitle">合格</h2>
     <p class="note" id="resultScore"></p>
+    <p class="fame" id="resultFame"></p>
     <p class="note" id="resultNote"></p>
     <div class="stack">
       <button type="button" class="btn" id="btnRetry">もう一度</button>
@@ -1208,10 +1370,19 @@ em.hot {
     <button type="button" class="btn ghost" id="btnCodexBack">戻る</button>
   </section>
 
+  <section id="screenTalk" class="screen">
+    <p class="sub" id="talkKicker"></p>
+    <div class="talk-cast" id="talkCast"></div>
+    <div class="talk-lines" id="talkLines"></div>
+    <button type="button" class="btn" id="btnTalkGo">店を開ける</button>
+  </section>
+
   <section id="screenEnding" class="screen">
     <div class="seal ok">完</div>
-    <h2>鑑定、終了</h2>
-    <p class="note">町の壺から宇宙の石まで、見ました。バーコードはどこにでも生えます。辛口は、まだ営業中です。</p>
+    <p class="fame" id="endStars"></p>
+    <h2 id="endTitle">鑑定、終了</h2>
+    <div class="talk-cast" id="endCast"></div>
+    <p class="note" id="endNote"></p>
     <div class="stack">
       <button type="button" class="btn" id="btnEndSelect">ステージ選択</button>
       <button type="button" class="btn ghost" id="btnEndTitle">タイトルへ</button>
@@ -1226,11 +1397,11 @@ const BOT_FAST = params.get('fast') === '1';
 const SAVE_KEY = 'butchake-appraisal-v1';
 
 const STAGES = [
-  { id: 1, name: '町の骨董市', blurb: '手がかりは見やすめ。まずは目を慣らして。', n: 8, need: 6, time: 18, scale: 1, opacity: 1 },
-  { id: 2, name: '質屋', blurb: '少し小さく、少し薄い。汗には要注意。', n: 8, need: 6, time: 14, scale: 0.85, opacity: 0.9 },
-  { id: 3, name: '美術オークション', blurb: 'サインの一字が、値をゼロにする。', n: 8, need: 6, time: 12, scale: 0.68, opacity: 0.75 },
-  { id: 4, name: '宇宙の密輸品', blurb: '違和感は小さい。ルーペを使え。', n: 8, need: 6, time: 10, scale: 0.52, opacity: 0.62 },
-  { id: 5, name: '最後の大鑑定', blurb: 'ボスは笑って出す。嘘か、本当か。', n: 8, need: 6, time: 8, scale: 0.4, opacity: 0.52 }
+  { id: 1, name: '町の骨董市', blurb: '手がかりは大きめ。値切りは相場で。', n: 8, need: 6, time: 24, scale: 1, opacity: 1 },
+  { id: 2, name: '質屋', blurb: '常連の質草。前回と見比べろ。', n: 8, need: 6, time: 14, scale: 0.85, opacity: 0.9 },
+  { id: 3, name: '美術オークション', blurb: 'ライバルが先に叫ぶ。釣られるな。', n: 8, need: 6, time: 12, scale: 0.68, opacity: 0.75 },
+  { id: 4, name: '宇宙の密輸品', blurb: '翻訳機が怪しい。質問で直せ。', n: 8, need: 6, time: 10, scale: 0.52, opacity: 0.62 },
+  { id: 5, name: '最後の大鑑定', blurb: '再来客が勢ぞろい。ボスは三度嘘。', n: 8, need: 6, time: 8, scale: 0.4, opacity: 0.52 }
 ];
 
 const CUSTS = {
@@ -1993,6 +2164,7 @@ const S = {
   timeouts: 0,
   rankIdx: 0,
   rankName: '',
+  endingId: '',
   codex: { items: {}, custs: {} }
 };
 
@@ -2002,6 +2174,7 @@ let botStage = Math.min(5, Math.max(1, Number(params.get('stage')) || 1));
 let timerId = 0;
 let typeId = 0;
 let botT = 0;
+let flashClear = 0;
 let lastTickSec = 99;
 let audioUnlocked = false;
 let audioCtxObj = null;
@@ -2012,11 +2185,122 @@ let lastTap = 0;
 let quipPrev = -1;
 let timerOrigin = 0;
 let timerTotal = 0;
+let timerCap = 10;
 let timeSkew = 0;
 let codexReturn = 'title';
 let codexTab = 'items';
 let codexDetailOn = false;
 const MEM = { pending: [] };
+const RUN = { talked: {}, byStage: {}, events: [] };
+const REUNION_LEAD = {
+  cust_grandpa: '骨董市のあと、また来たぞ。',
+  cust_grandma: '質屋のあとよ。孫がまた持ってきて。',
+  cust_madam: 'オークションの続きですわ。',
+  cust_salaryman: '一応、前回の続きの報告です。',
+  cust_student: 'この前の市のあと、マジでまた来た。',
+  cust_shady: '今なら特別、最終日も特別。',
+  cust_robot: '前ステージのログを引き継ぎました。',
+  cust_alien: '密輸のあと、正規ルートで来た。'
+};
+const BOSS_PHASES = [
+  {
+    item: 'item_watch',
+    name: '祖父の懐中時計',
+    say: 'まずこれだ。三代前の時計。蓋は一度も開けていない。',
+    meta: ['伝来：三代', '時代：明治', '裏蓋：無傷'],
+    clues: []
+  },
+  {
+    item: 'item_crown',
+    name: '王家の冠',
+    say: '話を変えよう。本命はこの冠だ。汗は、重いだけだ。',
+    meta: ['時代：不詳', '証明：口頭', '素材：金（申告）'],
+    clues: []
+  },
+  {
+    item: 'item_vase',
+    name: '家宝の染付壺',
+    say: '最後だ。この壺が本物の家宝だ。腹の印を、よく見ろ。',
+    meta: ['伝来：三代', '時代：申告江戸', '高台：印あり'],
+    clues: [
+      { kind: 'sticker', text: 'レプリカ', x: 50, y: 58 },
+      { kind: 'sticker', text: '家宝', x: 50, y: 18, rot: -8, harmless: true },
+      { kind: 'barcode', x: 36, y: 36, rot: 7, harmless: true },
+      { kind: 'engrave', text: '2019', x: 50, y: 82, rot: -3, harmless: true }
+    ],
+    hint: '腹の黄色い「レプリカ」',
+    ok: '決め手は腹のレプリカ。三代の家宝が、シールで語った。',
+    ng: '腹の「レプリカ」が決め手です。指は、眼光ではなく印へ。'
+  }
+];
+const TALKS = {
+  1: {
+    kicker: '新米店主、開店',
+    cast: ['cust_grandpa', 'cust_student', 'cust_grandma'],
+    go: '店を開ける',
+    lines: [
+      ['店主', '今日から、ぶっちゃけ鑑定所の店主です。'],
+      ['GROK', '新米ですね。私は辛口の鑑定AI。甘さは在庫切れです。'],
+      ['GROK', '最初は町の骨董市。手がかりは大きめ、時間も長め。'],
+      ['店主', '本物と言うなら、いくらで買うかまで言います。']
+    ]
+  },
+  2: {
+    kicker: '次は質屋',
+    cast: ['cust_shady', 'cust_salaryman', 'cust_grandpa'],
+    go: '質屋を開ける',
+    lines: [
+      ['GROK', '質屋の常連が、前に預けた品をまた持ってきます。'],
+      ['店主', '差し替えて来るんですか。'],
+      ['GROK', '前回の絵と、今の品を並べて見なさい。']
+    ]
+  },
+  3: {
+    kicker: '次はオークション',
+    cast: ['cust_madam', 'cust_shady'],
+    go: '会場へ',
+    lines: [
+      ['GROK', 'ライバル鑑定士が、先に「本物！」と叫びます。'],
+      ['店主', '釣られたら負けですね。'],
+      ['GROK', '正解なら、向こうが赤面して帰ります。']
+    ]
+  },
+  4: {
+    kicker: '次は宇宙の窓口',
+    cast: ['cust_alien', 'cust_robot'],
+    go: '窓口を開ける',
+    lines: [
+      ['GROK', '密輸品の客は、翻訳機が壊れています。'],
+      ['店主', 'セリフが文字化けしたら。'],
+      ['GROK', '質問しなさい。正しい意味は、そのあとです。']
+    ]
+  },
+  5: {
+    kicker: '最後の大鑑定',
+    cast: ['cust_grandpa', 'cust_madam', 'cust_alien', 'cust_boss'],
+    go: '大鑑定を始める',
+    lines: [
+      ['GROK', '前のステージの客が、総出で戻ってきます。'],
+      ['店主', 'ボスも、ですか。'],
+      ['GROK', '三度、品と話をすり替えます。'],
+      ['GROK', '最後は決め手を、指で指しなさい。']
+    ]
+  }
+};
+const ENDINGS = {
+  legend: {
+    title: '町の伝説',
+    body: '評判は星五つ、目も鋭い。客が道を尋ね、GROKが珍しく黙った。「今日だけ、辛口は休業です。看板は、あなたのものです。」'
+  },
+  prosper: {
+    title: '灯る看板',
+    body: '星は揃い、予約帳に来週の名前が並ぶ。GROK「合格です。甘い目の残りは、私が預かります。」店は、もう新米だけではなかった。'
+  },
+  steady: {
+    title: '辛口と二人',
+    body: '店は残った。評判は、これから足す。GROK「五つの場を越えた新米は、もう只の新米ではありません。明日も、甘くはしません。」'
+  }
+};
 
 window.__game = {
   stage: 0,
@@ -2039,7 +2323,12 @@ window.__game = {
   maxCombo: 0,
   rank: '',
   asks: 0,
-  visit: null
+  visit: null,
+  stars: 0,
+  event: null,
+  bossPhase: 0,
+  ending: null,
+  seen: []
 };
 
 const $ = (id) => document.getElementById(id);
@@ -2425,6 +2714,7 @@ function highlightClues(mode) {
     if (mode === 'suspect' && !c.harmless) {
       g.setAttribute('opacity', '1');
       g.classList.add('hot');
+      if (current._exposed) g.classList.add('tutor');
     } else if (mode === 'harmless' && c.harmless) {
       g.setAttribute('opacity', '1');
       g.classList.add('okhot');
@@ -2455,12 +2745,18 @@ function publish() {
   g.rank = S.rankName || '';
   g.asks = (current && S.state === 'play') ? Math.max(0, 2 - ((current._asks && current._asks.length) || 0)) : 0;
   g.visit = (current && current._visit) ? current._visit : null;
+  g.stars = starCount();
+  g.event = S.state === 'haggle' ? 'haggle' : (current && current.event ? current.event : null);
+  g.bossPhase = current && current.boss ? (current._bossPhase || 0) : 0;
+  g.ending = S.endingId || null;
+  g.seen = RUN.events.slice();
   paintHud();
 }
 function paintHud() {
   const st = stageOf(S.stageId);
   const inRound = S.state === 'play' || S.state === 'reveal' || S.state === 'result';
-  $('hudStage').textContent = st && inRound ? st.name : 'ぶっちゃけ鑑定所';
+  const named = inRound || S.state === 'talk';
+  $('hudStage').textContent = st && named ? st.name : 'ぶっちゃけ鑑定所';
   $('hudLeft').textContent = inRound ? ('残り ' + Math.max(0, S.total - S.served) + '人') : '';
   $('hudScore').textContent = inRound ? hudScoreText() : '';
   $('hudPts').textContent = inRound ? (S.score + '点') : '';
@@ -2474,7 +2770,8 @@ function paintHud() {
     timeEl.textContent = '';
     timeEl.classList.remove('low');
   }
-  const ratio = st && (S.state === 'play' || S.state === 'reveal') ? Math.max(0, Math.min(1, (S.timeLeftRaw || 0) / st.time)) : 0;
+  const cap = timerCap || (st ? st.time : 1);
+  const ratio = (S.state === 'play' || S.state === 'reveal' || S.state === 'haggle') ? Math.max(0, Math.min(1, (S.timeLeftRaw || 0) / cap)) : 0;
   const fill = $('timefill');
   fill.style.width = (ratio * 100) + '%';
   fill.style.background = (S.state === 'play' && S.timeLeftRaw <= 5) ? '#d6453d' : '#e0b85a';
@@ -2543,6 +2840,7 @@ function resetTally() {
   S.timeouts = 0;
   S.rankIdx = 0;
   S.rankName = '';
+  S.endingId = '';
 }
 function burstSparkle() {
   const layer = $('sparkLayer');
@@ -2617,9 +2915,12 @@ function scoreCase(hit, timeout) {
   if (S.combo > S.maxCombo) S.maxCombo = S.combo;
   const bonus = Math.round(Math.max(0, S.timeLeftRaw) * 10);
   const mult = comboMult(S.combo);
-  const gain = Math.round((100 + bonus) * mult);
+  let extra = 0;
+  if (current && current.event === 'auction' && !current.real) extra += 120;
+  if (current && current.event === 'pawn' && current._swap) extra += 120;
+  const gain = Math.round((100 + bonus) * mult) + extra;
   S.score += gain;
-  S.lastGain = gain;
+  S.lastGain = gain + ((current && current._haggleBonus) || 0);
   S.lastMult = mult;
   showGain(gain, mult);
 }
@@ -2670,7 +2971,10 @@ function timeLeftNow() {
 function startTimer() {
   stopTimer();
   const st = stageOf(S.stageId);
-  timerTotal = st ? st.time : 10;
+  let base = st ? st.time : 10;
+  if (current && current.boss) base = 32;
+  timerCap = base;
+  timerTotal = base;
   timerOrigin = performance.now();
   timeSkew = 0;
   S.timeLeftRaw = timerTotal;
@@ -2768,11 +3072,22 @@ function clearFx() {
   $('stamp').className = 'stamp';
   $('reveal').classList.remove('on');
   $('screenPlay').classList.remove('revealing', 'louping');
-  $('hankoFx').classList.remove('on', 'real', 'fake');
+  $('hankoFx').classList.remove('on', 'real', 'fake', 'barrage');
   $('sparkLayer').classList.remove('on');
   $('sparkLayer').innerHTML = '';
   $('gainPop').classList.remove('on');
   $('app').classList.remove('shake-soft', 'shake-hard', 'buzz');
+  dropFlash();
+  const coach = $('coach');
+  if (coach) { coach.hidden = true; coach.textContent = ''; }
+  const panel = $('eventPanel');
+  if (panel) { panel.hidden = true; panel.innerHTML = ''; }
+  const rival = $('rivalBar');
+  if (rival) { rival.hidden = true; rival.innerHTML = ''; }
+  const cmp = $('compare');
+  if (cmp) { cmp.hidden = true; cmp.innerHTML = ''; }
+  if ($('btnFake')) $('btnFake').disabled = false;
+  if ($('btnReal')) $('btnReal').disabled = false;
   setDrag(0);
   const z = $('zoomwrap');
   z.classList.remove('dragging');
@@ -2800,13 +3115,20 @@ function spokenOf(c) {
 }
 function fillWho(c) {
   const who = $('whoLine');
-  if (!c || (c._visit !== 'smug' && c._visit !== 'revenge')) {
+  if (!c) {
     who.textContent = '';
     return;
   }
-  const revenge = c._visit === 'revenge';
-  who.innerHTML = '<span class="badge ' + (revenge ? 'revenge' : 'return') + '">' +
-    (revenge ? 'リベンジ' : '再来店') + '</span>';
+  const bits = [];
+  if (c._visit === 'revenge') bits.push('<span class="badge revenge">リベンジ</span>');
+  else if (c._visit === 'smug') bits.push('<span class="badge return">再来店</span>');
+  else if (c._visit === 'reunion' || c.event === 'reunion') bits.push('<span class="badge return">再来</span>');
+  if (c.boss) bits.push('<span class="badge revenge">ボス</span>');
+  else if (c.event === 'translate') bits.push('<span class="badge ev">翻訳機</span>');
+  else if (c.event === 'haggle') bits.push('<span class="badge ev">値切り</span>');
+  else if (c.event === 'pawn') bits.push('<span class="badge ev">質入れ</span>');
+  else if (c.event === 'auction') bits.push('<span class="badge ev">競り</span>');
+  who.innerHTML = bits.join('');
 }
 function renderSpeech(c) {
   stopType();
@@ -2862,8 +3184,13 @@ function showCase() {
   S.verdict = null;
   S.lastHit = null;
   S.state = 'play';
+  $('btnFake').disabled = false;
+  $('btnReal').disabled = false;
   updateAskBtn();
   typeLine(spokenOf(c), acts.indexOf('fast') !== -1);
+  paintEventChrome(c);
+  if (c.boss) applyBossPhase(1);
+  else setupTutorial();
   showScreen('screenPlay');
   startTimer();
   publish();
@@ -2945,21 +3272,363 @@ function rememberJudgement() {
   }
   if (MEM.pending.length > 8) MEM.pending = MEM.pending.slice(-8);
 }
+function starCount() {
+  return Math.max(0, Math.min(5, S.cleared.length));
+}
+function starString(n) {
+  const v = Math.max(0, Math.min(5, n | 0));
+  let s = '';
+  for (let i = 0; i < 5; i++) s += i < v ? '★' : '☆';
+  return s;
+}
+function noteEvent(kind) {
+  if (!kind || RUN.events.indexOf(kind) !== -1) return;
+  RUN.events.push(kind);
+}
+function garbleLine(text) {
+  const src = plain(text);
+  let out = '';
+  for (let i = 0; i < src.length; i++) {
+    out += (i > 4 && i % 3 === 0) ? '▒' : src.charAt(i);
+  }
+  return out + '（誤訳：とても美味しい）';
+}
+function markHaggle(list) {
+  const reals = list.filter((c) => !c.boss && c.real && !c.event);
+  const picks = reals.slice(0, 2);
+  picks.forEach((c) => {
+    c.event = 'haggle';
+    c.haggle = {
+      choices: ['¥800', '¥48,000', '¥480万'],
+      ok: 1,
+      note: '相場は四万八千円。'
+    };
+  });
+  if (picks.length) noteEvent('haggle');
+}
+function markPawn(list) {
+  const idx = [];
+  list.forEach((c, i) => {
+    if (!c.boss && !c.real && !c.event) idx.push(i);
+  });
+  idx.slice(0, 2).forEach((i) => {
+    const c = list[i];
+    const prev = i > 0 ? list[i - 1] : null;
+    let item = prev && prev.item !== c.item ? prev.item : '';
+    let name = prev && prev.item !== c.item ? prev.name : '';
+    if (!item) {
+      item = ITEM_IDS.find((id) => id !== c.item) || 'item_vase';
+      name = (ITEM_LABEL[item] || '預かり') + '（預かり）';
+    }
+    c.event = 'pawn';
+    c._swap = true;
+    c.pawn = { item: item, name: name };
+    c._visitLead = '前回と同じ質草、のはずです。 ' + (c._visitLead || '');
+  });
+  if (idx.length) noteEvent('pawn');
+}
+function markAuction(list) {
+  const picks = list.filter((c) => !c.boss && !c.real && !c.event).slice(0, 2);
+  picks.forEach((c) => {
+    c.event = 'auction';
+    c.rival = { name: '黒瀬', cust: 'cust_shady', call: '本物！ この一点は真筆だ！' };
+  });
+  if (picks.length) noteEvent('auction');
+}
+function markTranslate(list) {
+  const aliens = list.filter((c) => !c.boss && !c.event && c.cust === 'cust_alien');
+  const rest = list.filter((c) => !c.boss && !c.event && c.cust !== 'cust_alien');
+  const picks = aliens.concat(rest).slice(0, 2);
+  picks.forEach((c) => {
+    c.event = 'translate';
+    c._trueSay = c.say;
+    c._trueMeta = c.meta.slice();
+    c.say = garbleLine(c.say);
+    c.meta = c.meta.slice();
+    c.meta[0] = '説明：▒翻訳不能▒';
+  });
+  if (picks.length) noteEvent('translate');
+}
+function markReunion(list) {
+  let n = 0;
+  list.forEach((c) => {
+    if (c.boss) return;
+    n += 1;
+    c.event = c.event || 'reunion';
+    if (!c._visit) {
+      c._visit = 'reunion';
+      const lead = REUNION_LEAD[c.cust] || '前の店から、また来た。';
+      c._visitLead = lead + ' ' + (c._visitLead || '');
+    }
+  });
+  if (n) noteEvent('reunion');
+}
+function decorateQueue(stageId, list) {
+  if (stageId === 1) markHaggle(list);
+  else if (stageId === 2) markPawn(list);
+  else if (stageId === 3) markAuction(list);
+  else if (stageId === 4) markTranslate(list);
+  else if (stageId === 5) markReunion(list);
+}
+function pickFinale(pool, bosses, take) {
+  const byCust = {};
+  shuffle(pool).forEach((c) => { if (!byCust[c.cust]) byCust[c.cust] = c; });
+  let picked = shuffle(Object.keys(byCust)).map((k) => cloneCase(byCust[k]));
+  if (picked.length > take) picked = picked.slice(0, take);
+  const used = new Set(picked.map((c) => c._baseId || c.id));
+  shuffle(pool).forEach((c) => {
+    if (picked.length >= take) return;
+    if (used.has(c.id)) return;
+    picked.push(cloneCase(c));
+    used.add(c.id);
+  });
+  picked = shuffle(picked);
+  if (bosses.length) picked.push(cloneCase(bosses[Math.floor(Math.random() * bosses.length)]));
+  return picked;
+}
+function ensureKind(list, stageId, pred, min) {
+  let have = 0;
+  list.forEach((c) => { if (!c.boss && pred(c)) have += 1; });
+  if (have >= min) return;
+  const used = new Set(list.map((c) => c._baseId || c.id));
+  const pool = shuffle(CASES.filter((c) => c.stage === stageId && !c.boss && pred(c) && !used.has(c.id)));
+  let need = min - have;
+  for (let i = 0; i < list.length && need > 0; i++) {
+    if (list[i].boss || pred(list[i])) continue;
+    if (!pool.length) break;
+    list[i] = cloneCase(pool.pop());
+    need -= 1;
+  }
+}
 function buildQueue(stageId) {
   const st = stageOf(stageId);
   const pool = CASES.filter((c) => c.stage === stageId && !c.boss);
   const bosses = CASES.filter((c) => c.stage === stageId && c.boss);
   const take = st.n - (bosses.length ? 1 : 0);
-  const picked = shuffle(pool).slice(0, take).map(cloneCase);
-  if (bosses.length) picked.push(cloneCase(bosses[Math.floor(Math.random() * bosses.length)]));
+  let picked;
+  if (stageId === 5) picked = pickFinale(pool, bosses, take);
+  else {
+    picked = shuffle(pool).slice(0, take).map(cloneCase);
+    if (bosses.length) picked.push(cloneCase(bosses[Math.floor(Math.random() * bosses.length)]));
+  }
+  if (stageId === 1) ensureKind(picked, 1, (c) => !!c.real, 2);
+  if (stageId === 2 || stageId === 3) ensureKind(picked, stageId, (c) => !c.real, 2);
   applyPending(picked, stageId);
+  decorateQueue(stageId, picked);
   return picked;
 }
 
-function startStage(id) {
+function paintEventChrome(c) {
+  const rival = $('rivalBar');
+  const cmp = $('compare');
+  const panel = $('eventPanel');
+  if (panel) {
+    panel.hidden = true;
+    panel.innerHTML = '';
+  }
+  if (c && c.event === 'auction' && c.rival && rival) {
+    rival.hidden = false;
+    rival.innerHTML = '<img src="assets/' + c.rival.cust + '.jpg" alt=""><span>' +
+      esc(c.rival.name) + '「' + esc(c.rival.call) + '」</span>';
+  } else if (rival) rival.hidden = true;
+  if (c && c.event === 'pawn' && c.pawn && cmp) {
+    cmp.hidden = false;
+    cmp.innerHTML = '<img src="assets/' + c.pawn.item + '.jpg" alt=""><span>前回：' +
+      esc(c.pawn.name) + '</span>';
+  } else if (cmp) cmp.hidden = true;
+}
+function paintBossChrome() {
+  const panel = $('eventPanel');
+  const coach = $('coach');
+  if (!current || !current.boss || !panel) return;
+  const phase = current._bossPhase || 1;
+  $('btnFake').disabled = true;
+  $('btnReal').disabled = true;
+  if (phase < 3) {
+    if (coach) coach.hidden = true;
+    panel.hidden = false;
+    panel.innerHTML = '<p>ボスの嘘　' + phase + ' / 3</p>' +
+      '<button type="button" data-act="boss-next">話をすり替えさせる</button>';
+  } else {
+    panel.hidden = true;
+    panel.innerHTML = '';
+    if (coach) {
+      coach.hidden = false;
+      coach.textContent = '長押しでルーペ。決め手の印をタップ。外れは時間減。';
+    }
+  }
+}
+function applyBossPhase(phase) {
+  const src = BOSS_PHASES[phase - 1];
+  if (!src || !current) return;
+  current._bossPhase = phase;
+  current._pointMode = phase >= 3;
+  current.item = src.item;
+  current.name = src.name;
+  current.say = src.say;
+  current.meta = src.meta.slice();
+  current.clues = src.clues.map((x) => Object.assign({}, x));
+  current.real = false;
+  if (phase >= 3) {
+    current.why = 'visual';
+    current.hint = src.hint;
+    current.ok = src.ok;
+    current.ng = src.ng;
+    current.act = '';
+  }
+  $('itemImg').src = 'assets/' + src.item + '.jpg';
+  $('itemImg').alt = src.name;
+  $('itemName').textContent = src.name;
+  $('itemMeta').innerHTML = current.meta.map((m) => '<div>' + rich(m, false) + '</div>').join('');
+  const st = stageOf(S.stageId);
+  renderClues(current.clues, {
+    scale: st ? st.scale : 1,
+    opacity: st ? st.opacity : 1
+  });
+  typeLine(src.say, true);
+  fillWho(current);
+  paintBossChrome();
+  noteEvent('boss' + phase);
+}
+function advanceBoss() {
+  if (!current || !current.boss || current._pointMode) return;
+  applyBossPhase((current._bossPhase || 1) + 1);
+  soundSwipe();
+  publish();
+}
+function pointMatches(clientX, clientY) {
+  const svg = $('clueSvg');
+  const rect = svg.getBoundingClientRect();
+  if (!rect.width || !rect.height) return false;
+  const x = ((clientX - rect.left) / rect.width) * 100;
+  const y = ((clientY - rect.top) / rect.height) * 100;
+  const clue = (current.clues || []).find((c) => !c.harmless);
+  if (!clue) return false;
+  const dx = x - clue.x;
+  const dy = y - clue.y;
+  return dx * dx + dy * dy <= 22 * 22;
+}
+function dropFlash() {
+  if (flashClear) {
+    clearTimeout(flashClear);
+    flashClear = 0;
+  }
+  const app = $('app');
+  if (app) app.classList.remove('flash');
+}
+function fxExpose() {
+  const app = $('app');
+  const fx = $('hankoFx');
+  app.classList.remove('shake-soft', 'shake-hard', 'buzz', 'flash');
+  fx.classList.remove('on', 'real', 'fake', 'barrage');
+  $('sparkLayer').classList.remove('on');
+  void app.offsetWidth;
+  $('hankoWord').textContent = '看破';
+  fx.classList.add('on', 'fake', 'barrage');
+  app.classList.add('flash', 'shake-soft');
+  if (flashClear) clearTimeout(flashClear);
+  flashClear = setTimeout(dropFlash, 460);
+  soundStamp();
+  burstSparkle();
+}
+function exposeBoss() {
+  if (S.state !== 'play' || !current || !current._pointMode) return;
+  current._exposed = true;
+  noteEvent('boss-expose');
+  finishCase(false, false);
+}
+function mockBoss() {
+  if (S.state !== 'play' || !current || !current._pointMode) return;
+  const lines = ['はっ。そこではない。', '私を疑うその指が、甘い。', '外れだ。時計を進めてやる。'];
+  const line = lines[(current._mocks || 0) % lines.length];
+  current._mocks = (current._mocks || 0) + 1;
+  noteEvent('boss-miss');
+  typeLine(line, true);
+  soundNg();
+  $('portrait').classList.add('shifty');
+  spendTime(3);
+}
+function openHaggle() {
+  if (!current || !current.haggle) {
+    finishCase(true, false);
+    return;
+  }
+  const left = timeLeftNow();
+  S.timeLeftRaw = left;
+  stopTimer();
+  timerOrigin = 0;
+  S.state = 'haggle';
+  const coach = $('coach');
+  if (coach) coach.hidden = true;
+  const panel = $('eventPanel');
+  panel.hidden = false;
+  panel.innerHTML = '<p>本物ですね。いくらで買う？</p>' +
+    current.haggle.choices.map((ch, i) =>
+      '<button type="button" data-hag="' + i + '">' + esc(ch) + '</button>').join('');
+  noteEvent('haggle-play');
+  publish();
+  scheduleBot();
+}
+function pickHaggle(idx) {
+  if (S.state !== 'haggle' || !current || !current.haggle) return;
+  const ok = idx === current.haggle.ok;
+  current._priced = true;
+  current._haggleHit = ok;
+  if (ok) {
+    current._haggleBonus = 180;
+    S.score += 180;
+    noteEvent('haggle-ok');
+  } else noteEvent('haggle-miss');
+  const panel = $('eventPanel');
+  panel.hidden = true;
+  panel.innerHTML = '';
+  S.state = 'play';
+  finishCase(true, false);
+}
+function setupTutorial() {
+  const coach = $('coach');
+  if (!coach) return;
+  if (S.stageId !== 1 || S.served >= 2 || !current || current.boss) {
+    coach.hidden = true;
+    return;
+  }
+  const suspects = $('clueSvg').querySelectorAll('.cg.suspect');
+  const has = suspects.length > 0;
+  suspects.forEach((g) => g.classList.add('tutor'));
+  if (!has) {
+    $('bubble').classList.add('mark');
+    $('plaque').classList.add('mark');
+  }
+  coach.hidden = false;
+  coach.textContent = S.served === 0
+    ? (has ? '光る印が手がかり。長押しでルーペ。' : 'セリフと札の色枠を見て。長押しでルーペ。')
+    : '「質問する」は2回まで。少し時間が減ります。';
+  noteEvent('tutor' + S.served);
+}
+function showTalk(id) {
+  stopTimer();
+  stopType();
+  closeLoupe();
+  current = null;
+  const talk = TALKS[id] || TALKS[1];
+  S.state = 'talk';
+  S.stageId = id;
+  S.endingId = '';
+  $('talkKicker').textContent = talk.kicker + '　評判 ' + starString(starCount());
+  $('talkCast').innerHTML = talk.cast.map((cid) =>
+    '<img src="assets/' + cid + '.jpg" alt="">').join('');
+  $('talkLines').innerHTML = talk.lines.map((pair) =>
+    '<p><b>' + esc(pair[0]) + '</b>　' + esc(pair[1]) + '</p>').join('');
+  $('btnTalkGo').textContent = talk.go;
+  $('btnTalkGo').disabled = false;
+  noteEvent('talk' + id);
+  showScreen('screenTalk');
+  publish();
+  scheduleBot();
+}
+function beginRound(id) {
   const st = stageOf(id);
-  if (!st) return;
-  if (!CASES.length) return;
+  if (!st || !CASES.length) return;
   stopTimer();
   stopType();
   cancelGesture();
@@ -2972,6 +3641,32 @@ function startStage(id) {
   queue = buildQueue(id);
   showScreen('screenPlay');
   showCase();
+}
+function startStage(id) {
+  const st = stageOf(id);
+  if (!st || !CASES.length) return;
+  if (!RUN.talked[id]) {
+    RUN.talked[id] = true;
+    showTalk(id);
+    return;
+  }
+  beginRound(id);
+}
+function endingTier() {
+  let sum = 0;
+  let n = 0;
+  for (let i = 1; i <= 5; i++) {
+    let r = null;
+    if (RUN.byStage[i] != null) r = RUN.byStage[i];
+    else if (S.best[i] && S.best[i].rank) r = RANK_NAMES.indexOf(S.best[i].rank);
+    if (r == null || r < 0) continue;
+    sum += r;
+    n += 1;
+  }
+  const avg = n ? sum / n : 0;
+  if (starCount() >= 5 && avg >= 3.2) return 'legend';
+  if (starCount() >= 5 && avg >= 2.4) return 'prosper';
+  return 'steady';
 }
 
 function applyHighlights() {
@@ -3022,13 +3717,21 @@ function renderReveal() {
   else if (!timeout && c._visit === 'smug' && !hit) comment += ' 「この前はどうも」が、二度目もあります。';
   else if (!timeout && c._visit === 'revenge' && hit && c.real) comment += ' リベンジのつもりが、本物でした。';
   else if (!timeout && c._visit === 'revenge' && !hit && !c.real) comment += ' リベンジ、成功されていますね。';
+  if (c._exposed) comment = '決め手はそこだ。' + (c.hint || 'その印') + '。ハンコは三連。ボス、退場。';
+  else if (!timeout && c.event === 'auction' && hit && !c.real) comment += ' ライバルは顔を赤くして、会場の裏から帰った。';
+  else if (!timeout && c.event === 'auction' && !hit && S.verdict === 'real') comment += ' 「本物！」の声に、釣られましたね。';
+  else if (!timeout && c.event === 'pawn' && c._swap && hit) comment += ' 前回の品と違う。差し替え、見抜けています。';
+  else if (!timeout && c.event === 'pawn' && c._swap && !hit) comment += ' 前回の絵と、今の品。並べれば、別物です。';
+  if (c._haggleBonus) comment += ' 値切りは相場どおり。+' + c._haggleBonus + '。';
+  else if (c._priced && !c._haggleHit) comment += ' その値段では、店が泣きます。';
   const kicker = timeout ? '時間切れ' : (hit ? '正解' : '不正解');
   const choice = timeout ? '時間切れ' : (S.verdict === 'real' ? '本物' : '贋作');
   const truth = c.real ? '本物' : '贋作';
   const nextLabel = S.served >= S.total ? '結果を見る' : '次の客';
-  const gainLine = hit
+  let gainLine = hit
     ? ('+' + S.lastGain + '点 ×' + trimMult(S.lastMult) + '　コンボ ' + S.combo)
     : (timeout ? '時間切れ　0点' : 'コンボ終了');
+  if (!hit && c._haggleBonus) gainLine += '　値切り+' + c._haggleBonus;
   const askLine = (c._asks && c._asks.length)
     ? '<div class="rev-hint">質問：' + esc(c._asks.map((a) => a.note).join(' / ')) + '</div>'
     : '';
@@ -3057,6 +3760,10 @@ function finishCase(isReal, timeout) {
   stopType();
   cancelGesture();
   closeLoupe();
+  const coachEl = $('coach');
+  if (coachEl) coachEl.hidden = true;
+  const panelEl = $('eventPanel');
+  if (panelEl) { panelEl.hidden = true; panelEl.innerHTML = ''; }
   const z = $('zoomwrap');
   z.classList.remove('dragging');
   z.style.transform = '';
@@ -3072,7 +3779,8 @@ function finishCase(isReal, timeout) {
   if (timeout) card.classList.add('shake');
   else if (isReal) card.classList.add('fly-r');
   else card.classList.add('fly-l');
-  fxJudge(!!isReal, hit, !!timeout);
+  if (current && current._exposed) fxExpose();
+  else fxJudge(!!isReal, hit, !!timeout);
   if (hit) soundOk();
   else soundNg();
   rememberJudgement();
@@ -3081,7 +3789,19 @@ function finishCase(isReal, timeout) {
   publish();
   scheduleBot();
 }
-function judge(isReal) { finishCase(!!isReal, false); }
+function judge(isReal) {
+  if (S.state !== 'play' || !current) return;
+  if (current.boss) {
+    if (current._pointMode) mockBoss();
+    else advanceBoss();
+    return;
+  }
+  if (isReal && current.event === 'haggle' && current.haggle && !current._priced) {
+    openHaggle();
+    return;
+  }
+  finishCase(!!isReal, false);
+}
 function timeUp() { finishCase(false, true); }
 
 function nextAfterReveal() {
@@ -3134,15 +3854,19 @@ function showResult() {
   stopTimer();
   stopType();
   closeLoupe();
+  dropFlash();
   const pass = S.correct >= S.quota;
   S.passed = pass;
   S.rankIdx = judgeRank(S.correct, S.total, S.score);
   S.rankName = RANK_NAMES[S.rankIdx];
   let dirty = false;
-  if (pass && S.cleared.indexOf(S.stageId) === -1) {
+  const knownClear = S.cleared.indexOf(S.stageId) !== -1;
+  const beforeStars = starCount();
+  if (pass && !knownClear) {
     S.cleared.push(S.stageId);
     dirty = true;
   }
+  if (pass) RUN.byStage[S.stageId] = S.rankIdx;
   if (commitBest()) dirty = true;
   if (dirty) saveSave();
   if (pass) soundClear();
@@ -3156,6 +3880,7 @@ function showResult() {
   $('resultTitle').textContent = pass ? 'ステージクリア' : '未達';
   const rate = S.total ? Math.round((S.correct / S.total) * 100) : 0;
   $('resultScore').textContent = '正解 ' + S.correct + '/' + S.total + '（' + rate + '%）　' + S.score + '点　最大コンボ ' + S.maxCombo;
+  $('resultFame').textContent = '評判 ' + starString(starCount()) + (pass && starCount() > beforeStars ? '　上がった' : '');
   $('resultNote').textContent = resultComment(pass);
   $('btnNextStage').hidden = !(pass && S.stageId < 5);
   $('btnEnding').hidden = !(pass && S.stageId === 5);
@@ -3167,8 +3892,18 @@ function showResult() {
 
 function showEnding() {
   stopTimer();
+  dropFlash();
+  const tier = endingTier();
+  S.endingId = tier;
   S.state = 'ending';
   S.passed = true;
+  const pack = ENDINGS[tier] || ENDINGS.steady;
+  $('endStars').textContent = '評判 ' + starString(starCount());
+  $('endTitle').textContent = pack.title;
+  $('endNote').textContent = pack.body;
+  $('endCast').innerHTML = ['cust_grandpa', 'cust_madam', 'cust_alien', 'cust_student', 'cust_boss'].map((cid) =>
+    '<img src="assets/' + cid + '.jpg" alt="">').join('');
+  noteEvent('ending-' + tier);
   showScreen('screenEnding');
   publish();
   scheduleBot();
@@ -3180,7 +3915,7 @@ function showSelect() {
   resetTally();
   S.state = 'select';
   const done = S.cleared.length;
-  $('selectProgress').textContent = done >= 5 ? '全ステージクリア' : ('クリア ' + done + ' / 5');
+  $('selectProgress').textContent = '評判 ' + starString(starCount()) + '　' + (done >= 5 ? '全ステージクリア' : ('クリア ' + done + ' / 5'));
   const list = $('stageList');
   list.innerHTML = '';
   STAGES.forEach((st) => {
@@ -3220,6 +3955,7 @@ function showTitle() {
   stopType();
   closeLoupe();
   resetTally();
+  RUN.talked = {};
   S.state = 'title';
   pickTitleQuip();
   showScreen('screenTitle');
@@ -3309,18 +4045,30 @@ function updateAskBtn() {
   if (!btn) return;
   const left = current ? Math.max(0, 2 - ((current._asks && current._asks.length) || 0)) : 0;
   btn.textContent = left ? ('質問する ' + left) : '質問する';
-  btn.disabled = S.state !== 'play' || !current || left <= 0;
+  btn.disabled = S.state !== 'play' || !current || left <= 0 || !!(current && current.boss);
 }
 function soundAsk() {
   blip(520, 0.05, 'triangle', 0.04);
   blip(680, 0.06, 'sine', 0.03, 0.05);
 }
 function doAsk() {
-  if (S.state !== 'play' || !current) return;
+  if (S.state !== 'play' || !current || current.boss) return;
   if (!current._asks) current._asks = [];
   if (current._asks.length >= 2) return;
+  if (current.event === 'translate' && !current._translated) {
+    current._translated = true;
+    current.say = current._trueSay || current.say;
+    if (current._trueMeta) current.meta = current._trueMeta.slice();
+    $('itemMeta').innerHTML = current.meta.map((m) => '<div>' + rich(m, false) + '</div>').join('');
+    noteEvent('translate-fix');
+  }
   const n = current._asks.length + 1;
   const built = buildAsk(current, nextQid(current), n);
+  if (current.event === 'translate' && n === 1) {
+    built.a = '翻訳補正：' + plain(current.say) + '／' + built.a;
+    built.note = '様子：誤訳が解けた';
+    built.style = 'slip';
+  }
   current._asks.push(built);
   applyAskStyle(current, built.style, n);
   soundAsk();
@@ -3518,8 +4266,47 @@ function botResult() {
     startStage(S.stageId);
   }
 }
+function botPointBoss() {
+  if (S.state !== 'play' || !current || !current._pointMode) return;
+  const clue = (current.clues || []).find((c) => !c.harmless);
+  const rect = $('clueSvg').getBoundingClientRect();
+  if (clue && rect.width >= 2 && rect.height >= 2) {
+    const x = rect.left + (clue.x / 100) * rect.width;
+    const y = rect.top + (clue.y / 100) * rect.height;
+    if (pointMatches(x, y)) {
+      exposeBoss();
+      return;
+    }
+  }
+  exposeBoss();
+}
 function botStep() {
   if (S.state !== 'play' || !current) return;
+  if (current.boss) {
+    if (!current._pointMode) {
+      advanceBoss();
+      if (S.state === 'play') {
+        if (botT) clearTimeout(botT);
+        botT = setTimeout(botStep, BOT_FAST ? 45 : 420);
+      }
+    } else botPointBoss();
+    return;
+  }
+  if (current.event === 'translate' && !current._translated) {
+    doAsk();
+    if (S.state !== 'play') return;
+    if (botT) clearTimeout(botT);
+    botT = setTimeout(botStep, BOT_FAST ? 45 : 380);
+    return;
+  }
+  if (current.event === 'haggle') {
+    judge(true);
+    return;
+  }
+  if (current.event === 'auction' || current.event === 'pawn') {
+    judge(false);
+    return;
+  }
   const used = current._asks ? current._asks.length : 0;
   const want = used < 2 && Math.random() < (used === 0 ? 0.48 : 0.28);
   if (want) {
@@ -3541,10 +4328,16 @@ function scheduleBot() {
     play: fast ? 80 : 620,
     reveal: fast ? 40 : 480,
     result: fast ? 40 : 400,
-    codex: fast ? 30 : 200
+    codex: fast ? 30 : 200,
+    haggle: fast ? 40 : 420,
+    talk: fast ? 30 : 420
   };
   if (S.state === 'title') botT = setTimeout(showSelect, d.title);
   else if (S.state === 'select') botT = setTimeout(() => startStage(botStage), d.select);
+  else if (S.state === 'talk') botT = setTimeout(() => beginRound(S.stageId), d.talk);
+  else if (S.state === 'haggle') botT = setTimeout(() => {
+    if (current && current.haggle) pickHaggle(current.haggle.ok);
+  }, d.haggle);
   else if (S.state === 'play') botT = setTimeout(botStep, d.play);
   else if (S.state === 'reveal') botT = setTimeout(nextAfterReveal, d.reveal);
   else if (S.state === 'result') botT = setTimeout(botResult, d.result);
@@ -3576,6 +4369,7 @@ function onDown(e) {
     panning: loupeOn,
     panX: loupePan.x,
     panY: loupePan.y,
+    travel: 0,
     hold: 0
   };
   if (!loupeOn) {
@@ -3605,6 +4399,8 @@ function onMove(e) {
     gesture.panY = loupePan.y;
     gesture.x = e.clientX;
     gesture.y = e.clientY;
+    gesture.travel = (gesture.travel || 0) + Math.hypot(dx, dy);
+    if (gesture.travel > 10) gesture.moved = true;
     return;
   }
   if (Math.hypot(dx, dy) > 10) {
@@ -3625,6 +4421,18 @@ function onUp(e) {
   const dy = e.clientY - gesture.y;
   const g = gesture;
   gesture = null;
+  if (current && current._pointMode && S.state === 'play') {
+    const wrap = $('zoomwrap');
+    wrap.classList.remove('dragging');
+    if (!loupeOn) {
+      wrap.style.transform = '';
+      setDrag(0);
+    }
+    if (g.loupe || g.moved) return;
+    if (pointMatches(e.clientX, e.clientY)) exposeBoss();
+    else mockBoss();
+    return;
+  }
   if (g.panning || g.loupe) return;
   if (g.moved && Math.abs(dx) > 64 && Math.abs(dx) > Math.abs(dy) * 1.15) {
     judge(dx > 0);
@@ -3707,6 +4515,21 @@ function bind() {
   $('btnRetry').addEventListener('click', () => { soundUi(); startStage(S.stageId); });
   $('btnNextStage').addEventListener('click', () => { soundUi(); startStage(S.stageId + 1); });
   $('btnEnding').addEventListener('click', () => { soundUi(); showEnding(); });
+  $('btnTalkGo').addEventListener('click', () => {
+    if ($('btnTalkGo').disabled) return;
+    $('btnTalkGo').disabled = true;
+    soundUi();
+    beginRound(S.stageId);
+  });
+  $('eventPanel').addEventListener('click', (e) => {
+    const hag = e.target.closest('[data-hag]');
+    if (hag) {
+      soundUi();
+      pickHaggle(Number(hag.dataset.hag));
+      return;
+    }
+    if (e.target.closest('[data-act="boss-next"]')) advanceBoss();
+  });
   $('stageList').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-stage]');
     if (!btn || btn.disabled) return;
@@ -3742,6 +4565,7 @@ function bind() {
     } else if (e.key === 'Enter') {
       if (S.state === 'reveal') { e.preventDefault(); nextAfterReveal(); }
       else if (S.state === 'title') { e.preventDefault(); showSelect(); }
+      else if (S.state === 'talk') { e.preventDefault(); beginRound(S.stageId); }
       else if (S.state === 'result') {
         e.preventDefault();
         if (S.passed && S.stageId >= 5) showEnding();
