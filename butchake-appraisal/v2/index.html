@@ -1,0 +1,3803 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>ぶっちゃけ鑑定所</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232a1810'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='18' fill='%23e0b85a'%3E鑑%3C/text%3E%3C/svg%3E">
+<style>
+:root {
+  --ink: #1c140f;
+  --paper: #f6f0e4;
+  --paper2: #efe2c8;
+  --vermilion: #d6453d;
+  --green: #1c7a42;
+  --gold: #e0b85a;
+  --wood: #2a1810;
+  --cream: #f4efe4;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; max-width: 100%; }
+body {
+  overflow: hidden;
+  background:
+    radial-gradient(900px 420px at 50% -10%, #5a3a28 0%, #140d0a 55%);
+  color: var(--paper);
+  font-family: "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Hiragino Sans", "Noto Sans CJK JP", Meiryo, sans-serif;
+}
+button { font-family: inherit; cursor: pointer; }
+button:focus { outline: none; }
+button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+button[hidden] { display: none !important; }
+#app {
+  width: min(430px, 100%);
+  height: 100vh;
+  height: 100dvh;
+  margin: 0 auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.04), transparent 80px),
+    linear-gradient(180deg, #3a2418 0%, #2a1810 42%, #22140e 100%);
+  box-shadow: 0 0 0 2px #6b4a30;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+#hud {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px 4px;
+  min-height: 32px;
+  min-width: 0;
+  max-width: 100%;
+}
+#hudStage {
+  flex: 1 1 auto;
+  font-weight: 800;
+  letter-spacing: .04em;
+  font-size: clamp(13px, 3.4vw, 16px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.hud-stats {
+  display: flex;
+  gap: 8px;
+  flex: 0 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(10px, 2.8vw, 13px);
+  font-weight: 700;
+}
+.hud-stats span { white-space: nowrap; }
+#hudTime.low { color: #ffb4a8; }
+#timebar { flex: 0 0 auto; height: 3px; background: #4a3024; }
+#timefill { display: block; height: 100%; width: 0; background: var(--gold); }
+.screen { display: none; flex: 1 1 auto; min-height: 0; position: relative; }
+.screen.on { display: flex; flex-direction: column; }
+#screenTitle.on, #screenResult.on, #screenEnding.on {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 18px 18px 22px;
+  gap: 8px;
+  overflow: auto;
+}
+#screenSelect.on {
+  padding: 10px 12px 12px;
+  gap: 8px;
+  overflow: auto;
+}
+h1, h2 { font-family: "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif CJK JP", "Hiragino Sans", serif; margin: 0; font-weight: 700; }
+h1 { font-size: clamp(28px, 8vw, 44px); letter-spacing: .06em; line-height: 1.2; }
+h2 { font-size: clamp(20px, 5vw, 28px); }
+.sub { margin: 0; color: var(--gold); font-size: 13px; }
+.rules { margin: 6px 0 8px; text-align: left; font-size: 13px; line-height: 1.55; max-width: 360px; }
+.rules li { margin: 2px 0; }
+.seal {
+  width: 62px; height: 62px;
+  border: 3px solid var(--vermilion);
+  color: var(--vermilion);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 22px;
+  transform: rotate(-8deg);
+  margin: 0 auto 2px;
+  background: rgba(214, 69, 61, .08);
+  flex: 0 0 auto;
+}
+.seal.ok { border-color: var(--green); color: var(--green); background: rgba(28, 122, 66, .12); }
+.title-art {
+  width: min(360px, 100%);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.cast, .goods { display: flex; align-items: flex-end; justify-content: center; flex-wrap: wrap; width: 100%; max-width: 100%; min-width: 0; }
+.cast { gap: 4px; }
+.cast img {
+  width: 44px; height: 44px;
+  object-fit: cover;
+  object-position: center 18%;
+  border-radius: 12px;
+  background: var(--cream);
+  border: 2px solid rgba(255,255,255,.4);
+  box-shadow: 0 3px 0 rgba(0,0,0,.28);
+}
+.cast img.boss {
+  width: 72px; height: 72px;
+  border: 3px solid var(--gold);
+  border-radius: 16px;
+  margin: 0 -4px;
+  z-index: 1;
+}
+.goods {
+  gap: 3px;
+  border-bottom: 3px solid rgba(224, 184, 90, .55);
+  padding: 0 2px 3px;
+}
+.goods img {
+  width: 36px; height: 36px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 8px;
+  border: 2px solid #f3ead7;
+}
+.signboard {
+  width: min(320px, 100%);
+  background: linear-gradient(180deg, #7a4630 0%, #3a2216 42%, #24140e 100%);
+  border: 3px solid var(--gold);
+  border-radius: 6px;
+  padding: 6px 12px 8px;
+  box-shadow: 0 6px 0 #140c08, inset 0 0 0 2px rgba(224, 184, 90, .35);
+  transform: rotate(-1deg);
+}
+.sign-kicker {
+  display: block;
+  color: var(--gold);
+  letter-spacing: .28em;
+  font-size: 11px;
+  font-weight: 800;
+}
+.signboard h1 {
+  font-size: 28px;
+  letter-spacing: .06em;
+  line-height: 1.15;
+  white-space: nowrap;
+  text-shadow: 0 2px 0 #140c08;
+}
+.grok-quip {
+  width: min(340px, 100%);
+  margin: 0;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.45;
+  background: rgba(0, 0, 0, .28);
+  border-left: 3px solid var(--vermilion);
+  border-radius: 0 10px 10px 0;
+  padding: 6px 8px;
+}
+.grok-quip b {
+  display: block;
+  color: var(--vermilion);
+  font-size: 10px;
+  letter-spacing: .14em;
+}
+.howline { display: none; margin: 0; font-size: 12px; opacity: .85; }
+.rank-name {
+  margin: 0;
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif CJK JP", serif;
+  font-size: clamp(26px, 7vw, 36px);
+  font-weight: 900;
+  letter-spacing: .14em;
+  line-height: 1.2;
+}
+.rank-name.r0 { color: #c4b4aa; }
+.rank-name.r1 { color: #e4d2b0; }
+.rank-name.r2 { color: var(--gold); }
+.rank-name.r3 { color: #9ad7ae; }
+.rank-name.r4 { color: #ffe14a; text-shadow: 0 0 12px rgba(255, 225, 74, .4); }
+.stack { display: flex; flex-direction: column; gap: 8px; width: min(320px, 100%); }
+.btn {
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 800;
+  font-size: 16px;
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: 0 4px 0 #6b4a30;
+}
+.btn:active { transform: translateY(2px); box-shadow: none; }
+.btn.ghost {
+  background: transparent;
+  color: var(--paper);
+  box-shadow: none;
+  border: 1px solid rgba(255,255,255,.28);
+}
+.btn.wide { width: 100%; }
+.stage-list { display: flex; flex-direction: column; gap: 8px; }
+.stage-btn {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  padding: 8px 10px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 3px 0 rgba(0,0,0,.18);
+}
+.stage-btn:disabled { opacity: .45; box-shadow: none; }
+.stage-btn .sn {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--ink);
+  color: var(--gold);
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+.stage-btn .sm { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.stage-btn .sm b { font-size: 14px; }
+.stage-btn .sm small { font-size: 11px; opacity: .8; line-height: 1.35; }
+.stage-btn em { font-style: normal; font-size: 11px; font-weight: 800; color: var(--vermilion); }
+.stage-btn em.done { color: var(--green); }
+.stage-btn small.best { font-weight: 800; color: #7a4e12; }
+#screenPlay.on { overflow: hidden; isolation: isolate; }
+#screenPlay.revealing .actions,
+#screenPlay.louping .actions { visibility: hidden; pointer-events: none; }
+.cust {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px 0;
+  max-height: 32%;
+  min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+.portrait-wrap { width: clamp(76px, 18vh, 118px); flex: 0 0 auto; position: relative; }
+.portrait {
+  width: 100%;
+  aspect-ratio: 1;
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--cream);
+  box-shadow: 0 4px 0 rgba(0,0,0,.2);
+}
+.portrait img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: center 18%;
+  display: block;
+  background: var(--cream);
+}
+.portrait.shifty img { animation: swim .5s ease-in-out infinite; }
+@keyframes swim {
+  0%, 100% { transform: translateX(-6px); }
+  50% { transform: translateX(7px); }
+}
+.portrait.ring-hot { box-shadow: 0 0 0 3px var(--vermilion); }
+.portrait.ring-ok { box-shadow: 0 0 0 3px var(--green); }
+.sweat { display: none; position: absolute; inset: 0; pointer-events: none; }
+.portrait.is-sweat .sweat { display: block; }
+.sweat span {
+  position: absolute;
+  width: 7px; height: 11px;
+  background: linear-gradient(#f4fbff, #3aa0dc);
+  border-radius: 50% 50% 46% 46%;
+  opacity: .95;
+  animation: drip 1.15s ease-in infinite;
+}
+.sweat span:nth-child(1) { left: 22%; top: 16%; }
+.sweat span:nth-child(2) { left: 70%; top: 22%; animation-delay: .35s; }
+.sweat span:nth-child(3) { left: 46%; top: 12%; animation-delay: .65s; width: 6px; }
+@keyframes drip {
+  0% { transform: translateY(0); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(16px); opacity: 0; }
+}
+.cust-name {
+  text-align: center;
+  font-size: 10px;
+  margin-top: 2px;
+  opacity: .88;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tells {
+  position: absolute;
+  left: 0; right: 0; bottom: 20px;
+  display: none;
+  flex-wrap: wrap;
+  gap: 2px;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: none;
+}
+.tells.on { display: flex; }
+.tells span {
+  font-size: 10px;
+  background: rgba(28,20,15,.82);
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+.tells span.hot { background: var(--vermilion); }
+.tells span.ok { background: var(--green); }
+.bubble {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 16px;
+  padding: 8px 10px;
+  font-size: clamp(12px, 3.1vw, 15px);
+  line-height: 1.45;
+  box-shadow: 0 4px 0 rgba(0,0,0,.15);
+  overflow: visible;
+}
+#line {
+  margin: 0;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  overscroll-behavior: contain;
+}
+@media (orientation: portrait) {
+  .bubble { max-height: min(20vh, 146px); align-self: center; }
+  #line { flex: 0 1 auto; max-height: min(14vh, 104px); }
+}
+.bubble:before {
+  content: "";
+  position: absolute;
+  left: -7px; top: 18px;
+  border: 8px solid transparent;
+  border-right-color: var(--paper);
+  border-left: 0;
+}
+.who {
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.35;
+  color: #8a3b32;
+  margin-bottom: 3px;
+  overflow-wrap: anywhere;
+}
+.who:empty { display: none; margin: 0; }
+.qa {
+  margin-top: 4px;
+  padding-top: 3px;
+  border-top: 1px dashed rgba(28, 20, 15, .2);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.qa b { display: block; font-size: 10px; color: #8a3b32; }
+.qa i { display: block; margin-top: 1px; font-style: normal; font-size: 10px; font-weight: 800; }
+.qa-body { display: block; overflow-wrap: anywhere; }
+.qa.old { opacity: .48; }
+.qa.old:not([open]) > .qa-body { display: none; }
+.qa.old summary {
+  display: block;
+  cursor: pointer;
+  list-style: none;
+}
+.qa.old summary::-webkit-details-marker { display: none; }
+.qa.old summary b,
+.qa.old summary i { display: inline; }
+.qa.old summary i::before { content: " · "; font-weight: 700; }
+.qa.old .qa-body { margin-top: 2px; font-size: 11px; }
+.qa.latest {
+  background: rgba(224, 184, 90, .3);
+  border-radius: 8px;
+  padding: 3px 6px 4px;
+  border-top: 0;
+  box-shadow: inset 3px 0 0 var(--gold);
+}
+.qa i.slip { color: var(--vermilion); }
+.qa i.calm { color: var(--green); }
+.qa i.dodge { color: #8a5a12; }
+.bubble.fast { animation: jabber .11s linear infinite; }
+@keyframes jabber {
+  50% { transform: translateX(2px); }
+}
+.bubble.mark, .plaque.mark { box-shadow: 0 0 0 2px var(--gold), 0 4px 0 rgba(0,0,0,.15); }
+.item-col {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 12px 0;
+  position: relative;
+}
+.card-slot {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  flex: 0 0 auto;
+  background: #fff;
+  border-radius: 18px;
+  border: 3px solid #f3ead7;
+  box-shadow: 0 7px 0 rgba(90, 58, 32, .45);
+  touch-action: none;
+}
+.card.shake { animation: shake .28s linear; }
+@keyframes shake {
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+.zoomwrap {
+  position: absolute;
+  inset: 0;
+  border-radius: 15px;
+  overflow: hidden;
+  background: #fff;
+  transform-origin: 50% 50%;
+  transition: transform .18s ease;
+}
+.zoomwrap.dragging { transition: none; }
+.zoomwrap > img,
+.zoomwrap > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.zoomwrap > img {
+  object-fit: contain;
+  background: #fff;
+  pointer-events: none;
+}
+#clueSvg { pointer-events: none; overflow: visible; }
+#clueSvg .hot { filter: drop-shadow(0 0 1.4px #ff2a2a) drop-shadow(0 0 1.4px #ff2a2a); }
+#clueSvg .okhot { filter: drop-shadow(0 0 1.4px #1f9d55) drop-shadow(0 0 1.4px #1f9d55); }
+.drag-tag {
+  position: absolute;
+  top: 10px;
+  z-index: 3;
+  font-weight: 900;
+  font-size: 20px;
+  opacity: 0;
+  pointer-events: none;
+  text-shadow: 0 1px 0 #fff;
+}
+.drag-tag.left { left: 8px; color: var(--vermilion); }
+.drag-tag.right { right: 8px; color: var(--green); }
+.stamp {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  margin: auto;
+  width: max-content;
+  max-width: 82%;
+  height: max-content;
+  max-height: 42%;
+  padding: 4px 10px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(14px, 4.4vmin, 24px);
+  font-weight: 900;
+  line-height: 1.15;
+  border: 4px solid;
+  border-radius: 12px;
+  transform: rotate(-12deg);
+  background: rgba(255,255,255,.28);
+  pointer-events: none;
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+.stamp.on { display: flex; animation: pop .22s ease; }
+.stamp.real { color: var(--green); border-color: var(--green); }
+.stamp.fake { color: var(--vermilion); border-color: var(--vermilion); }
+@keyframes pop { from { transform: rotate(-12deg) scale(.7); } to { transform: rotate(-12deg) scale(1); } }
+#comboPop {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  pointer-events: none;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: .04em;
+  color: var(--gold);
+  background: rgba(28, 20, 15, .72);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+#comboPop[hidden] { display: none !important; }
+#comboPop.hot {
+  font-size: 15px;
+  color: #ffe14a;
+  background: rgba(160, 36, 28, .92);
+  box-shadow: 0 0 0 2px #ffe14a;
+  animation: comboPop .32s ease;
+}
+@keyframes comboPop {
+  0% { transform: translateX(-50%) scale(.65); }
+  60% { transform: translateX(-50%) scale(1.12); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+#gainPop {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  z-index: 8;
+  pointer-events: none;
+  font-weight: 900;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: .02em;
+  color: #ffe566;
+  white-space: nowrap;
+  opacity: 0;
+  padding: 4px 9px 5px;
+  border-radius: 8px;
+  background: rgba(22, 12, 8, .94);
+  box-shadow:
+    0 0 0 2px #1a0e09,
+    0 0 0 4px #ffe566;
+  text-shadow:
+    0 1px 0 #1a0e09,
+    1px 0 0 #1a0e09,
+    -1px 0 0 #1a0e09,
+    0 -1px 0 #1a0e09;
+}
+#gainPop.on { animation: gainUp .8s ease forwards; }
+@keyframes gainUp {
+  0% { opacity: 0; transform: translate(-50%, 8px) scale(.9); }
+  18% { opacity: 1; transform: translate(-50%, 0) scale(1.05); }
+  32% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  74% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -3px) scale(1); }
+}
+#sparkLayer {
+  position: absolute;
+  left: 50%;
+  top: 36%;
+  width: 0;
+  height: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+#sparkLayer i {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  margin: -3px 0 0 -3px;
+  border-radius: 2px;
+  background: #ffe14a;
+  opacity: 0;
+}
+#sparkLayer.on i { animation: spark .55s ease-out .12s forwards; }
+@keyframes spark {
+  0% { transform: translate(0, 0) scale(.3) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1) rotate(40deg); opacity: 0; }
+}
+#hankoFx {
+  position: absolute;
+  left: 50%;
+  top: 36%;
+  width: 210px;
+  height: 210px;
+  margin: -105px 0 0 -105px;
+  z-index: 4;
+  pointer-events: none;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+#hankoFx.on { display: flex; }
+#hankoFx .ink, #hankoFx .hanko-seal { position: absolute; left: 50%; top: 50%; }
+#hankoFx .ink {
+  width: 180px;
+  height: 128px;
+  margin: -64px 0 0 -90px;
+  border-radius: 46% 54% 50% 50%;
+  opacity: 0;
+}
+#hankoFx.fake .ink {
+  background:
+    radial-gradient(circle at 38% 46%, rgba(168, 28, 22, .62), transparent 62%),
+    radial-gradient(circle at 64% 58%, rgba(168, 28, 22, .45), transparent 58%);
+}
+#hankoFx.real .ink {
+  background:
+    radial-gradient(circle at 38% 46%, rgba(20, 110, 58, .58), transparent 62%),
+    radial-gradient(circle at 64% 58%, rgba(20, 110, 58, .4), transparent 58%);
+}
+.hanko-seal {
+  width: 148px;
+  height: 148px;
+  margin: -74px 0 0 -74px;
+  border: 6px solid;
+  border-radius: 50%;
+  outline: 2px solid currentColor;
+  outline-offset: -11px;
+  display: grid;
+  place-items: center;
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif CJK JP", serif;
+  font-weight: 900;
+  font-size: 38px;
+  letter-spacing: .08em;
+  background: rgba(255, 250, 240, .5);
+  opacity: 0;
+}
+#hankoFx.real .hanko-seal { color: var(--green); }
+#hankoFx.fake .hanko-seal { color: var(--vermilion); }
+#hankoFx.on .ink { animation: inkSlap .46s ease-out forwards; }
+#hankoFx.on .hanko-seal { animation: hankoSlap .4s cubic-bezier(.15, .85, .25, 1.12) forwards; }
+@keyframes hankoSlap {
+  0% { transform: scale(1.62) rotate(-38deg); opacity: 0; }
+  48% { transform: scale(.9) rotate(-16deg); opacity: 1; }
+  70% { transform: scale(1.07) rotate(-8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-12deg); opacity: .96; }
+}
+@keyframes inkSlap {
+  0% { transform: scale(.2) rotate(-16deg); opacity: 0; }
+  34% { transform: scale(.45) rotate(-6deg); opacity: 0; }
+  68% { transform: scale(1.06) rotate(7deg); opacity: .88; }
+  100% { transform: scale(1) rotate(3deg); opacity: .72; }
+}
+/* Shake the panels inside #app. Transforming #app itself (full bleed) grows scrollWidth. */
+#app.shake-soft > * { animation: appShakeSoft .28s linear .12s; }
+#app.shake-hard > * { animation: appShakeHard .46s linear .1s; }
+@keyframes appShakeSoft {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-2px, 1px); }
+  50% { transform: translate(3px, -1px); }
+  75% { transform: translate(-2px, 0); }
+}
+@keyframes appShakeHard {
+  0%, 100% { transform: translate(0, 0); }
+  12% { transform: translate(-8px, 3px); }
+  28% { transform: translate(8px, -4px); }
+  46% { transform: translate(-6px, 2px); }
+  64% { transform: translate(6px, -2px); }
+  80% { transform: translate(-3px, 1px); }
+}
+#app.buzz::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(214, 69, 61, .34);
+  pointer-events: none;
+  z-index: 40;
+  animation: buzzFade .42s ease .08s forwards;
+}
+@keyframes buzzFade { from { opacity: 1; } to { opacity: 0; } }
+.card.fly-r .zoomwrap { transform: translate(8px) rotate(3deg); }
+.card.fly-l .zoomwrap { transform: translate(-8px) rotate(-3deg); }
+.plaque {
+  flex: 0 0 auto;
+  margin-top: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 6px 10px 7px;
+  position: relative;
+  box-shadow: 0 3px 0 rgba(0,0,0,.12);
+}
+.plaque:before {
+  content: "";
+  position: absolute;
+  left: 16px; top: -7px;
+  width: 10px; height: 10px;
+  border: 2px solid var(--vermilion);
+  border-radius: 50%;
+  background: var(--paper);
+}
+#itemName { font-weight: 800; font-size: clamp(13px, 3.2vw, 16px); }
+#itemMeta { font-size: clamp(11px, 2.6vw, 13px); line-height: 1.35; }
+.loupe-hint {
+  flex: 0 0 auto;
+  text-align: center;
+  font-size: 10px;
+  opacity: .72;
+  padding: 3px 0 0;
+}
+.actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+.judge-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.judge-row button {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 14px;
+  min-height: 48px;
+  color: #fff;
+  font-weight: 800;
+  font-size: clamp(14px, 3.8vw, 18px);
+  box-shadow: 0 4px 0 rgba(0,0,0,.25);
+}
+.judge-row button:active { transform: translateY(2px); box-shadow: none; }
+#btnFake { background: #b4332a; }
+#btnReal { background: #1f7a45; }
+#btnAsk {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255,255,255,.38);
+  background: transparent;
+  color: var(--paper);
+  border-radius: 999px;
+  min-height: 26px;
+  padding: 2px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  box-shadow: none;
+  max-width: 100%;
+}
+#btnAsk:disabled { opacity: .38; }
+#btnAsk:active { transform: translateY(1px); }
+.reveal {
+  position: absolute;
+  left: 8px; right: 8px; bottom: 8px;
+  z-index: 5;
+  max-height: 46%;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 16px;
+  padding: 10px;
+  border: 2px solid var(--gold);
+  box-shadow: 0 12px 30px rgba(0,0,0,.35);
+}
+.reveal.on { display: flex; }
+#screenPlay.revealing .item-col { padding-bottom: 40%; }
+.rev-body { overflow: auto; min-height: 0; }
+.rev-kicker { font-weight: 900; font-size: 18px; margin: 0; }
+.rev-kicker.good { color: var(--green); }
+.rev-kicker.bad { color: var(--vermilion); }
+.rev-line { margin: 2px 0; font-size: 13px; }
+.rev-trait { margin: 2px 0 0; font-size: 12px; font-weight: 800; color: #6b3a32; }
+.rev-hint {
+  margin: 4px 0;
+  font-size: 13px;
+  font-weight: 800;
+  background: #fff4c2;
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+.rev-grok {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.rev-grok span {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  color: var(--vermilion);
+}
+em.hot {
+  background: #ffe14a;
+  color: #1a120c;
+  font-style: normal;
+  padding: 0 2px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--vermilion);
+}
+.loupe {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: rgba(12, 8, 6, .94);
+  display: none;
+  flex-direction: column;
+  padding: 8px;
+  gap: 8px;
+}
+.loupe.on { display: flex; }
+.loupe-view {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #fff;
+  touch-action: none;
+}
+.loupe-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--paper);
+  font-size: 12px;
+  background: #1a100c;
+  border-radius: 12px;
+  padding: 8px 10px;
+  position: relative;
+  z-index: 2;
+}
+#btnLoupeClose { min-width: 88px; padding: 8px 12px; }
+.loupe .drag-tag, .loupe .stamp { display: none !important; }
+.note { margin: 0; font-size: 14px; line-height: 1.5; max-width: 360px; }
+@media (orientation: landscape) and (max-height: 540px) {
+  #app { width: 100%; }
+  #gainPop { font-size: 15px; padding: 3px 7px 4px; }
+  h1 { font-size: 28px; }
+  .seal { width: 46px; height: 46px; font-size: 16px; }
+  .rules { font-size: 12px; margin: 2px 0; }
+  .btn { padding: 8px 12px; }
+  #screenTitle.on, #screenResult.on, #screenEnding.on { padding: 8px 16px; gap: 4px; }
+  #screenSelect.on { padding: 6px 10px; }
+  .cast img { width: 36px; height: 36px; }
+  .cast img.boss { width: 58px; height: 58px; }
+  .goods img { width: 28px; height: 28px; }
+  .signboard { padding: 2px 10px 4px; transform: none; }
+  .signboard h1 { font-size: 22px; }
+  .sign-kicker { letter-spacing: .16em; font-size: 10px; }
+  .grok-quip { font-size: 12px; padding: 3px 6px; }
+  .rules { display: none; }
+  .howline { display: block; }
+  .rank-name { font-size: 22px; }
+  .hanko-seal { width: 112px; height: 112px; margin: -56px 0 0 -56px; font-size: 28px; border-width: 5px; }
+  #hankoFx { width: 160px; height: 160px; margin: -80px 0 0 -80px; top: 40%; }
+  #hankoFx .ink { width: 140px; height: 96px; margin: -48px 0 0 -70px; }
+  #comboPop.hot { font-size: 13px; }
+  .stage-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .stage-btn { padding: 6px 8px; }
+  #screenPlay.on {
+    display: grid;
+    grid-template-columns: minmax(148px, 30%) minmax(0, 1fr) minmax(104px, 132px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  #screenPlay .cust {
+    grid-column: 1; grid-row: 1;
+    max-height: none;
+    height: auto;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: hidden;
+    padding: 6px;
+  }
+  #screenPlay .item-col { grid-column: 2; grid-row: 1; height: 100%; padding-bottom: 8px; }
+  #screenPlay .actions {
+    grid-column: 3; grid-row: 1;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    padding: 6px;
+  }
+  #screenPlay .judge-row { flex-direction: column; flex: 1 1 auto; min-height: 0; gap: 6px; }
+  #screenPlay .judge-row button { min-height: 0; flex: 1; font-size: 14px; }
+  #screenPlay #btnAsk { align-self: center; min-height: 24px; padding: 2px 8px; font-size: 11px; }
+  .portrait-wrap { width: min(96px, 30vh); align-self: center; }
+  .bubble { font-size: 12px; flex: 1; min-height: 0; max-height: none; align-self: stretch; overflow: hidden; }
+  #line { flex: 1 1 auto; max-height: none; }
+  .bubble:before {
+    left: 16px; top: -7px;
+    border: 7px solid transparent;
+    border-bottom-color: var(--paper);
+    border-top: 0;
+    border-right-color: transparent;
+  }
+  .loupe-hint { display: none; }
+  #screenPlay.revealing {
+    grid-template-columns: minmax(120px, 24%) minmax(0, 1fr) minmax(200px, 34%);
+  }
+  .reveal {
+    left: auto;
+    width: min(270px, 32vw);
+    top: 6px;
+    bottom: 6px;
+    max-height: none;
+  }
+  #screenPlay.revealing .item-col { padding-bottom: 8px; }
+}
+@media (max-height: 700px) and (orientation: portrait) {
+  .cust { max-height: 28%; }
+  .actions { padding: 4px 10px 8px; }
+  .judge-row button { min-height: 44px; }
+  .plaque { margin-top: 6px; padding: 4px 8px 5px; }
+}
+#screenCodex.on {
+  padding: 10px 12px 12px;
+  gap: 8px;
+  overflow: hidden;
+}
+.codex-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; }
+.codex-head h2 { min-width: 0; }
+#codexCount { white-space: nowrap; }
+.codex-tabs { display: flex; gap: 6px; }
+.codex-tabs button {
+  flex: 1;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.3);
+  background: transparent;
+  color: var(--paper);
+  font-weight: 800;
+  padding: 6px 8px;
+}
+.codex-tabs button.on { background: var(--paper); color: var(--ink); }
+.codex-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+.codex-grid[hidden], .codex-detail[hidden] { display: none !important; }
+.codex-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 12px;
+  padding: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: left;
+}
+.codex-card:disabled { opacity: .85; }
+.codex-card .pic {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #efe6d6;
+}
+.codex-card .pic img, .codex-card .pic svg { width: 100%; height: 100%; display: block; }
+.codex-card .pic img { object-fit: contain; background: #fff; }
+.codex-card.person .pic img { object-fit: cover; object-position: center 18%; }
+.codex-card b, .codex-card small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.codex-card b { font-size: 11px; margin-top: 3px; }
+.codex-card small { font-size: 10px; opacity: .75; }
+.codex-detail {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 10px;
+}
+.codex-detail-head { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.codex-detail-head img {
+  width: 84px; height: 84px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+}
+.codex-detail-head.person img { object-fit: cover; object-position: center 18%; }
+.codex-detail h3 { margin: 0 0 4px; font-size: 18px; overflow-wrap: anywhere; }
+.codex-detail .trait { margin: 0; font-size: 12px; line-height: 1.4; }
+.dex-entry {
+  border-top: 1px solid rgba(0,0,0,.12);
+  padding: 6px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.dex-entry p { margin: 2px 0; }
+.badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-right: 4px;
+}
+.badge.real { background: #e5f6ea; color: var(--green); }
+.badge.fake { background: #fde8e6; color: var(--vermilion); }
+.badge.return { background: #fff4c2; color: #7a4e12; margin-right: 0; }
+.badge.revenge { background: #fde8e6; color: var(--vermilion); margin-right: 0; }
+@media (orientation: landscape) and (max-height: 540px) {
+  .codex-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+  #screenCodex.on { padding: 6px 10px; }
+  .codex-detail-head img { width: 64px; height: 64px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="hud">
+    <div id="hudStage">ぶっちゃけ鑑定所</div>
+    <div class="hud-stats">
+      <span id="hudLeft"></span>
+      <span id="hudScore"></span>
+      <span id="hudPts"></span>
+      <span id="hudTime"></span>
+    </div>
+  </header>
+  <div id="timebar"><i id="timefill"></i></div>
+
+  <section id="screenTitle" class="screen on">
+    <div class="title-art" aria-hidden="true">
+      <div class="cast">
+        <img src="../assets/cust_student.jpg" alt="">
+        <img src="../assets/cust_grandma.jpg" alt="">
+        <img src="../assets/cust_madam.jpg" alt="">
+        <img class="boss" src="../assets/cust_boss.jpg" alt="">
+        <img src="../assets/cust_grandpa.jpg" alt="">
+        <img src="../assets/cust_robot.jpg" alt="">
+        <img src="../assets/cust_shady.jpg" alt="">
+        <img src="../assets/cust_alien.jpg" alt="">
+      </div>
+      <div class="goods">
+        <img src="../assets/item_vase.jpg" alt="">
+        <img src="../assets/item_ukiyoe.jpg" alt="">
+        <img src="../assets/item_violin.jpg" alt="">
+        <img src="../assets/item_painting.jpg" alt="">
+        <img src="../assets/item_katana.jpg" alt="">
+        <img src="../assets/item_coin.jpg" alt="">
+        <img src="../assets/item_fossil.jpg" alt="">
+        <img src="../assets/item_crown.jpg" alt="">
+        <img src="../assets/item_watch.jpg" alt="">
+        <img src="../assets/item_daruma.jpg" alt="">
+        <img src="../assets/item_crystal.jpg" alt="">
+        <img src="../assets/item_moonrock.jpg" alt="">
+        <img src="../assets/item_raygun.jpg" alt="">
+      </div>
+    </div>
+    <div class="signboard">
+      <span class="sign-kicker">辛口AI鑑定</span>
+      <h1>ぶっちゃけ鑑定所</h1>
+    </div>
+    <p class="grok-quip" id="titleQuip"><b>GROKのひとこと</b><span id="titleQuipText"></span></p>
+    <ul class="rules">
+      <li>右スワイプ（または右ボタン、→キー）で本物。左でニセモノ。</li>
+      <li>手がかりは3つ。品物の違和感、セリフと説明札の矛盾、客のそぶり。</li>
+      <li>汗は緊張だけのこともある。長押しかダブルタップでルーペ。</li>
+      <li>「質問する」は1人2回まで。タイマーを少し使って、動揺や矛盾を引き出す。</li>
+    </ul>
+    <p class="howline">右で本物、左でニセモノ。質問は2回まで。長押しでルーペ。</p>
+    <div class="stack">
+      <button type="button" class="btn" id="btnStart">ステージ選択へ</button>
+      <button type="button" class="btn ghost" id="btnCodexTitle">鑑定図鑑</button>
+    </div>
+  </section>
+
+  <section id="screenSelect" class="screen">
+    <h2>ステージ</h2>
+    <p class="sub" id="selectProgress"></p>
+    <div id="stageList" class="stage-list"></div>
+    <button type="button" class="btn ghost" id="btnCodexSelect">鑑定図鑑</button>
+    <button type="button" class="btn ghost" id="btnSelectTitle">タイトルへ</button>
+  </section>
+
+  <section id="screenPlay" class="screen">
+    <div class="cust">
+      <div class="portrait-wrap">
+        <div class="portrait" id="portrait">
+          <img id="custImg" alt="">
+          <div class="sweat" id="sweat"><span></span><span></span><span></span></div>
+        </div>
+        <div class="cust-name" id="custName"></div>
+        <div class="tells" id="tells"></div>
+      </div>
+      <div class="bubble" id="bubble">
+        <div class="who" id="whoLine"></div>
+        <div id="line"></div>
+      </div>
+    </div>
+    <div class="item-col" id="itemCol">
+      <div class="card-slot" id="cardSlot">
+        <div class="card" id="card">
+          <div class="zoomwrap" id="zoomwrap">
+            <img id="itemImg" alt="">
+            <svg id="clueSvg" viewBox="0 0 100 100"></svg>
+            <div class="drag-tag left" id="tagL">ニセモノ</div>
+            <div class="drag-tag right" id="tagR">本物</div>
+            <div class="stamp" id="stamp"></div>
+          </div>
+        </div>
+      </div>
+      <div class="plaque" id="plaque">
+        <div id="itemName"></div>
+        <div id="itemMeta"></div>
+      </div>
+      <div class="loupe-hint">長押し / ダブルタップでルーペ</div>
+      <div id="comboPop" hidden></div>
+      <div id="gainPop"></div>
+      <div id="sparkLayer" aria-hidden="true"></div>
+      <div id="hankoFx" aria-hidden="true">
+        <div class="ink"></div>
+        <div class="hanko-seal"><span id="hankoWord"></span></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" id="btnAsk">質問する 2</button>
+      <div class="judge-row">
+        <button type="button" id="btnFake">← ニセモノ</button>
+        <button type="button" id="btnReal">本物 →</button>
+      </div>
+    </div>
+    <div class="reveal" id="reveal" aria-live="polite"></div>
+    <div class="loupe" id="loupe">
+      <div class="loupe-view" id="loupeView"></div>
+      <div class="loupe-bar">
+        <span>ドラッグで細部を見る</span>
+        <button type="button" class="btn" id="btnLoupeClose">閉じる</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="screenResult" class="screen">
+    <div class="seal" id="resultSeal">合</div>
+    <p class="rank-name" id="resultRank"></p>
+    <h2 id="resultTitle">合格</h2>
+    <p class="note" id="resultScore"></p>
+    <p class="note" id="resultNote"></p>
+    <div class="stack">
+      <button type="button" class="btn" id="btnRetry">もう一度</button>
+      <button type="button" class="btn" id="btnNextStage">次のステージ</button>
+      <button type="button" class="btn" id="btnEnding">大団円へ</button>
+      <button type="button" class="btn ghost" id="btnToSelect">ステージ選択</button>
+    </div>
+  </section>
+
+  <section id="screenCodex" class="screen">
+    <div class="codex-head">
+      <h2>鑑定図鑑</h2>
+      <p class="sub" id="codexCount"></p>
+    </div>
+    <div class="codex-tabs">
+      <button type="button" id="tabItems">品物</button>
+      <button type="button" id="tabCusts">お客</button>
+    </div>
+    <div id="codexGrid" class="codex-grid"></div>
+    <div id="codexDetail" class="codex-detail" hidden></div>
+    <button type="button" class="btn ghost" id="btnCodexBack">戻る</button>
+  </section>
+
+  <section id="screenEnding" class="screen">
+    <div class="seal ok">完</div>
+    <h2>鑑定、終了</h2>
+    <p class="note">町の壺から宇宙の石まで、見ました。バーコードはどこにでも生えます。辛口は、まだ営業中です。</p>
+    <div class="stack">
+      <button type="button" class="btn" id="btnEndSelect">ステージ選択</button>
+      <button type="button" class="btn ghost" id="btnEndTitle">タイトルへ</button>
+    </div>
+  </section>
+</div>
+<script>
+'use strict';
+const params = new URLSearchParams(location.search);
+const BOT = params.get('bot') === '1';
+const BOT_FAST = params.get('fast') === '1';
+const SAVE_KEY = 'butchake-appraisal-v1';
+
+const STAGES = [
+  { id: 1, name: '町の骨董市', blurb: '手がかりは見やすめ。まずは目を慣らして。', n: 8, need: 6, time: 18, scale: 1, opacity: 1 },
+  { id: 2, name: '質屋', blurb: '少し小さく、少し薄い。汗には要注意。', n: 8, need: 6, time: 14, scale: 0.85, opacity: 0.9 },
+  { id: 3, name: '美術オークション', blurb: 'サインの一字が、値をゼロにする。', n: 8, need: 6, time: 12, scale: 0.68, opacity: 0.75 },
+  { id: 4, name: '宇宙の密輸品', blurb: '違和感は小さい。ルーペを使え。', n: 8, need: 6, time: 10, scale: 0.52, opacity: 0.62 },
+  { id: 5, name: '最後の大鑑定', blurb: 'ボスは笑って出す。嘘か、本当か。', n: 8, need: 6, time: 8, scale: 0.4, opacity: 0.52 }
+];
+
+const CUSTS = {
+  cust_grandpa: { name: '木村のじいちゃん', tic: '〜じゃよ', persona: 'nervous', trait: '正直・話が長い' },
+  cust_grandma: { name: '花村キヨ', tic: 'あらまあ', persona: 'nervous', trait: '正直・孫の受け売り' },
+  cust_madam: { name: '黒川夫人', tic: 'ですわ', persona: 'slick', trait: '見栄っ張り・質問をかわす' },
+  cust_salaryman: { name: '山田課長', tic: '一応', persona: 'nervous', trait: '正直・緊張しやすい' },
+  cust_student: { name: '佐藤あかり', tic: 'マジで', persona: 'liar', trait: '見栄っ張り・嘘が下手' },
+  cust_shady: { name: '謎の男', tic: '今なら特別', persona: 'liar', trait: '嘘つき常習犯' },
+  cust_robot: { name: '鑑定ロボK-7', tic: 'データによれば', persona: 'logical', trait: '論理的・ログが正直' },
+  cust_alien: { name: 'グリー星人', tic: 'ぼくの星では', persona: 'nervous', trait: '素直・文化が違う' },
+  cust_boss: { name: 'ボス・ウルフ', tic: '私を疑え', persona: 'slick', trait: '威圧・巧妙にかわす' }
+};
+const ITEM_IDS = ['item_vase', 'item_painting', 'item_ukiyoe', 'item_violin', 'item_watch', 'item_katana', 'item_daruma', 'item_crown', 'item_crystal', 'item_coin', 'item_fossil', 'item_moonrock', 'item_raygun'];
+const ITEM_LABEL = {
+  item_vase: '壺', item_painting: '絵画', item_ukiyoe: '浮世絵', item_violin: 'バイオリン',
+  item_watch: '懐中時計', item_katana: '刀', item_daruma: 'だるま', item_crown: '冠',
+  item_crystal: '結晶', item_coin: '古代金貨', item_fossil: '恐竜の化石', item_moonrock: '月の石',
+  item_raygun: '宇宙光線銃'
+};
+const CUST_IDS = ['cust_grandpa', 'cust_grandma', 'cust_madam', 'cust_salaryman', 'cust_student', 'cust_shady', 'cust_robot', 'cust_alien', 'cust_boss'];
+const ASK_Q = { when: 'いつ手に入れました？', where: 'どこで手に入れました？', cert: '鑑定書はありますか？' };
+const ASK_BOOK = {
+  cust_grandpa: {
+    when: { real: ['札と同じ年じゃよ。焦らず見れば、同じことが書いてある。', 'もう一度言う。入手の年は、札のとおりじゃ。'], fake: ['百年前じゃと言うたが…手元に来たのは、もっと最近じゃった。', '孫が古いと言うので信じた。自信は、ない。'] },
+    where: { real: ['蔵じゃよ。札の伝来と、同じ場所じゃ。', '実家の蔵。目録と場所は一致しとる。'], fake: ['蔵じゃと言うたが、本当は露店じゃ。', '出所を聞かれると、喉が渇くのう。'] },
+    cert: { real: ['あるぞ。番号は説明札と同じじゃ。', '登録の紙はここじゃ。手は震えても、紙は震えておらん。'], fake: ['鑑定書はのう…孫が「あとで」と言うたきりじゃ。', '紙はない。口だけが、百年前じゃ。'] }
+  },
+  cust_grandma: {
+    when: { real: ['あらまあ、札の年と同じですよ。蔵にずっとありました。', '落ち着いて思い出しても、年は札のとおり。'], fake: ['あらまあ、代々と言うたけど…孫が昨日、箱を持ってきたの。', '昔から、は孫のセリフでした。わたしは信じていたのよ。'] },
+    where: { real: ['実家の蔵ですよ。説明札の由来と一緒。', 'あらまあ、場所まで札と同じ。安心しました。'], fake: ['孫が「いい店」と言うの。店の名は、聞いていないの。', 'あらまあ、本当の場所は駅前だったかも。'] },
+    cert: { real: ['ありますよ。番号は、この札と一緒です。', '紙を見せますね。手が少し震えても、中身は本当。'], fake: ['鑑定書？ 孫が「気持ちが鑑定書」と言うの。紙は、ないわ。', 'あらまあ、隠すのは苦手。証明書は最初からありません。'] }
+  },
+  cust_madam: {
+    when: { any: ['時期なんて野暮ですわ。由緒を見なさいな。', '年号を二度聞く方は、目がない証拠ですわ。'] },
+    where: { any: ['サロンですわ。レディに、それ以上は聞きませんこと。', '流出元は守秘ですわ。質問が二度目ですのね。'] },
+    cert: { any: ['鑑定書？ わたくしの言葉が鑑定書ですわ。', '紙を求めるなんて。柔軟な鑑定士も、いたものですわ。'] }
+  },
+  cust_salaryman: {
+    when: { real: ['一応、稟議の日付は説明札と一致しています。', 'もう一度確認しました。年は札のとおりです。'], fake: ['一応、書類を見たら申告と日付が違います。すみません。', '入手日を聞かれただけで、額に汗が。'] },
+    where: { real: ['預かり元は札の記載と同じです。一応、相違なし。', '経路は報告書どおり。緊張していますが、相違はありません。'], fake: ['一応、経路が空欄です。口頭だけの預かりで。', 'どこで、と聞かれると書類の無さがバレます。'] },
+    cert: { real: ['ここにあります。番号は説明札と同じです。', '一応、原本を持参しています。手が汗ばむのは緊張です。'], fake: ['鑑定書は未着です。一応、それが全部です。', 'コピーも原本も、今日は机の上にありません。'] }
+  },
+  cust_student: {
+    when: { real: ['マジで札に書いてある年。今回は盛ってない。', 'もう一回言うけど、年は説明と同じ。緊張してるだけ。'], fake: ['いつって…先週のフリマ。いや、百年前！ 今の無し。', 'マジで時期、自分でも分かんない。盛ったかも。'] },
+    where: { real: ['学校の先生の紹介。札の由来と一緒。マジで。', '入手先、説明札と同じ店。バズりたいだけで、嘘はなし。'], fake: ['どこって、駅前…じゃなくて海外！ マジで海外。', 'インスタで見た店。店の名、今は言えない。'] },
+    cert: { real: ['あるよ。番号、札と同じ。見て。', '鑑定書、今回は本物の紙。盛ってないから。'], fake: ['鑑定書？ いいねが鑑定書。紙は、ない。', 'マジで紙は文化祭までできない。つまり、ない。'] }
+  },
+  cust_shady: {
+    when: { real: ['いつ？ 札の年だ。今なら特別に、本当のことを言う。', '年は説明どおり。疑うなら紙を見ろ。'], fake: ['いつ？ 先週…百年前だ。今なら特別に、その話は無し。', '時期が二回変わっただろ。それが、匂いだ。'] },
+    where: { real: ['出所は札に書いてある。今なら特別に、それだけだ。', '場所は隠さん。説明と同じだ。'], fake: ['出所は闇…いや正規だ。今なら特別に、場所は無し。', '店の名を二度変えた。犬も食わない話だ。'] },
+    cert: { real: ['ある。番号は札と同じ。今なら特別に、見せてやる。', '紙はここだ。疑う前に読め。'], fake: ['鑑定書は犬が食べた。コピーは明日。今日は口だけだ。', '紙を出すなら、今なら特別に高い。つまり、無い。'] }
+  },
+  cust_robot: {
+    when: { real: ['データによれば、製造年は説明札と一致。誤差ゼロ。', '再照会。タイムスタンプは札と同一。'], fake: ['データによれば、入手ログは昨日。申告の古さと不一致。', '誤差を再計算。申告年と実ログが、同時に真ではない。'] },
+    where: { real: ['データによれば、入手経路は説明札と一致。', '経路ログ、一致。動揺の定義は未実装。'], fake: ['データによれば、経路は「工場出荷」。申告の伝来と不一致。', '経路フィールドが空。口頭申告は信頼度ゼロ。'] },
+    cert: { real: ['鑑定番号、説明札と一致。提示可能。', '証明書ファイル、健全。誤差ゼロ。'], fake: ['鑑定書ファイル、未検出。エラー。', '証明書を要求された。該当レコードなし。'] }
+  },
+  cust_alien: {
+    when: { real: ['ぼくの星の暦でも、札の年と同じだ。', 'もう一度数えた。地球の札と、ぼくの記憶が一致。'], fake: ['ぼくの星では昨日を一万年と言う。地球の札と、数が合わない。', 'いつ、と聞かれた。地球語の年が、舌の上で割れた。'] },
+    where: { real: ['拾った場所は、札の採取地と同じ。ぼくは隠さない。', '経路は申告どおり。汗は、重力のせい。'], fake: ['ぼくの星の市場…いや、地球の露店だった。', 'どこで、と聞くから答える。母星、ではなかった。'] },
+    cert: { real: ['書類の番号は、札と同じ。税関にも見せた。', '紙はある。ぼくの星では、紙は重い。でも本当。'], fake: ['鑑定書は、ぼくの星の言葉で「ない」。', '紙を食べる文化はない。最初から、持っていない。'] }
+  },
+  cust_boss: {
+    when: { any: ['いつ、だと？ 私を疑うなら、年号より先に覚悟を疑え。', '時期は私の記憶だ。記憶に、ルーペは通さん。'] },
+    where: { any: ['出所を聞くとは、いい度胸だ。答えは、私の手元だ。', '場所は言わん。かわしている、と気づけ。それが手がかりだ。'] },
+    cert: { any: ['鑑定書は、私の眼光だ。紙は弱い者の道具だ。', '二度聞くか。証明書は出さん。それが、答えだ。'] }
+  }
+};
+const VISIT_LEADS = {
+  smug: {
+    cust_grandpa: 'この前はどうもじゃ♪ また古い品を持ってきたぞ。',
+    cust_grandma: 'この前はどうも♪ あらまあ、通っちゃったから、また来たわ。',
+    cust_madam: 'この前はどうもですわ♪ あなたの目、とってもお優しい。',
+    cust_salaryman: 'この前はどうもです。通ってしまったので、一応もう一点。',
+    cust_student: 'この前はどうも♪ マジで通ったじゃん。じゃあこれも見て？',
+    cust_shady: 'この前はどうも♪ いいお客だ。また持ってきた。今なら特別。',
+    cust_robot: 'この前はどうも。判定ログは「見逃し」。再入力します。',
+    cust_alien: 'この前はどうも♪ ぼくの星では、通った者は友達だ。',
+    cust_boss: 'この前はどうも♪ 私を疑う目が、あの時は曇っていた。'
+  },
+  revenge: {
+    cust_grandpa: 'この前は見破られたのう。今度こそ、本物じゃ…と思う。',
+    cust_grandma: 'あらまあ、この前は見破られちゃった。今度こそ、孫が本物って。',
+    cust_madam: 'この前は失礼しましたわ。リベンジですの。今度は本物ですわよ。',
+    cust_salaryman: 'この前は見破られました。一応、リベンジで持ってきました。',
+    cust_student: 'この前マジでバレた…。リベンジだから。今度は本物、だと思う。',
+    cust_shady: 'この前は見破ったな。今度はそう簡単にいかない。今なら特別。',
+    cust_robot: '前回の判定は検知成功。リベンジ手順を起動します。',
+    cust_alien: 'この前は見破られた。ぼくの星では、リベンジは礼儀だ。',
+    cust_boss: 'この前はよく見破った。私を疑うなら、今度も疑ってみろ。'
+  }
+};
+
+const TELL_LABEL = { sweat: '汗', shifty: '目が泳ぐ', fast: '早口' };
+const SLOW_LINES = [
+  '時間切れ。鑑定士の沈黙は、だいたい相手の勝ちです。',
+  '考えすぎです。本物も偽物も、待ってはくれません。',
+  'タイマーに敗れるとは。辛口の前に、指が要ります。'
+];
+const RANK_NAMES = ['節穴', '見習い', '目利き', '鑑定士', '神の目'];
+const RANK_CHAR = ['穴', '習', '目', '鑑', '神'];
+const TITLE_QUIPS = [
+  '本物ですか？ その質問、だいたい先に嘘の匂いがします。',
+  'バーコードは江戸より雄弁です。底を見なさい。',
+  '汗を見るな。ただし、汗しかない客を罪人にするな。',
+  '今日も辛口で営業します。甘い鑑定は、隣の店です。',
+  'iが足りないピカソを、私は何人も見送ってきました。',
+  '値札のついた月の石。宇宙は、思ったより安い。',
+  '疑え。そして、疑ったあとにまだ本物なら、それを認めろ。',
+  'あなたの目が節穴か神の目か。客はもう、並んでいます。',
+  '北斎の波に西暦が浮かぶ。著作権は、潮より新しい。',
+  'ストラディバリウスがシール貼りなら、音より先に糊を聴きなさい。',
+  '古代の金貨が溶けるなら、それは歴史ではなくお菓子です。',
+  '早口の客は急いでいます。急ぐ理由は、だいたい本物ではありません。',
+  'ハンコを押すのは、あなたです。押し間違えると、音が不機嫌になります。'
+];
+const REVIEWS = {
+  kami: [
+    '全問、しかも速い。神の目というより、私の席が危ない。今日だけ譲ります。',
+    'コンボが切れない。バーコードも汗も、あなたの前では自白します。',
+    'この速度でこの正解率。辛口の在庫が尽きました。悔しいので、また来なさい。'
+  ],
+  kantei: [
+    '鑑定士の目です。名刺を渡すには、あと一本コンボが足りません。',
+    'かなり見ています。見逃しは少ない。その「少ない」が、プロとの差です。',
+    '合格の上を歩いた。褒めるのはここまで。調子には乗らないでください。'
+  ],
+  pass: [
+    '目利き、合格。次は嘘が小さく、汗が多くなります。油断すると i が消えます。',
+    '通る目はしています。通っただけで、神の席はまだ空席です。',
+    '及第。境界線の正しい側に、今日は多く立てました。多く、です。'
+  ],
+  doubt: [
+    '本物を疑いすぎです。正直者の汗まで罪にする鑑定は、夏に全滅します。',
+    '厳しさは才能、やりすぎは節穴の入り口。無実の壺が、奥で泣いています。',
+    'ニセモノより先に本物を落とした。疑う職業病、今日は重症です。'
+  ],
+  miss: [
+    'ニセモノを見逃しています。値札は、好意で江戸時代になりません。',
+    '通した偽物が奥で笑っています。小さいバーコードほど、罪は大きい。',
+    '甘い。早口と「Picaso」を、顔なじみで許しましたね。私は許しません。'
+  ],
+  both: [
+    '本物を疑い、偽物を通す。目が忙しいだけで、判断が休みです。',
+    '両側を同じだけ外す才能。珍しいので記録します。褒めてはいません。',
+    '疑いすぎて、見逃してもいる。一度、底と札だけを見てください。'
+  ],
+  slow: [
+    '時間切れが多い。考えているあいだに、偽物は堂々と本物の顔をします。',
+    '沈黙は金、とは鑑定では言いません。タイマーに負けた分、点数も黙ります。',
+    '遅い。ルーペは武器ですが、眺めているうちに営業は終わります。'
+  ],
+  zero: [
+    'ゼロ正解。コイントスの裏が続いた日として、額縁に飾っておきます。',
+    '節穴、確定です。光は入っています。判断が、別の方向を向いています。',
+    '今日の成績は教材になります。あなたの教材に、です。'
+  ],
+  fail: [
+    '未達。あと一歩の場所で、ニセモノが勝ちました。やり直しは営業です。',
+    '目標に届かず。目は悪くない。使い方が、今日は休みでした。',
+    '不合格。辛口は無料です。次は、その辛さを自分の目に向けなさい。'
+  ]
+};
+
+const CASES = [
+  { id: 's1-01', stage: 1, cust: 'cust_grandpa', item: 'item_vase', real: false,
+    say: '江戸時代の壺じゃ。蔵で百年、眠っとったんじゃよ。',
+    name: '染付牡丹文壺', meta: ['推定：江戸時代', '状態：良好', '伝来：旧家の蔵'],
+    clues: [{ kind: 'barcode', x: 50, y: 80 }], act: '', why: 'visual',
+    hint: '壺の高台のバーコード',
+    ok: 'バーコード付きの江戸時代、斬新ですね。レジは蔵の奥ですか。',
+    ng: '高台のバーコード、見えてますよ。江戸はまだ、読み取り端末を待っていました。' },
+  { id: 's1-02', stage: 1, cust: 'cust_shady', item: 'item_katana', real: false,
+    say: '家宝の刀です。絶対に本物。疑うなら、買ってください。',
+    name: '家宝の刀', meta: ['時代：鎌倉', '銘：なし', '状態：美品'],
+    clues: [{ kind: 'sticker', text: 'おもちゃ', x: 52, y: 46, rot: -48 }], act: '', why: 'visual',
+    hint: '刀に貼られた「おもちゃ」シール',
+    ok: '家宝に「おもちゃ」。真剣なのは、営業トークだけですね。',
+    ng: '鞘の「おもちゃ」、達磨…いや刀が泣いてます。家宝というより、おまけです。' },
+  { id: 's1-03', stage: 1, cust: 'cust_salaryman', item: 'item_watch', real: false,
+    say: '祖父の懐中時計です。戦前から、針だけが休んでいます。',
+    name: '金の懐中時計', meta: ['製造：昭和初期', '機構：手巻き', '状態：停止'],
+    clues: [{ kind: 'engrave', text: 'MADE IN 2019', x: 42, y: 64 }], act: '', why: 'visual',
+    hint: '文字盤の「MADE IN 2019」',
+    ok: '戦前の時計に「MADE IN 2019」。タイムトラベルものとしては、安い方です。',
+    ng: '文字盤の下、2019年製です。祖父の記憶が、令和で上書きされていますね。' },
+  { id: 's1-04', stage: 1, cust: 'cust_madam', item: 'item_painting', real: false,
+    say: 'ピカソのキュビスムよ。サロンで一目惚れしたの。',
+    name: 'キュビスムの肖像', meta: ['作者：パブロ・ピカソ', '年代：1910年代', '額：付き'],
+    clues: [{ kind: 'sign', text: 'Picaso', x: 73, y: 74 }], act: '', why: 'visual',
+    hint: '右下のサイン「Picaso」',
+    ok: 'サインが「Picaso」。iが一個、価値がゼロです。',
+    ng: '右下を見て。ピカソがiを落としてます。落としたのは字母だけじゃありません。' },
+  { id: 's1-05', stage: 1, cust: 'cust_shady', item: 'item_moonrock', real: false,
+    say: '本物の月の石です。値札なんて、付いていたためしがない。',
+    name: '月の石', meta: ['種別：月面の石', '状態：乾燥', '所持：個人'],
+    clues: [{ kind: 'price', text: '¥980', x: 63, y: 60 }], act: '', why: 'visual',
+    hint: '石に付いた値札「¥980」',
+    ok: '値札のない月、のはずが¥980。重力より、値付けが正直です。',
+    ng: '石の¥980、見えてます。月までの運賃にしては、ずいぶん庶民的ですね。' },
+  { id: 's1-06', stage: 1, cust: 'cust_grandpa', item: 'item_daruma', real: false,
+    say: '祖父が[[100年前]]に買っただるまじゃ。高崎の本物じゃよ。',
+    name: '高崎だるま', meta: ['産地：群馬・高崎', '[[製造：1975年]]', '材質：張子'],
+    clues: [], act: '', why: 'contra',
+    hint: 'セリフの「100年前」と札の「1975年」',
+    ok: '100年前なのに1975年。祖父のカレンダー、ずいぶん優遇されています。',
+    ng: '札に1975年とあります。100年前とは、だいたい50年ほど仲違いしています。' },
+  { id: 's1-07', stage: 1, cust: 'cust_madam', item: 'item_vase', real: true,
+    say: '祖母の嫁入り道具です。明治の染付と、目録にあります。',
+    name: '染付牡丹文壺', meta: ['年代：明治', '産地：有田', '来歴：嫁入り道具'],
+    clues: [], act: '', why: 'clean',
+    hint: '手がかりなし。申告と説明札が一致',
+    ok: '矛盾なし、シールなし。珍しく平和な明治です。',
+    ng: 'これは本物です。疑うのは鑑定士の職業病。わかります、私もそうです。' },
+  { id: 's1-08', stage: 1, cust: 'cust_madam', item: 'item_daruma', real: true,
+    say: '初めてなので緊張して…。実家のだるまです。昭和のものです。',
+    name: '張子だるま', meta: ['年代：昭和30年代', '産地：高崎', '材質：張子'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は緊張だけ。品と申告に矛盾なし',
+    ok: '汗をかいているだけの正直者。疑わなくて正解です。今日の私は優しい。',
+    ng: '緊張してただけの正直者を疑うとは、私も人のこと言えませんね。' },
+  { id: 's1-09', stage: 1, cust: 'cust_salaryman', item: 'item_watch', real: true,
+    say: '父の形見です。昭和40年の就職祝いに買ったと聞いています。',
+    name: '懐中時計', meta: ['製造：昭和40年', '種類：手巻き', '状態：稼働'],
+    clues: [], act: '', why: 'clean',
+    hint: '申告の年と製造年が一致',
+    ok: '年号がぴったり。形見にバーコードは付いていません。珍しい。',
+    ng: '札もセリフも昭和40年。疑う材料は、在庫切れです。' },
+  { id: 's1-10', stage: 1, cust: 'cust_grandpa', item: 'item_katana', real: true,
+    say: '祖父が戦後も手放さなかった刀じゃ。登録証もある。',
+    name: '脇差', meta: ['時代：江戸末期', '登録：教育委員会', '長さ：45cm'],
+    clues: [], act: '', why: 'clean',
+    hint: '時代・登録が申告と一致。違和感なし',
+    ok: '登録まで揃った刀。おもちゃのシールが無いだけで、今日は合格です。',
+    ng: '説明と時代が噛み合っています。疑うなら、その目を研いでください。' },
+
+  { id: 's2-01', stage: 2, cust: 'cust_shady', item: 'item_crystal', real: false,
+    say: '宮廷秘蔵の紫水晶です。質流れの掘り出し物。',
+    name: '紫水晶', meta: ['原産：ブラジル', '等級：申告AAA', '処理：顧客談'],
+    clues: [{ kind: 'sticker', text: 'レプリカ', x: 50, y: 78 }], act: '', why: 'visual',
+    hint: '結晶の裾の「レプリカ」',
+    ok: '質流れの前に、工場を流れています。「レプリカ」の三文字、小さいけど正直。',
+    ng: '裾にレプリカ。小さい字ほど、よく本当のことを言います。' },
+  { id: 's2-02', stage: 2, cust: 'cust_madam', item: 'item_crown', real: false,
+    say: '欧州の王家から流出した冠ですわ。[[18世紀]]の品。',
+    name: '金の冠', meta: ['素材：真鍮・ガラス', '[[製造：2016年]]', '宝石：模造'],
+    clues: [], act: '', why: 'contra',
+    hint: '「18世紀」と札の「2016年・真鍮」',
+    ok: '18世紀のガラス玉。王家も量販店も、遠い親戚かもしれません。',
+    ng: '札は2016年、真鍮にガラス。王家の流出というより、倉庫の流出です。' },
+  { id: 's2-03', stage: 2, cust: 'cust_salaryman', item: 'item_vase', real: false,
+    say: '李朝の壺として預かっています。鑑定書は、今取りに行っています。',
+    name: '青磁風の壺', meta: ['時代：申告李朝', '鑑定：未着', '預かり：質札'],
+    clues: [{ kind: 'barcode', x: 50, y: 80, sc: 0.85 }], act: '', why: 'visual',
+    hint: '高台の小さなバーコード',
+    ok: '鑑定書より先に、バーコードが到着しています。',
+    ng: '腰にバーコード。李朝は、流通革命を起こしていたんですね。' },
+  { id: 's2-04', stage: 2, cust: 'cust_grandpa', item: 'item_watch', real: true,
+    say: '質に入れたまま亡くなった友人の時計じゃ。昭和の品で間違いない。',
+    name: '懐中時計', meta: ['製造：昭和28年', '預かり：質札4821', '機構：手巻き'],
+    clues: [{ kind: 'mark', text: '4821', x: 42, y: 66, harmless: true }], act: 'sweat', why: 'trap',
+    hint: '文字盤の4821は質札番号と一致。汗は悲しみか金利',
+    ok: '汗と質札番号、どっちも本物の緊張です。番号まで一致している。悪くない。',
+    ng: '質札番号まで一致しています。汗を罪にする鑑定は、サウナで全員を逮捕します。' },
+  { id: 's2-05', stage: 2, cust: 'cust_grandpa', item: 'item_katana', real: true,
+    say: '借金の形に預かったが、登録はちゃんとしとる。江戸末期じゃ。',
+    name: '脇差', meta: ['時代：江戸末期', '登録：あり', '預かり：質流れ前'],
+    clues: [], act: '', why: 'clean',
+    hint: '登録と時代が一致。違和感なし',
+    ok: '質屋でも、登録のある刀は刀です。今日は紙が勝った。',
+    ng: '時代も登録も揃っています。質屋の空気だけで、鋼を偽物にしないでください。' },
+  { id: 's2-06', stage: 2, cust: 'cust_shady', item: 'item_crystal', real: false,
+    say: 'エネルギーの結晶です。説明は不要。今すぐ決めて。',
+    name: 'エネルギー結晶', meta: ['種類：申告アメジスト', '処理：不明', '由来：顧客申告のみ'],
+    clues: [], act: 'fast,shifty', why: 'behavior',
+    hint: '早口と、左右に泳ぐ目。証明はなし',
+    ok: '目が泳いで早口。結晶より、口のほうがエネルギー高い。ニセモノです。',
+    ng: '目が左右に、口が倍速。説明できない結晶には、だいたい理由があります。' },
+  { id: 's2-07', stage: 2, cust: 'cust_madam', item: 'item_painting', real: true,
+    say: '母がパリで買ったピカソの小品です。1950年、サインも一致しています。',
+    name: '肖像小品', meta: ['作者：ピカソ', '年：1950', 'サイン：Picasso'],
+    clues: [{ kind: 'sign', text: 'Picasso', x: 72, y: 74, harmless: true }], act: '', why: 'clean',
+    hint: 'サインは正しい「Picasso」。問題なし',
+    ok: 'サインは「Picasso」。iが揃っています。今回は母の話、信用していい。',
+    ng: 'スペルは正しい。間違いを探しすぎて、本物を見逃しました。あるあるです。' },
+  { id: 's2-08', stage: 2, cust: 'cust_salaryman', item: 'item_daruma', real: false,
+    say: '会社の玄関に置いてあった開運だるま。創業時からのものです。',
+    name: '開運だるま', meta: ['年代：申告創業時', '用途：招福', '由来：社屋'],
+    clues: [{ kind: 'price', text: '¥980', x: 50, y: 30 }], act: '', why: 'visual',
+    hint: '額の値札「¥980」',
+    ok: '創業の魂に¥980。福より、値札が新しい。',
+    ng: 'おでこの¥980。創業時の物価にしては、冷静すぎます。' },
+  { id: 's2-09', stage: 2, cust: 'cust_madam', item: 'item_crown', real: true,
+    say: '祖母の婚礼の冠です。鑑定が初めてで、手が震え…汗が。',
+    name: '婚礼の小冠', meta: ['年代：大正', '素材：金・ガーネット', '用途：婚礼'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は初鑑定の緊張。年と素材は一致',
+    ok: '宣言どおり本物。汗は冠の重さじゃなく、緊張の重さです。',
+    ng: '汗を証拠にする鑑定士は、夏の会議室で全滅します。これは本物。' },
+  { id: 's2-10', stage: 2, cust: 'cust_shady', item: 'item_vase', real: false,
+    say: '子供のころ、[[50年以上前]]に祖父と買った壺です。未使用に近いでしょう。',
+    name: '染付壺', meta: ['[[製造：2019年]]', '状態：未使用に近い', '箱：なし'],
+    clues: [], act: 'shifty', why: 'contra',
+    hint: '「50年以上前」と札の「2019年」',
+    ok: '50年前なのに2019年製、未使用。年号が質流れしています。目も一緒に。',
+    ng: '札の2019年と、50年前が喧嘩しています。目が泳ぐのは、年号のせいです。' },
+
+  { id: 's3-01', stage: 3, cust: 'cust_madam', item: 'item_painting', real: false,
+    say: 'カタログ番号付きのピカソです。落札予定で来ましたの。',
+    name: 'キュビスム肖像', meta: ['作者：P. Picasso', '制作：1907年頃', 'Lot：18'],
+    clues: [{ kind: 'sign', text: 'Picaso', x: 73, y: 74, sc: 0.92 }], act: '', why: 'visual',
+    hint: 'ごく小さいサイン「Picaso」',
+    ok: 'カタログは立派、サインは「Picaso」。一字でロットごと沈みます。',
+    ng: '右下を拡大しましたか。iがいないピカソは、別人です。' },
+  { id: 's3-02', stage: 3, cust: 'cust_salaryman', item: 'item_painting', real: false,
+    say: '応接に掛けていた[[ルノワール]]です。会社の資産として出品します。',
+    name: '額縁つき肖像', meta: ['[[作者不詳・ピカソ風]]', '購入：インテリア店', '証明：なし'],
+    clues: [], act: '', why: 'contra',
+    hint: '口ではルノワール、札は「作者不詳・ピカソ風」',
+    ok: 'ルノワールがキュビスムをやったら、私も名前を変えます。札が正直です。',
+    ng: '絵はピカソ風、口はルノワール。説明札が先に、作者不詳と白状しています。' },
+  { id: 's3-03', stage: 3, cust: 'cust_madam', item: 'item_painting', real: true,
+    say: '母のコレクションです。サインも年も、カタログと一致しています。',
+    name: '肖像', meta: ['作者：ピカソ', 'サイン：Picasso', '年：1912'],
+    clues: [{ kind: 'sign', text: 'Picasso', x: 72, y: 74, harmless: true, sc: 0.9 }], act: '', why: 'clean',
+    hint: '綴りは正しい「Picasso」。問題なし',
+    ok: 'スペルは完璧。疑い深い目が、今日は正しく疑わなかった。成長ですね。',
+    ng: '「Picasso」は正しい綴りです。間違い探しで、本物を処刑しないでください。' },
+  { id: 's3-04', stage: 3, cust: 'cust_shady', item: 'item_crown', real: false,
+    say: '没落貴族から預かった冠です。オークション初出し。',
+    name: '王冠', meta: ['時代：申告19世紀', '宝石：申告ルビー', '証明：口頭'],
+    clues: [{ kind: 'engrave', text: 'MADE IN CHINA', x: 50, y: 74, sc: 0.9 }], act: '', why: 'visual',
+    hint: '冠の帯の「MADE IN CHINA」',
+    ok: '貴族の冠の内側に、とても現代的な生産国。ルビーより正直。',
+    ng: '帯の薄い字、生産国です。ルーペは飾りじゃありません。' },
+  { id: 's3-05', stage: 3, cust: 'cust_salaryman', item: 'item_painting', real: true,
+    say: '落札の代理で緊張しています。依頼主所蔵、ピカソの真筆です。',
+    name: 'キュビスム肖像', meta: ['作者：パブロ・ピカソ', '年：1909', '鑑定：登録済'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は代理人の職務。登録と申告は一致',
+    ok: '代理人が汗をかくのは職務です。真筆側で正解。',
+    ng: '緊張した代理人をニセモノ扱い。依頼主に謝るのは、あなたです。' },
+  { id: 's3-06', stage: 3, cust: 'cust_grandpa', item: 'item_vase', real: false,
+    say: 'オークションに出す壺じゃ。江戸の献上ものじゃよ。手が震えてのう。',
+    name: '染付大壺', meta: ['時代：申告江戸', '伝来：旧家', '箱：なし'],
+    clues: [{ kind: 'barcode', x: 50, y: 80, sc: 0.78 }], act: 'sweat', why: 'visual',
+    hint: '高台の小さなバーコード。汗は関係なし',
+    ok: '献上ものの足にJAN。将軍もポイントカード派でしたか。汗は別件です。',
+    ng: '高台のバーコード、ルーペ案件です。汗に目を奪われましたね。江戸はそこまで便利じゃありません。' },
+  { id: 's3-07', stage: 3, cust: 'cust_madam', item: 'item_crown', real: true,
+    say: '婚礼の冠です。大正15年、祖母のもの。石はガーネットですわ。',
+    name: '婚礼の冠', meta: ['年代：大正15年', '石：ガーネット', '地金：金'],
+    clues: [], act: '', why: 'clean',
+    hint: '年も石も申告と一致',
+    ok: '年も石も一致。冠が本物でも、私の髪には乗りませんが。',
+    ng: '矛盾がありません。キラキラに弱い鑑定は、ここで負けます。' },
+  { id: 's3-08', stage: 3, cust: 'cust_shady', item: 'item_painting', real: false,
+    say: '真筆です。質問は受け付けません。ハンマーの前に決めてください。',
+    name: '肖像画', meta: ['作者：申告ピカソ', '証明：なし', '出品：当日'],
+    clues: [], act: 'fast,shifty', why: 'behavior',
+    hint: '証明なし。早口で、目が泳ぐ',
+    ok: '証明なし、早口、目が泳ぐ。ハンマーより先に却下です。',
+    ng: '証明がない上に、目と口が忙しい。急かす客は、だいたい急な理由があります。' },
+  { id: 's3-09', stage: 3, cust: 'cust_salaryman', item: 'item_daruma', real: false,
+    say: '近代美術としてのだるまです。[[作家の一点物]]で、箱はありませんが真作です。',
+    name: '赤だるま', meta: ['[[量産品・型番DR-04]]', '購入：雑貨店', '箱：なし'],
+    clues: [], act: '', why: 'contra',
+    hint: '「一点物」と札の「型番DR-04」',
+    ok: '一点物の型番。近代美術の定義が、レジ横まで広がりました。',
+    ng: '札に型番DR-04。一点物が量産で来ると、私のコメントも量産したくなります。' },
+  { id: 's3-10', stage: 3, cust: 'cust_madam', item: 'item_crystal', real: true,
+    say: '内包物のある天然水晶です。傷ではなく、自然の模様と鑑定書にあります。緊張して…。',
+    name: '紫水晶', meta: ['処理：なし', '内包：天然', '産地：ブラジル'],
+    clues: [{ kind: 'crack', x: 50, y: 42, harmless: true }], act: 'sweat', why: 'trap',
+    hint: '筋は天然の内包。汗は会場の緊張',
+    ok: '内包物は天然の履歴書。汗は会場の暖房。両方、本物側です。',
+    ng: '傷に見えたそれは、説明どおりの内包。緊張と天然を、ニセモノにしないで。' },
+
+  { id: 's4-01', stage: 4, cust: 'cust_alien', item: 'item_moonrock', real: false,
+    say: 'これが月の石。ぼくの星の隣で拾った。ほんもの。',
+    name: '月面標本', meta: ['採取：申告・静かの海', '重量：240g', '書類：口頭'],
+    clues: [{ kind: 'price', text: '¥980', x: 62, y: 58, sc: 0.9 }], act: '', why: 'visual',
+    hint: '石の小さな値札「¥980」',
+    ok: '静かの海に¥980。送料のほうが高くつきそうです。',
+    ng: '値札です、ルーペで。月の石が均一価格なのは、100均の重力です。' },
+  { id: 's4-02', stage: 4, cust: 'cust_alien', item: 'item_moonrock', real: false,
+    say: 'データ入りの月の石。地球の学者に渡したい。電源はいらない。',
+    name: '月岩石', meta: ['種別：玄武岩', '電源：不要', '端子：なし（申告）'],
+    clues: [{ kind: 'usb', x: 66, y: 46 }], act: '', why: 'visual',
+    hint: '岩の横腹のUSB端子',
+    ok: '電源不要の石に端子。充電しながら周回していたんですね。',
+    ng: '岩にUSB。月のファームウェア、更新し忘れです。' },
+  { id: 's4-03', stage: 4, cust: 'cust_alien', item: 'item_crystal', real: false,
+    say: 'ぼくの母星の水晶。[[1万年]]かけて育った。光るのは自然だ。',
+    name: '異星結晶', meta: ['[[成形：樹脂・2022年]]', '発光：LED', '電源：ボタン電池'],
+    clues: [{ kind: 'led', x: 50, y: 34 }], act: '', why: 'mix',
+    hint: '結晶のLEDと、札の「樹脂・2022年」',
+    ok: '1万年の樹脂、2022年製。LEDのほうが、年号より正直です。',
+    ng: '光の点と、札の樹脂。1万年は、パッケージのキャッチコピーです。' },
+  { id: 's4-04', stage: 4, cust: 'cust_alien', item: 'item_katana', real: true,
+    say: '地球の刀。登録番号は札と同じ。ぼくは盗んでいない。',
+    name: '日本刀', meta: ['種別：日本刀', '時代：江戸末期', '登録：4120'],
+    clues: [], act: '', why: 'clean',
+    hint: '登録と時代が一致。顔は無罪',
+    ok: '登録まで一致。宇宙人の方が、書類に真面目です。',
+    ng: '緑の顔を容疑にしましたね。書類は揃っています。顔は無罪です。' },
+  { id: 's4-05', stage: 4, cust: 'cust_alien', item: 'item_crystal', real: true,
+    say: '地球の税関が怖くて汗が…。でも結晶は母星の天然です。',
+    name: '母星の水晶', meta: ['産地：ケプラー星系', '処理：なし', '申告：一致'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は税関の恐怖。結晶に加工の跡なし',
+    ok: '税関で汗をかくのは、宇宙人でも人間でも、正直者に多いです。',
+    ng: '汗イコール密輸、と短絡しましたね。今回の結晶は天然です。' },
+  { id: 's4-06', stage: 4, cust: 'cust_alien', item: 'item_watch', real: false,
+    say: '地球の古代文明の時計。ぼくが軌道上で保管していた。',
+    name: '古代の計時装置', meta: ['文明：申告・古代地球', '機構：手巻き', '出所：軌道上'],
+    clues: [{ kind: 'engrave', text: 'MADE IN 2019', x: 42, y: 64, sc: 0.85 }], act: '', why: 'visual',
+    hint: '文字盤の極小「MADE IN 2019」',
+    ok: '古代文明の「MADE IN 2019」。軌道上の保管は、年号を若返らせるんですね。',
+    ng: '裏…文字盤の2019、ルーペ必須。古代はもう少し古いです。' },
+  { id: 's4-07', stage: 4, cust: 'cust_shady', item: 'item_moonrock', real: false,
+    say: '宇宙から来た石。出所は聞かないで。今なら特別価格。',
+    name: '未登録の石', meta: ['書類：なし', '採取地：申告のみ', '価格：要相談'],
+    clues: [], act: 'fast,shifty', why: 'behavior',
+    hint: '書類なし。早口で目が泳ぐ',
+    ok: '書類なし、目は宇宙より忙しい。特別価格の前に、特別にニセモノ。',
+    ng: '出所を聞くな、は出所を聞く合図です。早口の石は、だいたい地上産。' },
+  { id: 's4-08', stage: 4, cust: 'cust_alien', item: 'item_crystal', real: true,
+    say: '発光は天然の蛍光です。LEDではありません。産地は札のとおり。',
+    name: '蛍光水晶', meta: ['発光：天然蛍光', '電源：不要', '産地：母星'],
+    clues: [], act: '', why: 'clean',
+    hint: '端子も矛盾もなし。申告どおり',
+    ok: '自分からLEDではないと言う正直さ。今回は、言葉どおりです。',
+    ng: '矛盾なし、端子なし。光っているだけで罪にすると、夜景も逮捕です。' },
+  { id: 's4-09', stage: 4, cust: 'cust_salaryman', item: 'item_crown', real: false,
+    say: '税関で止まった冠です。輸入案件で、古代の冠だと説明を受けています。',
+    name: '古代冠（通関待ち）', meta: ['申告：古代欧州', '書類：不備', '区分：工芸品'],
+    clues: [{ kind: 'barcode', x: 76, y: 48, sc: 0.8 }], act: '', why: 'visual',
+    hint: '冠の端の極小バーコード',
+    ok: '通関待ちの古代にバーコード。インボイスのほうが、まだ古いでしょう。',
+    ng: '宝石の脇に極小バーコード。書類より先に、線の本数を数えてください。' },
+  { id: 's4-10', stage: 4, cust: 'cust_alien', item: 'item_moonrock', real: true,
+    say: '試料番号は74220。汗は船酔いです。石は本物。',
+    name: '月の石', meta: ['試料番号：74220', '採取：アポロ17号', '譲渡：研究用'],
+    clues: [{ kind: 'mark', text: '74220', x: 48, y: 82, harmless: true, size: 2.8 }], act: 'sweat', why: 'trap',
+    hint: '台座の74220は札と同じ。汗は船酔い',
+    ok: '番号一致、汗は船酔い。宇宙酔いを密輸に数えなくて正解。',
+    ng: '台座の番号は札と同じ74220。船酔いをニセモノ認定とは、重力に厳しい。' },
+
+  { id: 's5-01', stage: 5, cust: 'cust_madam', item: 'item_painting', real: false,
+    say: '最後の出品です。ピカソ、真筆。ルーペをお持ちなら、どうぞ。',
+    name: '小品・肖像', meta: ['作者：申告ピカソ', '年：1911', '証明：口頭'],
+    clues: [{ kind: 'sign', text: 'Picaso', x: 73, y: 74, sc: 0.82 }], act: '', why: 'visual',
+    hint: '右下の薄いサイン「Picaso」',
+    ok: '最後の出品で、iを忘れる。ルーペが、カタログより偉い。',
+    ng: '薄い「Picaso」。大鑑定でこれを見逃すと、私の席が泣きます。' },
+  { id: 's5-02', stage: 5, cust: 'cust_salaryman', item: 'item_painting', real: true,
+    say: '最終ロットの代理です。汗は会場のせいです。サインはカタログどおり。',
+    name: '肖像', meta: ['作者：ピカソ', 'サイン：Picasso', '年：1912'],
+    clues: [{ kind: 'sign', text: 'Picasso', x: 72, y: 74, harmless: true, sc: 0.82 }], act: 'sweat', why: 'trap',
+    hint: '綴りは正しい「Picasso」。汗は会場の熱',
+    ok: '正しい綴りを、熱い会場で守った。代理人、合格です。あなたも。',
+    ng: '「Picasso」は合っています。汗と綴りを、同じ容疑にしないでください。' },
+  { id: 's5-03', stage: 5, cust: 'cust_grandpa', item: 'item_katana', real: false,
+    say: 'これが[[源氏伝来の宝刀]]じゃ。最後に、本当のことを言うての。',
+    name: '伝来刀', meta: ['[[量産模造・平成28年]]', '材質：合金', '登録：なし'],
+    clues: [], act: '', why: 'contra',
+    hint: '「源氏伝来」と札の「平成28年・模造」',
+    ok: '源氏が平成28年に量産を始めた、という新説です。採用しません。',
+    ng: '札が先に、平成の模造と書いています。源氏は、その頃もう会議に出ていません。' },
+  { id: 's5-04', stage: 5, cust: 'cust_grandpa', item: 'item_vase', real: true,
+    say: '明治の染付じゃ。蔵の目録と、この札は同じことを言うとる。',
+    name: '染付壺', meta: ['年代：明治', '産地：有田', '目録：一致'],
+    clues: [], act: '', why: 'clean',
+    hint: '目録・札・セリフが一致。違和感なし',
+    ok: '三者が同じことを言う。大鑑定で、これが一番こわい平和です。',
+    ng: '矛盾がありません。最後だからと、全部を嘘にしないでください。' },
+  { id: 's5-05', stage: 5, cust: 'cust_shady', item: 'item_daruma', real: false,
+    say: '開運の達磨です。汗は照明のせい。願いは本物、中身も本物。',
+    name: '開運だるま', meta: ['年代：申告・明治', '産地：高崎', '箱：なし'],
+    clues: [{ kind: 'sticker', text: 'おもちゃ', x: 50, y: 30, sc: 0.78 }], act: 'sweat', why: 'visual',
+    hint: '額の小さな「おもちゃ」。汗は照明でも罪ではないが、シールは罪',
+    ok: '照明の汗より、額の「おもちゃ」。願いは届いても、鑑定は届きません。',
+    ng: '小さい「おもちゃ」、ルーペの仕事です。汗に免じて許す鑑定は、ここまでです。' },
+  { id: 's5-06', stage: 5, cust: 'cust_shady', item: 'item_crown', real: false,
+    say: '最後の冠です。質問は無し。今この場で決めて。本物です。',
+    name: '冠', meta: ['時代：申告不詳', '証明：なし', '出品：飛び込み'],
+    clues: [], act: 'fast,shifty', why: 'behavior',
+    hint: '証明なし。早口、目が泳ぐ',
+    ok: '大鑑定の飛び込みで、目と口がフル回転。冠より先に、人が落ちます。',
+    ng: '証明がない冠を、早口で本物と言う。その速度が、答えです。' },
+  { id: 's5-07', stage: 5, cust: 'cust_salaryman', item: 'item_watch', real: true,
+    say: '父の形見です。昭和45年の退職記念。手が汗ばむのは、緊張です。',
+    name: '懐中時計', meta: ['製造：昭和45年', '由来：退職記念', '機構：手巻き'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '年が一致。汗は形見の前の緊張',
+    ok: '形見の年号、ぴったり。汗は愛着か、この会場の空調か。本物です。',
+    ng: '昭和45年で一致しています。形見の汗を、偽造の汗にしないでください。' },
+  { id: 's5-08', stage: 5, cust: 'cust_alien', item: 'item_crystal', real: false,
+    say: '母星の最終標本。光は自然。文字は、たぶん星の言葉。',
+    name: '最終標本', meta: ['発光：申告・自然', '産地：母星', '電源：不要（申告）'],
+    clues: [{ kind: 'led', x: 50, y: 32, sc: 0.85 }, { kind: 'engrave', text: '樹脂', x: 50, y: 80, size: 4.2, sc: 0.9 }],
+    act: '', why: 'visual',
+    hint: '小さなLEDと、裾の「樹脂」',
+    ok: '星の言葉が「樹脂」。翻訳が、一番やさしい嘘でした。',
+    ng: '点と、裾の二文字。ルーペは宇宙より近いです。使ってください。' },
+
+  { id: 's5-b1', stage: 5, cust: 'cust_boss', item: 'item_vase', real: false, boss: true,
+    say: '三代続く家宝の壺だ。私を疑うとは、いい目をしている。',
+    name: '家宝の染付壺', meta: ['伝来：三代', '時代：申告江戸', '高台：印あり'],
+    clues: [{ kind: 'barcode', x: 50, y: 80, sc: 0.72, op: 0.85 }], act: '', why: 'visual',
+    hint: '高台に薄く残るバーコード',
+    ok: 'ボスの眼光より、底のバーコードのほうが雄弁です。三代目はレジ係ですか。',
+    ng: '睨まれて見逃しましたね。家宝の高台に、ごく薄いバーコード。ルーペはボスより偉い。' },
+  { id: 's5-b2', stage: 5, cust: 'cust_boss', item: 'item_crown', real: true, boss: true,
+    say: 'これは本物の冠だ。手が汗をかくのは、重いだけだ。時代は江戸後期。',
+    name: '伝来の金冠', meta: ['時代：江戸後期', '素材：金・珊瑚', '来歴：明確'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は冠の重さ。申告と札に矛盾なし',
+    ok: '重い冠、正直な汗。ボスの言葉、今回は額面どおりです。',
+    ng: '緊張…いや重さで汗をかいただけです。疑うとは、私も人のこと言えませんね。' },
+
+  { id: 's1-11', stage: 1, cust: 'cust_student', item: 'item_ukiyoe', real: false,
+    say: 'マジで北斎の浮世絵。インスタでバズる波。江戸時代の本物だよ。',
+    name: '神奈川沖浪裏', meta: ['作者：葛飾北斎', '時代：江戸', '版：初摺り（申告）'],
+    clues: [{ kind: 'copy', text: '©2023', x: 68, y: 72, rot: -6 }], act: '', why: 'visual',
+    hint: '絵の右下の「©2023」',
+    ok: '北斎の著作権表示が2023年。タイムスタンプが、波より新しい。',
+    ng: '右下の©2023。江戸の版元は、西暦で著作権を主張しません。' },
+  { id: 's1-12', stage: 1, cust: 'cust_grandma', item: 'item_violin', real: false,
+    say: 'あらまあ、孫がストラディバリウスだって。屋根裏に百年あったのよ。',
+    name: '古いバイオリン', meta: ['製作者：申告ストラディバリ', '年代：18世紀', '弓：付き'],
+    clues: [{ kind: 'label', text: 'STRADIVARI', sub: '印刷シール', x: 36, y: 60, rot: -8 }], act: '', why: 'visual',
+    hint: '胴の中の印刷シール',
+    ok: 'ストラディバリウスがシール貼り。印刷のインクが、一番新しい音です。',
+    ng: 'f字孔の奥、印刷シールです。工房のラベルは、こうは光りません。' },
+  { id: 's1-13', stage: 1, cust: 'cust_student', item: 'item_coin', real: false,
+    say: 'マジで古代ローマの金貨。文化祭の展示で、先生が本物って言った。',
+    name: '古代の金貨', meta: ['時代：ローマ', '素材：金（申告）', '出土：申告地中海'],
+    clues: [{ kind: 'choco', text: 'チョコレート', x: 50, y: 68 }], act: '', why: 'visual',
+    hint: '金貨の「チョコレート」の刻印',
+    ok: '古代金貨の刻印がチョコレート。溶ける前に、判定が溶けました。',
+    ng: '皇帝の胸に、チョコレート。歴史は甘い。金は、もっと甘い。' },
+  { id: 's1-14', stage: 1, cust: 'cust_grandma', item: 'item_fossil', real: true,
+    say: 'あらまあ、初めてで手が震えて。博物館で払ってもらった、本物の化石なの。',
+    name: '小型獣脚類の頭骨', meta: ['分類：獣脚類', '時代：白亜紀', '由来：博物館の払い下げ'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は初鑑定の緊張。時代と由来は一致',
+    ok: '緊張の汗だけで、骨は骨。自由研究が、今日は本当。',
+    ng: 'おばあちゃんの汗を、石膏にしましたね。由来は博物館で一致しています。' },
+  { id: 's1-15', stage: 1, cust: 'cust_robot', item: 'item_vase', real: false,
+    say: 'データによれば、この壺は[[江戸・百年前]]の製造です。誤差は許容範囲。',
+    name: '染付壺', meta: ['[[製造：2020年]]', '材質：磁器', 'ログ：自動査定'],
+    clues: [], act: '', why: 'contra',
+    hint: '「百年前」と札の「2020年」',
+    ok: 'ロボットのログが、百年と2020年を同時に真と言う。演算がオーバーフローです。',
+    ng: '札は2020年。データが百年前と言うとき、データは願望です。' },
+  { id: 's1-16', stage: 1, cust: 'cust_grandpa', item: 'item_ukiyoe', real: true,
+    say: '北斎の波じゃよ。版元の印も、札の年と同じじゃ。',
+    name: '富嶽三十六景', meta: ['作者：葛飾北斎', '時代：天保', '版元：一致'],
+    clues: [], act: '', why: 'clean',
+    hint: '版元と時代が申告と一致。違和感なし',
+    ok: '印も年も揃った波。著作権表示が無いだけで、今日は安心です。',
+    ng: '矛盾なし。波に飲まれて、本物を見逃しました。' },
+
+  { id: 's2-11', stage: 2, cust: 'cust_shady', item: 'item_violin', real: false,
+    say: '質流れのストラディバリだ。今なら特別。証明は音だ。',
+    name: '質流れの提琴', meta: ['製作者：申告ストラディバリ', '預かり：質札', '証明：なし'],
+    clues: [{ kind: 'label', text: 'STRADIVARI', sub: 'PRINTED', x: 34, y: 58, rot: -6, sc: 0.92 }], act: '', why: 'visual',
+    hint: 'f字孔の奥の印刷ラベル',
+    ok: '音の前に、印刷がある。ストラディバリは、シールを弾きません。',
+    ng: '奥の印刷。今なら特別、は今なら偽物の合図です。' },
+  { id: 's2-12', stage: 2, cust: 'cust_student', item: 'item_fossil', real: false,
+    say: 'マジでティラノの化石。パパが海外で買った。学校じゃ見せられないやつ。',
+    name: '恐竜の頭骨', meta: ['分類：申告ティラノ', '時代：白亜紀', '入手：個人輸入'],
+    clues: [{ kind: 'flash', x: 40, y: 76, rot: -18 }], act: '', why: 'visual',
+    hint: '下あごのプラ成形のバリ',
+    ok: 'ティラノのあごに、成形バリ。白亜紀は、金型を使っていません。',
+    ng: 'バリが見えています。骨が光るのは、化石じゃなく樹脂です。' },
+  { id: 's2-13', stage: 2, cust: 'cust_grandma', item: 'item_coin', real: false,
+    say: 'あらまあ、[[お婆ちゃんの代からの金貨]]なの。明治より前から家にあるのよ。',
+    name: '家伝の金貨', meta: ['[[中身：チョコ菓子]]', '包装：なし', '年代：申告家伝'],
+    clues: [], act: '', why: 'contra',
+    hint: '「代々の金貨」と札の「チョコ菓子」',
+    ok: '家伝のチョコレート。明治の前から甘い家です。札が先に白状しています。',
+    ng: '札にチョコ菓子。お婆ちゃんの代から、というのは味の話でした。' },
+  { id: 's2-14', stage: 2, cust: 'cust_robot', item: 'item_watch', real: true,
+    say: 'データによれば、製造年は昭和35年。誤差ゼロ。緊張の定義は未実装。',
+    name: '懐中時計', meta: ['製造：昭和35年', '機構：手巻き', 'ログ：一致'],
+    clues: [], act: '', why: 'clean',
+    hint: 'ログの年と札が一致',
+    ok: '誤差ゼロ、は今回ほんとう。ロボットのほうが、書類に忠実です。',
+    ng: '年は一致しています。未実装の緊張を、罪にしないでください。' },
+  { id: 's2-15', stage: 2, cust: 'cust_salaryman', item: 'item_ukiyoe', real: false,
+    say: '取引先から預かった浮世絵です。一応、北斎の初摺りだと。',
+    name: '浪裏図', meta: ['作者：申告北斎', '預かり：質札', '証明：口頭'],
+    clues: [{ kind: 'copy', text: '©2023', x: 70, y: 74, rot: -4, sc: 0.88 }], act: '', why: 'visual',
+    hint: '余白の小さな「©2023」',
+    ok: '初摺りの著作権が2023年。取引先のカレンダーが、未来です。',
+    ng: '余白の©2023。一応、と前置きした時点で、一応ニセモノです。' },
+  { id: 's2-16', stage: 2, cust: 'cust_grandma', item: 'item_daruma', real: true,
+    say: 'あらまあ、質に出そうか迷って汗が。昭和のだるまで、年は札のとおりよ。',
+    name: '張子だるま', meta: ['年代：昭和', '産地：高崎', '預かり：相談'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は迷い。年は一致',
+    ok: '迷って汗をかくのは、人情です。だるまは本物。',
+    ng: '質に出す迷いの汗です。年は札と一致。疑うのは金利より高い。' },
+
+  { id: 's3-11', stage: 3, cust: 'cust_madam', item: 'item_ukiyoe', real: false,
+    say: '北斎の初摺りですわ。落札予定の品。ルーペで、どうぞ。',
+    name: '富嶽・浪裏', meta: ['作者：葛飾北斎', '時代：天保', 'Lot：12'],
+    clues: [{ kind: 'copy', text: '©2023', x: 72, y: 76, rot: -8, sc: 0.82 }], act: '', why: 'visual',
+    hint: '隅の極小「©2023」',
+    ok: 'ロット番号より、隅の西暦が雄弁です。北斎は2023年を知りません。',
+    ng: '隅を拡大しましたか。©2023。カタログが、一字で沈みます。' },
+  { id: 's3-12', stage: 3, cust: 'cust_student', item: 'item_violin', real: false,
+    say: 'マジで[[ストラディバリウスの一点物]]。オークションデビュー。先生が保証した。',
+    name: '提琴', meta: ['[[教材用・型番VN-19]]', '購入：楽器店', '証明：なし'],
+    clues: [], act: '', why: 'contra',
+    hint: '「一点物」と札の「型番VN-19」',
+    ok: '一点物の型番。教材が、落札札の上で音程を外しています。',
+    ng: '札のVN-19。一点物が量産だと、拍手も量産です。' },
+  { id: 's3-13', stage: 3, cust: 'cust_grandma', item: 'item_ukiyoe', real: true,
+    say: 'あらまあ、会場が広くて汗が。北斎の波は、目録の年と同じですのよ。',
+    name: '神奈川沖浪裏', meta: ['作者：葛飾北斎', '時代：天保', '目録：一致'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は会場の広さ。目録と一致',
+    ok: '目録どおりの波。汗は照明です。北斎は無罪。',
+    ng: '汗と本物を、同じ容疑にしました。目録は一致しています。' },
+  { id: 's3-14', stage: 3, cust: 'cust_robot', item: 'item_coin', real: false,
+    say: 'データによれば、純金の古代貨幣。比重は測定不能。いま判定せよ。',
+    name: '古代貨幣', meta: ['素材：申告金', '時代：ローマ', 'ログ：比重不能'],
+    clues: [{ kind: 'choco', text: 'チョコレート', x: 50, y: 66, sc: 0.9 }], act: '', why: 'visual',
+    hint: '貨幣下面の「チョコレート」',
+    ok: '比重不能の理由は、溶けるからです。刻印が先に答えました。',
+    ng: '下面の刻印。データが純金と言うとき、舌が正しい測定器です。' },
+  { id: 's3-15', stage: 3, cust: 'cust_shady', item: 'item_fossil', real: false,
+    say: '発掘直後の恐竜だ。質問は無し。ハンマーの前に決めて。今なら特別。',
+    name: '発掘頭骨', meta: ['分類：申告恐竜', '書類：なし', '出品：当日'],
+    clues: [], act: 'fast,shifty', why: 'behavior',
+    hint: '書類なし。早口で目が泳ぐ',
+    ok: '発掘直後にしては、口が先に発掘されています。書類がない骨は、話だけです。',
+    ng: '質問するな、は質問の答えです。目が泳いで、骨は座っています。' },
+  { id: 's3-16', stage: 3, cust: 'cust_student', item: 'item_crystal', real: true,
+    say: 'マジで初めてのオークションで緊張してて。天然水晶。鑑定の番号は札と同じ。',
+    name: '天然水晶', meta: ['処理：なし', '鑑定：登録済', '産地：ブラジル'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は初参加。鑑定は登録と一致',
+    ok: '初参加の汗。登録は本物。バズより、番号が正しい。',
+    ng: '緊張を偽造にしました。鑑定番号は札と一致。マジで本物です。' },
+
+  { id: 's4-11', stage: 4, cust: 'cust_alien', item: 'item_raygun', real: false,
+    say: 'ぼくの星の光線銃。ほんもの。電源はいらない。光は心で出す。',
+    name: '宇宙光線銃', meta: ['動力：申告・心', '製造：母星', '書類：口頭'],
+    clues: [{ kind: 'battery', text: '単3×2', x: 30, y: 72, rot: -8 }], act: '', why: 'visual',
+    hint: 'グリップの電池ボックス「単3×2」',
+    ok: '心の動力が、単3×2。母星のコンビニは、電池を売っています。',
+    ng: 'グリップの蓋。心で光る銃が、乾電池を二本求めます。' },
+  { id: 's4-12', stage: 4, cust: 'cust_robot', item: 'item_raygun', real: false,
+    say: 'データによれば、恒星間武装。エネルギー源はプラズマ。誤差は機密。',
+    name: '恒星間レイガン', meta: ['動力：申告プラズマ', '所属：不明', 'ログ：一部欠落'],
+    clues: [{ kind: 'battery', text: '単3×2', x: 40, y: 46, sc: 0.85 }], act: '', why: 'visual',
+    hint: '本体側面の電池蓋「単3×2」',
+    ok: 'プラズマの欠落ログが、単三で埋まっています。機密の中身は百円です。',
+    ng: '側面の蓋、ルーペです。プラズマが乾電池だと、恒星が泣きます。' },
+  { id: 's4-13', stage: 4, cust: 'cust_alien', item: 'item_fossil', real: false,
+    say: 'ぼくの星の[[1億年化石]]。地球の博物館に寄贈したい。',
+    name: '異星の頭骨', meta: ['[[成形：プラスチック]]', '時代：申告1億年', '寄贈：希望'],
+    clues: [], act: '', why: 'contra',
+    hint: '「1億年」と札の「プラスチック」',
+    ok: '1億年のプラスチック。寄贈する前に、分別が要ります。',
+    ng: '札がプラスチック。1億年は、成型機のキャッチコピーです。' },
+  { id: 's4-14', stage: 4, cust: 'cust_robot', item: 'item_moonrock', real: true,
+    say: 'データによれば、試料番号74220。アポロ17号。ログは札と一致。',
+    name: '月の石', meta: ['試料番号：74220', '採取：アポロ17号', 'ログ：一致'],
+    clues: [], act: '', why: 'clean',
+    hint: '試料番号が札と一致',
+    ok: '番号が一致した月。ロボットのログが、今回は詩より正確。',
+    ng: '一致しています。欠落を想像して、月を偽物にしないでください。' },
+  { id: 's4-15', stage: 4, cust: 'cust_student', item: 'item_raygun', real: true,
+    say: 'マジで映画の小道具じゃなくて、研究部の実験銃。汗は発表のせい。動力は札のとおり内蔵電池。',
+    name: '実験用光線銃', meta: ['動力：内蔵電池', '所属：科学部', '許可：校内のみ'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は発表の緊張。動力の申告は札と一致',
+    ok: '科学部の汗。電池の申告は一致。玩具の蓋はありません。',
+    ng: '高校生と銃で短絡しました。動力は札と一致。汗は発表の緊張です。' },
+  { id: 's4-16', stage: 4, cust: 'cust_shady', item: 'item_coin', real: false,
+    say: '宇宙港で拾った古代金貨だ。出所は聞くな。今なら特別。',
+    name: '未登録の金貨', meta: ['時代：申告古代', '書類：なし', '価格：要相談'],
+    clues: [{ kind: 'choco', text: 'チョコレート', x: 50, y: 70, sc: 0.82 }], act: '', why: 'visual',
+    hint: '金貨下部の極小「チョコレート」',
+    ok: '宇宙港のチョコレート。出所を隠すより、刻印が先に出所を言います。',
+    ng: '下部の刻印、ルーペ案件。古代は、こんなに溶けやすくありません。' },
+
+  { id: 's5-09', stage: 5, cust: 'cust_student', item: 'item_ukiyoe', real: false,
+    say: 'マジで最後の大鑑定に北斎を持ってきた。本物。見て、波がやばい。',
+    name: '浪裏', meta: ['作者：申告北斎', '時代：江戸', '証明：口頭'],
+    clues: [{ kind: 'copy', text: '©2023', x: 73, y: 75, rot: -6, sc: 0.75 }], act: '', why: 'visual',
+    hint: '隅の薄い「©2023」',
+    ok: '最後の波に、2023年。やばいのは、著作権のほうです。',
+    ng: '薄い©2023。大鑑定でこれを見逃すと、波が勝ちます。' },
+  { id: 's5-10', stage: 5, cust: 'cust_grandma', item: 'item_violin', real: false,
+    say: 'あらまあ、これが[[孫の家宝のストラディバリウス]]。最後だから本当のことよ。',
+    name: '家宝の提琴', meta: ['[[教材・印刷ラベル付き]]', '年代：申告18世紀', '弓：付き'],
+    clues: [], act: '', why: 'contra',
+    hint: '「家宝のストラディバリ」と札の「教材・印刷ラベル」',
+    ok: '家宝の教材。本当のことを言ったのは、説明札のほうです。',
+    ng: '札が教材と書いています。孫の本当は、だいたい孫の願望です。' },
+  { id: 's5-11', stage: 5, cust: 'cust_robot', item: 'item_fossil', real: false,
+    say: 'データによれば、白亜紀の頭骨。復元率ゼロ。つまり未加工。',
+    name: '白亜紀頭骨', meta: ['時代：白亜紀', '加工：申告なし', 'ログ：復元率ゼロ'],
+    clues: [{ kind: 'flash', x: 64, y: 56, rot: 16, sc: 0.8 }], act: '', why: 'visual',
+    hint: '頭骨の縁の小さな成形バリ',
+    ok: '復元率ゼロの金型。未加工のバリは、工場の正直さです。',
+    ng: '縁のバリ。ルーペは恐竜より近い。データが未加工と言うとき、縁を見なさい。' },
+  { id: 's5-12', stage: 5, cust: 'cust_alien', item: 'item_coin', real: true,
+    say: '地球の古代金貨。汗は税関。刻印は皇帝で、番号は札と同じ。',
+    name: 'ローマ金貨', meta: ['時代：ローマ', '素材：金', '申告番号：一致'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は税関。申告は札と一致し、甘い刻印はない',
+    ok: '税関の汗。皇帝は皇帝のまま。チョコを想像したのは、経験のほうです。',
+    ng: 'チョコを予感して、本物の皇帝を溶かしましたね。汗は税関です。' },
+  { id: 's5-13', stage: 5, cust: 'cust_student', item: 'item_raygun', real: false,
+    say: 'マジで宇宙の本物。質問とか無しで。今決めて。文化祭に間に合わせたい。',
+    name: '光線銃', meta: ['動力：申告プラズマ', '証明：なし', '用途：申告・実物'],
+    clues: [], act: 'fast,shifty', why: 'behavior',
+    hint: '証明なし。早口で目が泳ぐ',
+    ok: '文化祭の期限が、プラズマより急いでいます。証明がない銃は、話が先に発射。',
+    ng: '目が泳いで早口。光線より、言い訳のほうが速い。' },
+  { id: 's5-14', stage: 5, cust: 'cust_grandma', item: 'item_ukiyoe', real: true,
+    say: 'あらまあ、最後に本当の北斎。目録の年と、この絵の印は同じなのよ。',
+    name: '富嶽三十六景', meta: ['作者：葛飾北斎', '時代：天保', '目録：一致'],
+    clues: [], act: '', why: 'clean',
+    hint: '印と目録が一致。違和感なし',
+    ok: '最後の平和な波。印が同じことを言う。今日は、それが一番珍しい。',
+    ng: '矛盾がありません。最後だからと、おばあちゃんの北斎まで沈めないで。' }
+];
+
+const S = {
+  state: 'boot',
+  stageId: 0,
+  correct: 0,
+  served: 0,
+  quota: 0,
+  total: 0,
+  timeLeftRaw: 0,
+  verdict: null,
+  lastHit: null,
+  passed: false,
+  cleared: [],
+  best: {},
+  score: 0,
+  combo: 0,
+  maxCombo: 0,
+  lastGain: 0,
+  lastMult: 1,
+  missReal: 0,
+  missFake: 0,
+  timeouts: 0,
+  rankIdx: 0,
+  rankName: '',
+  codex: { items: {}, custs: {} }
+};
+
+let current = null;
+let queue = [];
+let botStage = Math.min(5, Math.max(1, Number(params.get('stage')) || 1));
+let timerId = 0;
+let typeId = 0;
+let botT = 0;
+let lastTickSec = 99;
+let audioUnlocked = false;
+let audioCtxObj = null;
+let loupeOn = false;
+let loupePan = { x: 0, y: 0 };
+let gesture = null;
+let lastTap = 0;
+let quipPrev = -1;
+let timerOrigin = 0;
+let timerTotal = 0;
+let timeSkew = 0;
+let codexReturn = 'title';
+let codexTab = 'items';
+let codexDetailOn = false;
+const MEM = { pending: [] };
+
+window.__game = {
+  stage: 0,
+  correct: 0,
+  served: 0,
+  state: 'boot',
+  quota: 0,
+  total: 0,
+  timeLeft: 0,
+  caseId: null,
+  truth: null,
+  verdict: null,
+  lastHit: null,
+  cleared: [],
+  bot: BOT,
+  caseCount: 0,
+  passed: false,
+  score: 0,
+  combo: 0,
+  maxCombo: 0,
+  rank: '',
+  asks: 0,
+  visit: null
+};
+
+const $ = (id) => document.getElementById(id);
+const screens = () => Array.from(document.querySelectorAll('.screen'));
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+}
+function plain(s) {
+  return String(s).replace(/\[\[|\]\]/g, '');
+}
+function rich(s, hot) {
+  const re = /\[\[(.+?)\]\]/g;
+  let out = '';
+  let last = 0;
+  let m;
+  const src = String(s);
+  while ((m = re.exec(src))) {
+    out += esc(src.slice(last, m.index));
+    out += hot ? '<em class="hot">' + esc(m[1]) + '</em>' : esc(m[1]);
+    last = m.index + m[0].length;
+  }
+  out += esc(src.slice(last));
+  return out;
+}
+function actsOf(c) {
+  const base = String((c && c.act) || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const extra = (c && c._extraActs) || [];
+  extra.forEach((a) => { if (base.indexOf(a) === -1) base.push(a); });
+  return base;
+}
+function stageOf(id) {
+  return STAGES[id - 1] || null;
+}
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i];
+    a[i] = a[j];
+    a[j] = t;
+  }
+  return a;
+}
+
+function loadSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    const o = JSON.parse(raw);
+    if (o && Array.isArray(o.cleared)) {
+      S.cleared = o.cleared.filter((n) => n >= 1 && n <= 5);
+    }
+    if (o && o.best && typeof o.best === 'object') {
+      S.best = normalizeBest(o.best);
+    }
+    if (o && o.codex) S.codex = loadCodex(o.codex);
+  } catch (e) { /* ignore */ }
+}
+function loadCodex(raw) {
+  const out = { items: {}, custs: {} };
+  if (!raw || typeof raw !== 'object') return out;
+  [['items', ITEM_IDS], ['custs', CUST_IDS]].forEach((pair) => {
+    const group = pair[0];
+    const allow = pair[1];
+    const src = raw[group];
+    if (!src || typeof src !== 'object') return;
+    allow.forEach((key) => {
+      const bucket = src[key];
+      if (!bucket || typeof bucket !== 'object') return;
+      const keep = {};
+      Object.keys(bucket).forEach((id) => {
+        const e = bucket[id];
+        if (!e || typeof e !== 'object') return;
+        keep[id] = {
+          name: String(e.name || ''),
+          item: String(e.item || ''),
+          itemName: String(e.itemName || ''),
+          real: !!e.real,
+          hint: String(e.hint || ''),
+          comment: String(e.comment || ''),
+          stage: Number(e.stage) || 0,
+          outcome: String(e.outcome || ''),
+          asks: Array.isArray(e.asks) ? e.asks.map((x) => String(x)).slice(0, 4) : []
+        };
+      });
+      if (Object.keys(keep).length) out[group][key] = keep;
+    });
+  });
+  return out;
+}
+function normalizeBest(raw) {
+  const out = {};
+  Object.keys(raw).forEach((k) => {
+    const id = Number(k);
+    if (!(id >= 1 && id <= 5)) return;
+    const st = stageOf(id);
+    const total = st ? st.n : 8;
+    const v = raw[k];
+    let correct = 0;
+    let score = 0;
+    if (typeof v === 'number') {
+      correct = v;
+      score = correct * 100;
+    } else if (v && typeof v === 'object') {
+      correct = Number(v.correct) || 0;
+      score = Number(v.score) || 0;
+    } else return;
+    const idx = judgeRank(correct, total, score);
+    out[id] = { score: score, correct: correct, rank: RANK_NAMES[idx] };
+  });
+  return out;
+}
+function saveSave() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ cleared: S.cleared, best: S.best, codex: S.codex }));
+  } catch (e) { /* ignore */ }
+}
+function unlocked(id) {
+  return id === 1 || S.cleared.indexOf(id - 1) !== -1;
+}
+
+function audioCtx() {
+  if (!audioUnlocked) return null;
+  if (audioCtxObj) return audioCtxObj;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  try { audioCtxObj = new AC(); } catch (e) { return null; }
+  return audioCtxObj;
+}
+function unlockAudio() {
+  audioUnlocked = true;
+  try {
+    const ctx = audioCtx();
+    if (ctx && ctx.state === 'suspended') {
+      const p = ctx.resume();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    }
+  } catch (e) { /* ignore */ }
+}
+function blip(freq, dur, type, vol, when) {
+  try {
+    const ctx = audioCtx();
+    if (!ctx || ctx.state !== 'running') return;
+    const t = ctx.currentTime + (when || 0);
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(Math.max(0.0001, vol), t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start(t);
+    o.stop(t + dur + 0.02);
+  } catch (e) { /* ignore */ }
+}
+function soundSwipe() { blip(240, 0.08, 'triangle', 0.05); }
+function soundStamp() {
+  try {
+    const ctx = audioCtx();
+    if (!ctx || ctx.state !== 'running') return;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(170, t);
+    o.frequency.exponentialRampToValueAtTime(48, t + 0.1);
+    g.gain.setValueAtTime(0.16, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start(t);
+    o.stop(t + 0.15);
+    const n = Math.floor(ctx.sampleRate * 0.07);
+    const buf = ctx.createBuffer(1, Math.max(1, n), ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 680;
+    f.Q.value = 0.7;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.2, t);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+    src.connect(f);
+    f.connect(ng);
+    ng.connect(ctx.destination);
+    src.start(t);
+    src.stop(t + 0.09);
+  } catch (e) { /* ignore */ }
+}
+function soundOk() {
+  blip(523.25, 0.1, 'sine', 0.07);
+  blip(659.25, 0.11, 'sine', 0.06, 0.09);
+  blip(783.99, 0.12, 'triangle', 0.055, 0.18);
+  blip(1046.5, 0.22, 'sine', 0.05, 0.28);
+}
+function soundNg() {
+  blip(220, 0.16, 'square', 0.05);
+  blip(175, 0.18, 'square', 0.045, 0.06);
+  blip(110, 0.28, 'sawtooth', 0.04, 0.16);
+  blip(92, 0.24, 'square', 0.035, 0.3);
+}
+function soundTick() { blip(880, 0.035, 'square', 0.018); }
+function soundClear() {
+  [523, 659, 784, 1046].forEach((f, i) => blip(f, 0.12, 'sine', 0.05, i * 0.08));
+}
+function soundFail() {
+  [392, 349, 311, 262].forEach((f, i) => blip(f, 0.12, 'triangle', 0.04, i * 0.09));
+}
+function soundUi() { blip(640, 0.05, 'sine', 0.035); }
+
+function textWidth(text, fontSize) {
+  let w = 0;
+  const s = String(text);
+  for (let i = 0; i < s.length; i++) {
+    w += s.charCodeAt(i) > 255 ? fontSize * 1.02 : fontSize * 0.62;
+  }
+  return w;
+}
+function textEl(text, size, fill, family, weight) {
+  return '<text x="0" y="0" text-anchor="middle" dominant-baseline="middle" font-size="' + size +
+    '" font-family="' + family + '" font-weight="' + weight + '" fill="' + fill +
+    '" stroke="#fff" stroke-width="0.7" paint-order="stroke" stroke-linejoin="round">' +
+    esc(text) + '</text>';
+}
+function hashBars(seedText) {
+  let seed = 2166136261;
+  const key = String(seedText || 'bc');
+  for (let i = 0; i < key.length; i++) {
+    seed ^= key.charCodeAt(i);
+    seed = Math.imul(seed, 16777619);
+  }
+  const widths = [];
+  for (let i = 0; i < 13; i++) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    widths.push((seed % 2) + 1);
+  }
+  return widths;
+}
+function drawKind(c) {
+  const kind = c.kind;
+  if (kind === 'barcode') {
+    const widths = hashBars(c.text || 'JAN');
+    const unit = 0.72;
+    const gap = 0.38;
+    let total = 0;
+    widths.forEach((bw) => { total += bw * unit + gap; });
+    let cursor = -total / 2;
+    let html = '<rect x="' + (-total / 2 - 1).toFixed(2) + '" y="-5.2" width="' + (total + 2).toFixed(2) + '" height="10.4" rx="0.5" fill="#fff"/>';
+    widths.forEach((bw) => {
+      const w = bw * unit;
+      html += '<rect x="' + cursor.toFixed(2) + '" y="-4" width="' + w.toFixed(2) + '" height="8" fill="#141414"/>';
+      cursor += w + gap;
+    });
+    return html;
+  }
+  if (kind === 'sign') {
+    return textEl(c.text || 'Picaso', c.size || 5.1, '#1a120c', 'Segoe Script, Brush Script MT, cursive', '700');
+  }
+  if (kind === 'engrave') {
+    return textEl(c.text || 'MADE IN 2019', c.size || 3.35, '#3a2918', 'ui-monospace, Menlo, monospace', '800');
+  }
+  if (kind === 'sticker') {
+    const label = c.text || 'おもちゃ';
+    const fs = c.size || 4.6;
+    const w = Math.max(12, textWidth(label, fs) + 3.2);
+    const h = fs + 3.4;
+    return '<rect x="' + (-w / 2) + '" y="' + (-h / 2) + '" width="' + w + '" height="' + h +
+      '" rx="1.2" fill="#ffe14a" stroke="#1a1a1a" stroke-width="0.45"/>' +
+      textEl(label, fs, '#1a1a1a', 'sans-serif', '800');
+  }
+  if (kind === 'price') {
+    const label = c.text || '¥980';
+    const fs = c.size || 4.4;
+    const w = Math.max(14, textWidth(label, fs) + 3.4);
+    const h = fs + 3.6;
+    return '<line x1="-5" y1="' + (-h / 2) + '" x2="-5" y2="' + (-h / 2 - 3.2) + '" stroke="#c23b2e" stroke-width="0.45"/>' +
+      '<circle cx="-5" cy="' + (-h / 2 - 3.8) + '" r="0.9" fill="none" stroke="#c23b2e" stroke-width="0.4"/>' +
+      '<rect x="' + (-w / 2) + '" y="' + (-h / 2) + '" width="' + w + '" height="' + h +
+      '" rx="0.8" fill="#fffdf6" stroke="#c23b2e" stroke-width="0.5"/>' +
+      textEl(label, fs, '#c23b2e', 'sans-serif', '800');
+  }
+  if (kind === 'usb') {
+    return '<rect x="-6.2" y="-3.4" width="12.4" height="6.8" rx="1" fill="#fff"/>' +
+      '<rect x="-5" y="-2.2" width="10" height="4.4" rx="1.5" fill="#222"/>' +
+      '<rect x="-1.8" y="-0.9" width="3.6" height="1.8" rx="0.35" fill="#9ad7ff"/>';
+  }
+  if (kind === 'led') {
+    return '<circle r="4.4" fill="#c6ff73" opacity="0.55"/>' +
+      '<circle r="1.7" fill="#f4ffd8" stroke="#2a4d12" stroke-width="0.35"/>';
+  }
+  if (kind === 'mark') {
+    return textEl(c.text || '4821', c.size || 3.3, '#2a2118', 'ui-monospace, monospace', '700');
+  }
+  if (kind === 'crack') {
+    return '<path d="M-8,-3 C-4,-1 -3,2 -1,1 S 3,-2 8,2" fill="none" stroke="#ffffff" stroke-width="1.15" stroke-linecap="round"/>' +
+      '<path d="M-8,-3 C-4,-1 -3,2 -1,1 S 3,-2 8,2" fill="none" stroke="#5b4a78" stroke-width="0.45" stroke-linecap="round"/>';
+  }
+  if (kind === 'copy') {
+    const label = c.text || '©2023';
+    const fs = c.size || 3.5;
+    const w = Math.max(12, textWidth(label, fs) + 2.2);
+    const h = fs + 2.4;
+    return '<rect x="' + (-w / 2) + '" y="' + (-h / 2) + '" width="' + w + '" height="' + h +
+      '" rx="0.35" fill="rgba(255,255,255,.92)" stroke="#111" stroke-width="0.28"/>' +
+      textEl(label, fs, '#111', 'sans-serif', '800');
+  }
+  if (kind === 'label') {
+    const label = c.text || 'STRADIVARI';
+    const sub = c.sub || '印刷シール';
+    const fs = c.size || 2.35;
+    const fs2 = Math.max(1.7, fs - 0.45);
+    const w = Math.max(textWidth(label, fs), textWidth(sub, fs2)) + 2.4;
+    const h = fs + fs2 + 2.8;
+    const x = -w / 2;
+    const y = -h / 2;
+    return '<rect x="' + x.toFixed(2) + '" y="' + y.toFixed(2) + '" width="' + w.toFixed(2) + '" height="' + h.toFixed(2) +
+      '" rx="0.3" fill="#f4edd6" stroke="#6b5434" stroke-width="0.3" stroke-dasharray="0.9 0.45"/>' +
+      '<text x="0" y="' + (y + fs * 0.95).toFixed(2) + '" text-anchor="middle" font-size="' + fs +
+      '" font-family="sans-serif" font-weight="800" fill="#3a2918">' + esc(label) + '</text>' +
+      '<text x="0" y="' + (y + fs + fs2 * 0.95 + 0.4).toFixed(2) + '" text-anchor="middle" font-size="' + fs2 +
+      '" font-family="sans-serif" font-weight="800" fill="#8a1f1f">' + esc(sub) + '</text>';
+  }
+  if (kind === 'flash') {
+    const fs = c.size || 2.5;
+    return '<path d="M-11,1.2 L-8,-2.4 L-6,2.1 L-3,-2.8 L-1,2 L2,-2.2 L5,2.6 L8,-1.4 L11,1.6" fill="none" stroke="#f3e6cf" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>' +
+      '<path d="M-11,1.2 L-8,-2.4 L-6,2.1 L-3,-2.8 L-1,2 L2,-2.2 L5,2.6 L8,-1.4 L11,1.6" fill="none" stroke="#7d6a56" stroke-width="0.45" stroke-linejoin="round"/>' +
+      '<text x="0" y="' + (fs + 1.2) + '" text-anchor="middle" font-size="' + fs +
+      '" font-family="sans-serif" font-weight="800" fill="#5c4636" stroke="#fff" stroke-width="0.45" paint-order="stroke">バリ</text>';
+  }
+  if (kind === 'choco') {
+    const label = c.text || 'チョコレート';
+    const fs = c.size || 2.7;
+    const w = textWidth(label, fs) + 2.2;
+    const rx = w / 2 + 0.8;
+    const ry = fs / 2 + 1.35;
+    return '<ellipse cx="0" cy="0" rx="' + rx.toFixed(2) + '" ry="' + ry.toFixed(2) + '" fill="rgba(255,236,170,.55)" stroke="#6a4a12" stroke-width="0.4"/>' +
+      textEl(label, fs, '#5a3d10', 'serif', '800');
+  }
+  if (kind === 'battery') {
+    const label = c.text || '単3×2';
+    const fs = c.size || 2.7;
+    const w = Math.max(15, textWidth(label, fs) + 2.6);
+    const h = fs + 5.2;
+    const cellW = (w - 3.2) / 2;
+    return '<rect x="' + (-w / 2) + '" y="' + (-h / 2) + '" width="' + w + '" height="' + h +
+      '" rx="0.7" fill="#d5dae1" stroke="#222831" stroke-width="0.45"/>' +
+      '<rect x="' + (-w / 2 + 1.1) + '" y="' + (-h / 2 + 0.9) + '" width="' + cellW.toFixed(2) + '" height="2.5" rx="0.3" fill="#8ea04a" stroke="#222" stroke-width="0.22"/>' +
+      '<rect x="' + (0.5) + '" y="' + (-h / 2 + 0.9) + '" width="' + cellW.toFixed(2) + '" height="2.5" rx="0.3" fill="#8ea04a" stroke="#222" stroke-width="0.22"/>' +
+      '<circle cx="' + (-w / 2 + 1.5) + '" cy="' + (h / 2 - 1.15) + '" r="0.55" fill="none" stroke="#333" stroke-width="0.25"/>' +
+      '<text x="0" y="' + (h / 2 - fs * 0.15).toFixed(2) + '" text-anchor="middle" font-size="' + fs +
+      '" font-family="sans-serif" font-weight="800" fill="#1a1a1a">' + esc(label) + '</text>';
+  }
+  return '';
+}
+function renderClues(list, dim) {
+  const svg = $('clueSvg');
+  const clues = list || [];
+  svg.innerHTML = clues.map((c, i) => {
+    const sc = dim.scale * (c.sc || 1);
+    const op = dim.opacity * (c.op || 1);
+    const rot = c.rot || 0;
+    return '<g class="cg ' + (c.harmless ? 'harmless' : 'suspect') + '" data-i="' + i +
+      '" transform="translate(' + c.x + ' ' + c.y + ') rotate(' + rot + ') scale(' + sc + ')" opacity="' + op + '">' +
+      drawKind(c) + '</g>';
+  }).join('');
+}
+function highlightClues(mode) {
+  const svg = $('clueSvg');
+  const nodes = svg.querySelectorAll('.cg');
+  nodes.forEach((g) => {
+    const c = current && current.clues ? current.clues[Number(g.getAttribute('data-i'))] : null;
+    g.classList.remove('hot', 'okhot');
+    if (!c) return;
+    if (mode === 'suspect' && !c.harmless) {
+      g.setAttribute('opacity', '1');
+      g.classList.add('hot');
+    } else if (mode === 'harmless' && c.harmless) {
+      g.setAttribute('opacity', '1');
+      g.classList.add('okhot');
+    }
+  });
+}
+
+function publish() {
+  const g = window.__game;
+  g.stage = S.stageId;
+  g.correct = S.correct;
+  g.served = S.served;
+  g.state = S.state;
+  g.quota = S.quota;
+  g.total = S.total;
+  g.timeLeft = Math.ceil(S.timeLeftRaw || 0);
+  g.caseId = current ? current.id : null;
+  g.truth = current ? !!current.real : null;
+  g.verdict = S.verdict;
+  g.lastHit = S.lastHit;
+  g.cleared = S.cleared.slice();
+  g.bot = BOT;
+  g.caseCount = CASES.length;
+  g.passed = !!S.passed;
+  g.score = S.score;
+  g.combo = S.combo;
+  g.maxCombo = S.maxCombo;
+  g.rank = S.rankName || '';
+  g.asks = (current && S.state === 'play') ? Math.max(0, 2 - ((current._asks && current._asks.length) || 0)) : 0;
+  g.visit = (current && current._visit) ? current._visit : null;
+  paintHud();
+}
+function paintHud() {
+  const st = stageOf(S.stageId);
+  const inRound = S.state === 'play' || S.state === 'reveal' || S.state === 'result';
+  $('hudStage').textContent = st && inRound ? st.name : 'ぶっちゃけ鑑定所';
+  $('hudLeft').textContent = inRound ? ('残り ' + Math.max(0, S.total - S.served) + '人') : '';
+  $('hudScore').textContent = inRound ? hudScoreText() : '';
+  $('hudPts').textContent = inRound ? (S.score + '点') : '';
+  paintCombo();
+  const timeEl = $('hudTime');
+  if (S.state === 'play' || S.state === 'reveal') {
+    const sec = Math.ceil(S.timeLeftRaw || 0);
+    timeEl.textContent = String(sec);
+    timeEl.classList.toggle('low', S.state === 'play' && sec <= 5);
+  } else {
+    timeEl.textContent = '';
+    timeEl.classList.remove('low');
+  }
+  const ratio = st && (S.state === 'play' || S.state === 'reveal') ? Math.max(0, Math.min(1, (S.timeLeftRaw || 0) / st.time)) : 0;
+  const fill = $('timefill');
+  fill.style.width = (ratio * 100) + '%';
+  fill.style.background = (S.state === 'play' && S.timeLeftRaw <= 5) ? '#d6453d' : '#e0b85a';
+}
+function hudScoreText() {
+  if (S.quota > 0 && S.correct >= S.quota) {
+    return '正解 ' + S.correct + '（目標' + S.quota + ' 達成✓）';
+  }
+  return '正解 ' + S.correct + '/' + S.quota;
+}
+function trimMult(m) {
+  return String(Math.round(m * 100) / 100);
+}
+function comboMult(combo) {
+  const step = Math.min(Math.max(combo, 1) - 1, 4);
+  return 1 + step * 0.25;
+}
+function judgeRank(correct, total, score) {
+  const n = total || 1;
+  const rate = correct / n;
+  const per = score / n;
+  if (rate < 0.375) return 0;
+  if (rate < 0.75) return 1;
+  if (rate >= 0.999 && per >= 200) return 4;
+  if (rate >= 0.999) return 3;
+  if ((rate >= 0.875 && per >= 150) || per >= 230) return 3;
+  return 2;
+}
+function paintCombo() {
+  const el = $('comboPop');
+  if (!el) return;
+  const live = (S.state === 'play' || S.state === 'reveal') && S.combo > 0;
+  if (!live) {
+    el.hidden = true;
+    el.classList.remove('hot');
+    return;
+  }
+  const label = (S.combo >= 3 ? 'COMBO ' : 'コンボ ') + S.combo + ' ×' + trimMult(comboMult(S.combo));
+  const changed = el.textContent !== label;
+  el.hidden = false;
+  el.textContent = label;
+  if (S.combo >= 3 && changed) {
+    el.classList.remove('hot');
+    void el.offsetWidth;
+  }
+  el.classList.toggle('hot', S.combo >= 3);
+}
+function resetTally() {
+  current = null;
+  S.stageId = 0;
+  S.correct = 0;
+  S.served = 0;
+  S.quota = 0;
+  S.total = 0;
+  S.verdict = null;
+  S.lastHit = null;
+  S.passed = false;
+  S.timeLeftRaw = 0;
+  S.score = 0;
+  S.combo = 0;
+  S.maxCombo = 0;
+  S.lastGain = 0;
+  S.lastMult = 1;
+  S.missReal = 0;
+  S.missFake = 0;
+  S.timeouts = 0;
+  S.rankIdx = 0;
+  S.rankName = '';
+}
+function burstSparkle() {
+  const layer = $('sparkLayer');
+  layer.innerHTML = '';
+  for (let i = 0; i < 8; i++) {
+    const s = document.createElement('i');
+    const ang = (Math.PI * 2 * i) / 8 + 0.35;
+    const dist = 58 + (i % 3) * 20;
+    s.style.setProperty('--dx', (Math.cos(ang) * dist).toFixed(1) + 'px');
+    s.style.setProperty('--dy', (Math.sin(ang) * dist).toFixed(1) + 'px');
+    if (i % 2) s.style.background = '#fff8e0';
+    layer.appendChild(s);
+  }
+  layer.classList.remove('on');
+  void layer.offsetWidth;
+  layer.classList.add('on');
+}
+function placeGain() {
+  const el = $('gainPop');
+  const card = $('card');
+  const col = $('itemCol');
+  if (!el || !card || !col || !el.classList.contains('on')) return;
+  const combo = $('comboPop');
+  const comboH = (combo && !combo.hidden) ? combo.offsetHeight + 4 : 0;
+  const top = card.getBoundingClientRect().top - col.getBoundingClientRect().top + 4;
+  el.style.top = Math.max(0, top, comboH) + 'px';
+}
+function showGain(gain, mult) {
+  const el = $('gainPop');
+  el.textContent = '+' + gain + ' ×' + trimMult(mult);
+  el.classList.remove('on');
+  void el.offsetWidth;
+  el.classList.add('on');
+  placeGain();
+}
+function fxJudge(isReal, hit, timeout) {
+  const app = $('app');
+  const fx = $('hankoFx');
+  app.classList.remove('shake-soft', 'shake-hard', 'buzz');
+  fx.classList.remove('on', 'real', 'fake');
+  $('sparkLayer').classList.remove('on');
+  void app.offsetWidth;
+  if (timeout) {
+    app.classList.add('shake-hard', 'buzz');
+    return;
+  }
+  $('hankoWord').textContent = isReal ? '本物' : '贋作';
+  fx.classList.add('on', isReal ? 'real' : 'fake');
+  soundStamp();
+  if (hit) {
+    app.classList.add('shake-soft');
+    burstSparkle();
+  } else {
+    app.classList.add('shake-hard', 'buzz');
+  }
+}
+function scoreCase(hit, timeout) {
+  S.lastGain = 0;
+  S.lastMult = 1;
+  if (timeout) {
+    S.timeouts += 1;
+    S.combo = 0;
+    return;
+  }
+  if (!hit) {
+    if (current && current.real) S.missReal += 1;
+    else S.missFake += 1;
+    S.combo = 0;
+    return;
+  }
+  S.combo += 1;
+  if (S.combo > S.maxCombo) S.maxCombo = S.combo;
+  const bonus = Math.round(Math.max(0, S.timeLeftRaw) * 10);
+  const mult = comboMult(S.combo);
+  const gain = Math.round((100 + bonus) * mult);
+  S.score += gain;
+  S.lastGain = gain;
+  S.lastMult = mult;
+  showGain(gain, mult);
+}
+function showScreen(id) {
+  screens().forEach((s) => s.classList.toggle('on', s.id === id));
+  if (id === 'screenPlay') {
+    requestAnimationFrame(fitCard);
+  }
+}
+function fitCard() {
+  const slot = $('cardSlot');
+  const card = $('card');
+  if (!slot || !card) return;
+  if (!$('screenPlay').classList.contains('on')) return;
+  const r = slot.getBoundingClientRect();
+  const vw = document.documentElement.clientWidth;
+  // Keep the card, its drop shadow, and the 3deg / 8px verdict tilt inside the screen
+  // and above the plaque. 18px is the screen inset; 36px / 32px is tilt + shadow slack.
+  const edge = 18;
+  const left = Math.max(r.left, edge);
+  const right = Math.min(r.right, vw - edge);
+  const byW = right - left - 36;
+  const byH = r.height - 32;
+  const size = Math.floor(Math.min(byW, byH));
+  if (size >= 48 && (card.style.width !== size + 'px' || card.style.height !== size + 'px')) {
+    card.style.width = size + 'px';
+    card.style.height = size + 'px';
+  }
+  placeGain();
+}
+
+function stopTimer() {
+  if (timerId) {
+    clearInterval(timerId);
+    timerId = 0;
+  }
+}
+function stopType() {
+  if (typeId) {
+    clearInterval(typeId);
+    typeId = 0;
+  }
+}
+function timeLeftNow() {
+  if (!timerOrigin) return Math.max(0, S.timeLeftRaw || 0);
+  return Math.max(0, timerTotal - timeSkew - (performance.now() - timerOrigin) / 1000);
+}
+function startTimer() {
+  stopTimer();
+  const st = stageOf(S.stageId);
+  timerTotal = st ? st.time : 10;
+  timerOrigin = performance.now();
+  timeSkew = 0;
+  S.timeLeftRaw = timerTotal;
+  lastTickSec = Math.ceil(timerTotal);
+  paintHud();
+  window.__game.timeLeft = lastTickSec;
+  timerId = setInterval(() => {
+    if (S.state !== 'play') {
+      stopTimer();
+      return;
+    }
+    const left = timeLeftNow();
+    S.timeLeftRaw = left;
+    const sec = Math.ceil(S.timeLeftRaw);
+    if (sec !== lastTickSec) {
+      if (sec <= 5 && sec > 0) soundTick();
+      lastTickSec = sec;
+    }
+    window.__game.timeLeft = sec;
+    paintHud();
+    if (left <= 0) {
+      stopTimer();
+      timeUp();
+    }
+  }, 100);
+}
+function spendTime(sec) {
+  timeSkew += sec;
+  const left = timeLeftNow();
+  S.timeLeftRaw = left;
+  const shown = Math.ceil(left);
+  if (shown !== lastTickSec) {
+    if (shown <= 5 && shown > 0) soundTick();
+    lastTickSec = shown;
+  }
+  paintHud();
+  if (left <= 0 && S.state === 'play') {
+    stopTimer();
+    timeUp();
+    return true;
+  }
+  return false;
+}
+
+function setDrag(dx) {
+  $('tagR').style.opacity = dx > 0 ? String(Math.min(1, dx / 72)) : '0';
+  $('tagL').style.opacity = dx < 0 ? String(Math.min(1, -dx / 72)) : '0';
+}
+function cancelGesture() {
+  if (gesture && gesture.hold) clearTimeout(gesture.hold);
+  gesture = null;
+}
+function applyLoupe() {
+  const z = $('zoomwrap');
+  z.classList.add('dragging');
+  z.style.transform = 'translate(' + loupePan.x + 'px,' + loupePan.y + 'px) scale(2.45)';
+}
+function clampPan() {
+  const r = $('loupeView').getBoundingClientRect();
+  const limX = Math.max(40, r.width * 0.72);
+  const limY = Math.max(40, r.height * 0.72);
+  loupePan.x = Math.max(-limX, Math.min(limX, loupePan.x));
+  loupePan.y = Math.max(-limY, Math.min(limY, loupePan.y));
+  applyLoupe();
+}
+function openLoupe() {
+  if (loupeOn || S.state !== 'play') return;
+  loupeOn = true;
+  loupePan = { x: 0, y: 0 };
+  $('loupe').classList.add('on');
+  $('screenPlay').classList.add('louping');
+  $('loupeView').appendChild($('zoomwrap'));
+  applyLoupe();
+}
+function closeLoupe() {
+  if (!loupeOn) return;
+  loupeOn = false;
+  $('loupe').classList.remove('on');
+  $('screenPlay').classList.remove('louping');
+  const z = $('zoomwrap');
+  $('card').appendChild(z);
+  z.classList.remove('dragging');
+  z.style.transform = '';
+  loupePan = { x: 0, y: 0 };
+}
+
+function clearFx() {
+  const portrait = $('portrait');
+  portrait.classList.remove('is-sweat', 'sweat', 'shifty', 'ring-hot', 'ring-ok');
+  $('bubble').classList.remove('fast', 'mark');
+  $('plaque').classList.remove('mark');
+  $('tells').classList.remove('on');
+  $('tells').innerHTML = '';
+  $('card').classList.remove('fly-l', 'fly-r', 'shake');
+  $('stamp').className = 'stamp';
+  $('reveal').classList.remove('on');
+  $('screenPlay').classList.remove('revealing', 'louping');
+  $('hankoFx').classList.remove('on', 'real', 'fake');
+  $('sparkLayer').classList.remove('on');
+  $('sparkLayer').innerHTML = '';
+  $('gainPop').classList.remove('on');
+  $('app').classList.remove('shake-soft', 'shake-hard', 'buzz');
+  setDrag(0);
+  const z = $('zoomwrap');
+  z.classList.remove('dragging');
+  if (!loupeOn) z.style.transform = '';
+}
+
+function typeLine(text, fast) {
+  stopType();
+  const el = $('line');
+  const full = plain(text);
+  if (fast || BOT) {
+    el.textContent = full;
+    return;
+  }
+  let i = 0;
+  el.textContent = '';
+  typeId = setInterval(() => {
+    i += 1;
+    el.textContent = full.slice(0, i);
+    if (i >= full.length) stopType();
+  }, 26);
+}
+function spokenOf(c) {
+  return ((c && c._visitLead) || '') + ((c && c.say) || '');
+}
+function fillWho(c) {
+  const who = $('whoLine');
+  if (!c || (c._visit !== 'smug' && c._visit !== 'revenge')) {
+    who.textContent = '';
+    return;
+  }
+  const revenge = c._visit === 'revenge';
+  who.innerHTML = '<span class="badge ' + (revenge ? 'revenge' : 'return') + '">' +
+    (revenge ? 'リベンジ' : '再来店') + '</span>';
+}
+function renderSpeech(c) {
+  stopType();
+  const el = $('line');
+  const asks = c._asks || [];
+  let html = '<span class="say">' + esc(plain(spokenOf(c))) + '</span>';
+  asks.forEach((a, i) => {
+    const last = i === asks.length - 1;
+    if (last) {
+      html += '<div class="qa latest"><b>' + esc(a.q) + '</b>' +
+        '<span class="qa-body">' + esc(a.a) + '</span>' +
+        '<i class="' + esc(a.style || '') + '">' + esc(a.note) + '</i></div>';
+    } else {
+      html += '<details class="qa old"><summary><b>' + esc(a.q) + '</b>' +
+        '<i class="' + esc(a.style || '') + '">' + esc(a.note) + '</i></summary>' +
+        '<span class="qa-body">' + esc(a.a) + '</span></details>';
+    }
+  });
+  el.innerHTML = html;
+  el.scrollTop = el.scrollHeight;
+}
+
+function showCase() {
+  stopTimer();
+  stopType();
+  cancelGesture();
+  closeLoupe();
+  clearFx();
+  current = queue.shift() || null;
+  if (!current) {
+    showResult();
+    return;
+  }
+  const c = current;
+  const st = stageOf(S.stageId);
+  const info = CUSTS[c.cust] || { name: '客' };
+  if (!c._asks) c._asks = [];
+  if (!c._extraActs) c._extraActs = [];
+  $('custImg').src = '../assets/' + c.cust + '.jpg';
+  $('custImg').alt = info.name;
+  $('custName').textContent = info.name;
+  fillWho(c);
+  $('itemImg').src = '../assets/' + c.item + '.jpg';
+  $('itemImg').alt = c.name;
+  $('itemName').textContent = c.name;
+  $('itemMeta').innerHTML = c.meta.map((m) => '<div>' + rich(m, false) + '</div>').join('');
+  $('line').textContent = '';
+  const acts = actsOf(c);
+  $('portrait').classList.toggle('is-sweat', acts.indexOf('sweat') !== -1);
+  $('portrait').classList.toggle('shifty', acts.indexOf('shifty') !== -1);
+  $('bubble').classList.toggle('fast', acts.indexOf('fast') !== -1);
+  renderClues(c.clues, { scale: st.scale, opacity: st.opacity });
+  S.verdict = null;
+  S.lastHit = null;
+  S.state = 'play';
+  updateAskBtn();
+  typeLine(spokenOf(c), acts.indexOf('fast') !== -1);
+  showScreen('screenPlay');
+  startTimer();
+  publish();
+  scheduleBot();
+  requestAnimationFrame(fitCard);
+}
+
+function cloneCase(c) {
+  const copy = Object.assign({}, c);
+  copy.meta = c.meta.slice();
+  copy.clues = (c.clues || []).map((x) => Object.assign({}, x));
+  copy._baseId = c.id;
+  copy._asks = [];
+  copy._extraActs = [];
+  copy._visit = null;
+  copy._visitLead = '';
+  copy.boss = !!c.boss;
+  return copy;
+}
+function stageHasCust(stageId, cust) {
+  return CASES.some((c) => c.stage === stageId && c.cust === cust && !c.boss);
+}
+function laterHasCust(fromStage, cust) {
+  for (let s = fromStage + 1; s <= 5; s++) {
+    if (stageHasCust(s, cust)) return true;
+  }
+  return false;
+}
+function spareCase(stageId, cust, usedIds) {
+  const pool = CASES.filter((c) => c.stage === stageId && c.cust === cust && !c.boss && !usedIds.has(c.id));
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function stampVisit(c, kind) {
+  const table = VISIT_LEADS[kind] || {};
+  const lead = table[c.cust] || '';
+  c._visit = kind;
+  c._visitLead = lead ? (lead + ' ') : '';
+  c.id = (c._baseId || c.id) + '~' + kind;
+  return c;
+}
+function tryPlaceVisit(list, stageId, cust, kind) {
+  if (!list || list.filter((c) => c._visit).length >= 2) return false;
+  if (!stageHasCust(stageId, cust)) return false;
+  const idx = list.findIndex((c) => c.cust === cust && !c.boss && !c._visit);
+  if (idx !== -1) {
+    stampVisit(list[idx], kind);
+    return true;
+  }
+  const used = new Set(list.map((c) => c._baseId || c.id));
+  const spare = spareCase(stageId, cust, used);
+  if (!spare) return false;
+  let rep = -1;
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (!list[i].boss && !list[i]._visit) { rep = i; break; }
+  }
+  if (rep === -1) return false;
+  list[rep] = stampVisit(cloneCase(spare), kind);
+  return true;
+}
+function applyPending(list, stageId) {
+  const keep = [];
+  MEM.pending.forEach((p) => {
+    if (p.fromStage >= stageId) { keep.push(p); return; }
+    const placed = tryPlaceVisit(list, stageId, p.cust, p.kind);
+    if (!placed && laterHasCust(stageId, p.cust)) keep.push(p);
+  });
+  MEM.pending = keep.slice(0, 8);
+}
+function rememberJudgement() {
+  if (!current || current.boss || current._visit) return;
+  let kind = null;
+  if (!current.real && S.verdict === 'real') kind = 'smug';
+  else if (!current.real && S.verdict === 'fake') kind = 'revenge';
+  if (!kind) return;
+  if (tryPlaceVisit(queue, S.stageId, current.cust, kind)) return;
+  if (laterHasCust(S.stageId, current.cust) && !MEM.pending.some((p) => p.cust === current.cust)) {
+    MEM.pending.push({ cust: current.cust, kind: kind, fromStage: S.stageId });
+  }
+  if (MEM.pending.length > 8) MEM.pending = MEM.pending.slice(-8);
+}
+function buildQueue(stageId) {
+  const st = stageOf(stageId);
+  const pool = CASES.filter((c) => c.stage === stageId && !c.boss);
+  const bosses = CASES.filter((c) => c.stage === stageId && c.boss);
+  const take = st.n - (bosses.length ? 1 : 0);
+  const picked = shuffle(pool).slice(0, take).map(cloneCase);
+  if (bosses.length) picked.push(cloneCase(bosses[Math.floor(Math.random() * bosses.length)]));
+  applyPending(picked, stageId);
+  return picked;
+}
+
+function startStage(id) {
+  const st = stageOf(id);
+  if (!st) return;
+  if (!CASES.length) return;
+  stopTimer();
+  stopType();
+  cancelGesture();
+  closeLoupe();
+  resetTally();
+  S.stageId = id;
+  S.quota = st.need;
+  S.total = st.n;
+  S.timeLeftRaw = st.time;
+  queue = buildQueue(id);
+  showScreen('screenPlay');
+  showCase();
+}
+
+function applyHighlights() {
+  const c = current;
+  const why = c.why;
+  const hotContra = why === 'contra' || why === 'mix';
+  $('line').innerHTML = rich(spokenOf(c), hotContra);
+  $('itemMeta').innerHTML = c.meta.map((m) => '<div>' + rich(m, hotContra) + '</div>').join('');
+  $('bubble').classList.toggle('mark', hotContra);
+  $('plaque').classList.toggle('mark', hotContra);
+  if (why === 'visual' || why === 'mix') highlightClues('suspect');
+  else if ((why === 'clean' || why === 'trap' || why === 'contra') && c.clues.some((x) => x.harmless)) highlightClues('harmless');
+  const acts = actsOf(c);
+  const tells = $('tells');
+  tells.innerHTML = '';
+  if (acts.length) {
+    acts.forEach((a) => {
+      const chip = document.createElement('span');
+      chip.textContent = TELL_LABEL[a] || a;
+      if (why === 'behavior') chip.className = 'hot';
+      if (why === 'trap' && a === 'sweat') chip.className = 'ok';
+      tells.appendChild(chip);
+    });
+    tells.classList.add('on');
+  }
+  const portrait = $('portrait');
+  portrait.classList.toggle('ring-hot', why === 'behavior');
+  portrait.classList.toggle('ring-ok', why === 'trap');
+  const stamp = $('stamp');
+  if (S.verdict === null) {
+    stamp.textContent = c.real ? '本物' : '贋作';
+    stamp.className = 'stamp on ' + (c.real ? 'real' : 'fake');
+  } else {
+    stamp.textContent = '';
+    stamp.className = 'stamp';
+  }
+}
+
+function renderReveal() {
+  const c = current;
+  const timeout = S.verdict === null;
+  const hit = !!S.lastHit;
+  applyHighlights();
+  let comment;
+  if (timeout) comment = SLOW_LINES[(S.served + c.stage) % SLOW_LINES.length];
+  else comment = hit ? c.ok : c.ng;
+  if (!timeout && c._visit === 'smug' && hit) comment += ' この前の笑顔、今日は通用しません。';
+  else if (!timeout && c._visit === 'smug' && !hit) comment += ' 「この前はどうも」が、二度目もあります。';
+  else if (!timeout && c._visit === 'revenge' && hit && c.real) comment += ' リベンジのつもりが、本物でした。';
+  else if (!timeout && c._visit === 'revenge' && !hit && !c.real) comment += ' リベンジ、成功されていますね。';
+  const kicker = timeout ? '時間切れ' : (hit ? '正解' : '不正解');
+  const choice = timeout ? '時間切れ' : (S.verdict === 'real' ? '本物' : '贋作');
+  const truth = c.real ? '本物' : '贋作';
+  const nextLabel = S.served >= S.total ? '結果を見る' : '次の客';
+  const gainLine = hit
+    ? ('+' + S.lastGain + '点 ×' + trimMult(S.lastMult) + '　コンボ ' + S.combo)
+    : (timeout ? '時間切れ　0点' : 'コンボ終了');
+  const askLine = (c._asks && c._asks.length)
+    ? '<div class="rev-hint">質問：' + esc(c._asks.map((a) => a.note).join(' / ')) + '</div>'
+    : '';
+  const traitLine = '<p class="rev-trait">性格：' + esc((custInfo(c.cust).trait) || '') + '</p>';
+  $('reveal').innerHTML =
+    '<div class="rev-body">' +
+      '<p class="rev-kicker ' + (hit ? 'good' : 'bad') + '">' + kicker + '</p>' +
+      '<p class="rev-line">あなたの判定：' + esc(choice) + '<br>真実：' + truth + '<br>' + esc(gainLine) + '</p>' +
+      traitLine +
+      '<div class="rev-hint">根拠：' + esc(c.hint) + '</div>' +
+      askLine +
+      '<p class="rev-grok"><span>GROKの一言</span><br>' + esc(comment) + '</p>' +
+    '</div>' +
+    '<button type="button" class="btn wide" data-act="next">' + nextLabel + '</button>';
+  recordCodex(comment);
+  $('reveal').classList.add('on');
+  $('screenPlay').classList.add('revealing');
+  placeGain();
+  requestAnimationFrame(fitCard);
+}
+
+function finishCase(isReal, timeout) {
+  if (S.state !== 'play' || !current) return;
+  S.state = 'reveal';
+  stopTimer();
+  stopType();
+  cancelGesture();
+  closeLoupe();
+  const z = $('zoomwrap');
+  z.classList.remove('dragging');
+  z.style.transform = '';
+  setDrag(0);
+  const hit = !timeout && !!isReal === !!current.real;
+  S.verdict = timeout ? null : (isReal ? 'real' : 'fake');
+  S.lastHit = hit;
+  S.served += 1;
+  if (hit) S.correct += 1;
+  scoreCase(hit, !!timeout);
+  const card = $('card');
+  card.classList.remove('fly-l', 'fly-r', 'shake');
+  if (timeout) card.classList.add('shake');
+  else if (isReal) card.classList.add('fly-r');
+  else card.classList.add('fly-l');
+  fxJudge(!!isReal, hit, !!timeout);
+  if (hit) soundOk();
+  else soundNg();
+  rememberJudgement();
+  renderReveal();
+  updateAskBtn();
+  publish();
+  scheduleBot();
+}
+function judge(isReal) { finishCase(!!isReal, false); }
+function timeUp() { finishCase(false, true); }
+
+function nextAfterReveal() {
+  if (S.state !== 'reveal') return;
+  soundUi();
+  if (S.served >= S.total) showResult();
+  else showCase();
+}
+
+function reviewKey(pass) {
+  if (S.correct === 0) return 'zero';
+  if (S.timeouts >= 3 && S.timeouts > S.missReal + S.missFake) return 'slow';
+  if (S.missReal >= 2 && S.missReal > S.missFake) return 'doubt';
+  if (S.missFake >= 2 && S.missFake > S.missReal) return 'miss';
+  if (S.missReal >= 1 && S.missFake >= 1 && S.missReal + S.missFake >= 3 && Math.abs(S.missReal - S.missFake) <= 1) return 'both';
+  if (S.rankIdx >= 4) return 'kami';
+  if (S.rankIdx === 3) return 'kantei';
+  if (pass) return 'pass';
+  return 'fail';
+}
+function resultComment(pass) {
+  if (pass && S.stageId === 5 && S.correct === S.total && S.missReal === 0 && S.missFake === 0 && S.timeouts === 0) {
+    return '全問正解でボスも黙りました。今日だけ、辛口は甘口です。少しだけ。';
+  }
+  const key = reviewKey(pass);
+  const lines = REVIEWS[key] || REVIEWS.fail;
+  const salt = S.correct * 3 + S.missReal * 5 + S.missFake * 7 + S.timeouts * 11 + S.score + S.stageId;
+  return lines[Math.abs(salt) % lines.length];
+}
+function commitBest() {
+  const id = S.stageId;
+  const prev = S.best[id];
+  const next = { score: S.score, correct: S.correct, rank: S.rankName };
+  if (!prev) {
+    S.best[id] = next;
+    return true;
+  }
+  const prevIdx = RANK_NAMES.indexOf(prev.rank);
+  if (S.rankIdx > prevIdx) {
+    S.best[id] = next;
+    return true;
+  }
+  if (S.rankIdx === prevIdx && (S.score > Number(prev.score) || (S.score === Number(prev.score) && S.correct > Number(prev.correct)))) {
+    S.best[id] = next;
+    return true;
+  }
+  return false;
+}
+function showResult() {
+  stopTimer();
+  stopType();
+  closeLoupe();
+  const pass = S.correct >= S.quota;
+  S.passed = pass;
+  S.rankIdx = judgeRank(S.correct, S.total, S.score);
+  S.rankName = RANK_NAMES[S.rankIdx];
+  let dirty = false;
+  if (pass && S.cleared.indexOf(S.stageId) === -1) {
+    S.cleared.push(S.stageId);
+    dirty = true;
+  }
+  if (commitBest()) dirty = true;
+  if (dirty) saveSave();
+  if (pass) soundClear();
+  else soundFail();
+  const seal = $('resultSeal');
+  seal.textContent = RANK_CHAR[S.rankIdx];
+  seal.classList.toggle('ok', pass);
+  const rankEl = $('resultRank');
+  rankEl.textContent = S.rankName;
+  rankEl.className = 'rank-name r' + S.rankIdx;
+  $('resultTitle').textContent = pass ? 'ステージクリア' : '未達';
+  const rate = S.total ? Math.round((S.correct / S.total) * 100) : 0;
+  $('resultScore').textContent = '正解 ' + S.correct + '/' + S.total + '（' + rate + '%）　' + S.score + '点　最大コンボ ' + S.maxCombo;
+  $('resultNote').textContent = resultComment(pass);
+  $('btnNextStage').hidden = !(pass && S.stageId < 5);
+  $('btnEnding').hidden = !(pass && S.stageId === 5);
+  S.state = 'result';
+  showScreen('screenResult');
+  publish();
+  scheduleBot();
+}
+
+function showEnding() {
+  stopTimer();
+  S.state = 'ending';
+  S.passed = true;
+  showScreen('screenEnding');
+  publish();
+  scheduleBot();
+}
+function showSelect() {
+  stopTimer();
+  stopType();
+  closeLoupe();
+  resetTally();
+  S.state = 'select';
+  const done = S.cleared.length;
+  $('selectProgress').textContent = done >= 5 ? '全ステージクリア' : ('クリア ' + done + ' / 5');
+  const list = $('stageList');
+  list.innerHTML = '';
+  STAGES.forEach((st) => {
+    const open = unlocked(st.id);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'stage-btn';
+    btn.disabled = !open;
+    btn.dataset.stage = String(st.id);
+    const cleared = S.cleared.indexOf(st.id) !== -1;
+    const rec = S.best[st.id];
+    let meta = '客' + st.n + '人・目標' + st.need + '・' + st.time + '秒';
+    if (rec && rec.rank) meta += '　' + rec.rank + ' ' + rec.score + '点';
+    const status = !open ? '鍵' : (cleared ? 'クリア' : '挑戦');
+    btn.innerHTML =
+      '<span class="sn">' + st.id + '</span>' +
+      '<span class="sm"><b>' + esc(st.name) + '</b>' +
+      '<small>' + esc(st.blurb) + '</small>' +
+      '<small class="' + (rec && rec.rank ? 'best' : '') + '">' + esc(meta) + '</small></span>' +
+      '<em class="' + (cleared ? 'done' : '') + '">' + status + '</em>';
+    list.appendChild(btn);
+  });
+  showScreen('screenSelect');
+  publish();
+  scheduleBot();
+}
+function pickTitleQuip() {
+  const el = $('titleQuipText');
+  if (!el || !TITLE_QUIPS.length) return;
+  let i = Math.floor(Math.random() * TITLE_QUIPS.length);
+  if (TITLE_QUIPS.length > 1 && i === quipPrev) i = (i + 1) % TITLE_QUIPS.length;
+  quipPrev = i;
+  el.textContent = TITLE_QUIPS[i];
+}
+function showTitle() {
+  stopTimer();
+  stopType();
+  closeLoupe();
+  resetTally();
+  S.state = 'title';
+  pickTitleQuip();
+  showScreen('screenTitle');
+  publish();
+  scheduleBot();
+}
+
+function custInfo(id) {
+  return CUSTS[id] || { name: '客', tic: '…', persona: 'nervous', trait: '不明' };
+}
+function pickLine(entry, n) {
+  if (!entry) return '';
+  if (Array.isArray(entry)) return entry[Math.min(Math.max(n, 1), entry.length) - 1];
+  return String(entry);
+}
+function spill(c) {
+  const info = custInfo(c.cust);
+  const h = String(c.hint || '').replace(/。$/, '');
+  if (info.persona === 'logical') return '再計算。根拠候補は' + h + '。ログが矛盾。';
+  if (c.cust === 'cust_shady') return 'しまった。' + h + 'は、今なら特別に無かったことにしろ。';
+  if (info.persona === 'liar') return 'マジで今の無し！ ' + h + 'なんて、付いてない。付いてないから！';
+  if (c.cust === 'cust_alien') return 'ぼくの星では隠すのが下手だ。' + h + '。これ、まずいか。';
+  if (c.cust === 'cust_grandma') return 'あらまあ、隠さなくていいのね。' + h + '。孫には内緒よ。';
+  if (c.cust === 'cust_salaryman') return '一応、正直に言います。' + h + '。報告書と合いません。';
+  return '隠してもしょうがないのう。' + h + '。それが気になってな。';
+}
+function askNote(info, style, n) {
+  if (style === 'dodge') return n >= 2 ? '様子：二度かわされた' : '様子：はぐらかした';
+  if (style === 'slip') return n >= 2 ? '様子：口が滑った' : '様子：動揺している';
+  return '様子：落ち着いている';
+}
+function buildAsk(c, qid, n) {
+  const info = custInfo(c.cust);
+  const book = ASK_BOOK[c.cust] && ASK_BOOK[c.cust][qid];
+  const q = ASK_Q[qid] || '本当ですか？';
+  let style = 'calm';
+  let pool = null;
+  if (book && book.any) {
+    style = 'dodge';
+    pool = book.any;
+  } else if (!c.real && (info.persona === 'liar' || info.persona === 'nervous' || info.persona === 'logical')) {
+    style = 'slip';
+    pool = book && book.fake;
+  } else {
+    style = 'calm';
+    pool = (book && (book.real || book.fake)) || null;
+  }
+  let a = pickLine(pool, n) || '…さあ。';
+  if (style === 'slip' && n >= 2) a = spill(c);
+  return { qid: qid, q: q, a: a, note: askNote(info, style, n), style: style };
+}
+function nextQid(c) {
+  const used = (c._asks || []).map((a) => a.qid);
+  const left = ['when', 'where', 'cert'].filter((id) => used.indexOf(id) === -1);
+  if (!left.length) return 'when';
+  return left[Math.floor(Math.random() * left.length)];
+}
+function addTell(name) {
+  if (!current) return;
+  if (!current._extraActs) current._extraActs = [];
+  if (current._extraActs.indexOf(name) === -1) current._extraActs.push(name);
+  if (name === 'sweat') $('portrait').classList.add('is-sweat');
+  if (name === 'shifty') $('portrait').classList.add('shifty');
+  if (name === 'fast') $('bubble').classList.add('fast');
+}
+function applyAskStyle(c, style, n) {
+  if (style !== 'slip' || c.real) return;
+  const persona = custInfo(c.cust).persona;
+  if (persona === 'liar') {
+    addTell('shifty');
+    if (n >= 2) addTell('sweat');
+  } else if (persona === 'nervous') {
+    addTell('sweat');
+  } else if (persona === 'logical' && n >= 2) {
+    addTell('fast');
+  }
+}
+function askCostSec() {
+  const st = stageOf(S.stageId);
+  const t = st ? st.time : 12;
+  if (t <= 8) return 2;
+  if (t <= 12) return 2.5;
+  return 3;
+}
+function updateAskBtn() {
+  const btn = $('btnAsk');
+  if (!btn) return;
+  const left = current ? Math.max(0, 2 - ((current._asks && current._asks.length) || 0)) : 0;
+  btn.textContent = left ? ('質問する ' + left) : '質問する';
+  btn.disabled = S.state !== 'play' || !current || left <= 0;
+}
+function soundAsk() {
+  blip(520, 0.05, 'triangle', 0.04);
+  blip(680, 0.06, 'sine', 0.03, 0.05);
+}
+function doAsk() {
+  if (S.state !== 'play' || !current) return;
+  if (!current._asks) current._asks = [];
+  if (current._asks.length >= 2) return;
+  const n = current._asks.length + 1;
+  const built = buildAsk(current, nextQid(current), n);
+  current._asks.push(built);
+  applyAskStyle(current, built.style, n);
+  soundAsk();
+  renderSpeech(current);
+  updateAskBtn();
+  const died = spendTime(askCostSec());
+  if (!died) publish();
+}
+function outcomeOf() {
+  if (!current) return 'timeout';
+  if (S.verdict === null) return 'timeout';
+  if (S.lastHit && current.real) return 'trusted';
+  if (S.lastHit && !current.real) return 'caught';
+  if (!S.lastHit && current.real) return 'doubted';
+  return 'fooled';
+}
+function recordCodex(comment) {
+  const c = current;
+  if (!c) return;
+  const id = c.id || c._baseId;
+  if (!S.codex.items[c.item]) S.codex.items[c.item] = {};
+  S.codex.items[c.item][id] = {
+    name: c.name,
+    real: !!c.real,
+    hint: c.hint || '',
+    comment: comment || '',
+    stage: c.stage,
+    asks: (c._asks || []).map((a) => a.q + ' ' + a.a)
+  };
+  if (!S.codex.custs[c.cust]) S.codex.custs[c.cust] = {};
+  S.codex.custs[c.cust][id] = {
+    item: c.item,
+    itemName: c.name,
+    real: !!c.real,
+    comment: comment || '',
+    stage: c.stage,
+    outcome: outcomeOf(),
+    asks: (c._asks || []).map((a) => a.note)
+  };
+  saveSave();
+}
+function dexCount(group, ids) {
+  let n = 0;
+  ids.forEach((id) => {
+    const b = S.codex[group][id];
+    if (b && Object.keys(b).length) n += 1;
+  });
+  return n;
+}
+function silSvg(person) {
+  if (person) {
+    return '<svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#e7dcc8"/>' +
+      '<circle cx="32" cy="24" r="10" fill="#2a2118"/><path d="M12 58c2-14 10-18 20-18s18 4 20 18" fill="#2a2118"/></svg>';
+  }
+  return '<svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#e7dcc8"/>' +
+    '<path d="M32 10c9 9 16 12 16 24a16 16 0 1 1-32 0c0-12 7-15 16-24z" fill="#2a2118"/></svg>';
+}
+function closeDexDetail() {
+  codexDetailOn = false;
+  const grid = $('codexGrid');
+  const detail = $('codexDetail');
+  if (grid) grid.hidden = false;
+  if (detail) {
+    detail.hidden = true;
+    detail.innerHTML = '';
+  }
+}
+function renderCodex() {
+  closeDexDetail();
+  const itemsN = dexCount('items', ITEM_IDS);
+  const custN = dexCount('custs', CUST_IDS);
+  $('codexCount').textContent = '品物 ' + itemsN + '/' + ITEM_IDS.length + '　お客 ' + custN + '/' + CUST_IDS.length;
+  $('tabItems').classList.toggle('on', codexTab === 'items');
+  $('tabCusts').classList.toggle('on', codexTab === 'custs');
+  const grid = $('codexGrid');
+  grid.innerHTML = '';
+  if (codexTab === 'items') {
+    ITEM_IDS.forEach((id) => {
+      const bucket = S.codex.items[id] || {};
+      const keys = Object.keys(bucket);
+      const seen = keys.length > 0;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'codex-card' + (seen ? '' : ' unknown');
+      btn.dataset.dex = 'item:' + id;
+      btn.disabled = !seen;
+      let reals = 0;
+      let fakes = 0;
+      keys.forEach((k) => { if (bucket[k].real) reals += 1; else fakes += 1; });
+      const sub = seen ? ('真' + reals + ' 偽' + fakes) : '未発見';
+      btn.innerHTML = '<span class="pic">' + (seen
+        ? '<img src="../assets/' + id + '.jpg" alt="' + esc(ITEM_LABEL[id] || '') + '">'
+        : silSvg(false)) + '</span><b>' + (seen ? esc(ITEM_LABEL[id] || id) : '？？？') + '</b><small>' + sub + '</small>';
+      grid.appendChild(btn);
+    });
+  } else {
+    CUST_IDS.forEach((id) => {
+      const bucket = S.codex.custs[id] || {};
+      const seen = Object.keys(bucket).length > 0;
+      const info = custInfo(id);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'codex-card person' + (seen ? '' : ' unknown');
+      btn.dataset.dex = 'cust:' + id;
+      btn.disabled = !seen;
+      btn.innerHTML = '<span class="pic">' + (seen
+        ? '<img src="../assets/' + id + '.jpg" alt="' + esc(info.name) + '">'
+        : silSvg(true)) + '</span><b>' + (seen ? esc(info.name) : '？？？') + '</b><small>' +
+        (seen ? esc(info.trait) : '未発見') + '</small>';
+      grid.appendChild(btn);
+    });
+  }
+}
+function outcomeLabel(code) {
+  if (code === 'trusted') return '本物と見抜いた';
+  if (code === 'caught') return 'ニセモノを見破った';
+  if (code === 'doubted') return '本物を疑った';
+  if (code === 'fooled') return 'ニセモノを見逃した';
+  if (code === 'timeout') return '時間切れ';
+  return '';
+}
+function openDexDetail(key) {
+  const parts = String(key).split(':');
+  const kind = parts[0];
+  const id = parts[1];
+  const detail = $('codexDetail');
+  const grid = $('codexGrid');
+  let html = '';
+  if (kind === 'item') {
+    const bucket = S.codex.items[id] || {};
+    const rows = Object.keys(bucket).map((k) => bucket[k]).sort((a, b) => (a.stage - b.stage));
+    if (!rows.length) return;
+    html = '<div class="codex-detail-head"><img src="../assets/' + id + '.jpg" alt="">' +
+      '<div><h3>' + esc(ITEM_LABEL[id] || id) + '</h3><p class="trait">見た記録 ' + rows.length + '件</p></div></div>';
+    rows.forEach((e) => {
+      const asks = (e.asks || []).filter(Boolean);
+      html += '<div class="dex-entry"><p><span class="badge ' + (e.real ? 'real' : 'fake') + '">' +
+        (e.real ? '本物' : 'ニセモノ') + '</span>' + esc(e.name || '') + '</p>' +
+        '<p>手がかり：' + esc(e.hint || 'なし') + '</p>' +
+        (asks.length ? '<p>質問：' + esc(asks.join(' ／ ')) + '</p>' : '') +
+        '<p>GROK：' + esc(e.comment || '') + '</p></div>';
+    });
+  } else {
+    const bucket = S.codex.custs[id] || {};
+    const rows = Object.keys(bucket).map((k) => bucket[k]).sort((a, b) => (a.stage - b.stage));
+    if (!rows.length) return;
+    const info = custInfo(id);
+    html = '<div class="codex-detail-head person"><img src="../assets/' + id + '.jpg" alt="">' +
+      '<div><h3>' + esc(info.name) + '</h3><p class="trait">口癖「' + esc(info.tic) + '」　' + esc(info.trait) + '</p></div></div>';
+    rows.forEach((e) => {
+      html += '<div class="dex-entry"><p><span class="badge ' + (e.real ? 'real' : 'fake') + '">' +
+        (e.real ? '本物' : 'ニセモノ') + '</span>' + esc(e.itemName || '') + '</p>' +
+        '<p>' + esc(outcomeLabel(e.outcome)) + '</p>' +
+        '<p>GROK：' + esc(e.comment || '') + '</p></div>';
+    });
+  }
+  detail.innerHTML = html;
+  detail.hidden = false;
+  grid.hidden = true;
+  codexDetailOn = true;
+  detail.scrollTop = 0;
+}
+function showCodex(from) {
+  stopTimer();
+  stopType();
+  closeLoupe();
+  codexReturn = from || 'title';
+  codexTab = 'items';
+  S.state = 'codex';
+  renderCodex();
+  showScreen('screenCodex');
+  publish();
+  scheduleBot();
+}
+function leaveCodex() {
+  soundUi();
+  if (codexDetailOn) {
+    closeDexDetail();
+    return;
+  }
+  if (codexReturn === 'select') showSelect();
+  else showTitle();
+}
+function botAnswer() {
+  if (S.state !== 'play' || !current) return;
+  const tell = Math.random() < 0.7;
+  judge(tell ? !!current.real : !current.real);
+}
+function botResult() {
+  if (S.state !== 'result') return;
+  if (S.correct >= S.quota) {
+    if (S.stageId >= 5) showEnding();
+    else startStage(S.stageId + 1);
+  } else {
+    startStage(S.stageId);
+  }
+}
+function botStep() {
+  if (S.state !== 'play' || !current) return;
+  const used = current._asks ? current._asks.length : 0;
+  const want = used < 2 && Math.random() < (used === 0 ? 0.48 : 0.28);
+  if (want) {
+    doAsk();
+    if (S.state !== 'play') return;
+    if (botT) clearTimeout(botT);
+    botT = setTimeout(botStep, BOT_FAST ? 50 : 400);
+    return;
+  }
+  botAnswer();
+}
+function scheduleBot() {
+  if (!BOT) return;
+  if (botT) clearTimeout(botT);
+  const fast = BOT_FAST;
+  const d = {
+    title: fast ? 30 : 240,
+    select: fast ? 30 : 240,
+    play: fast ? 80 : 620,
+    reveal: fast ? 40 : 480,
+    result: fast ? 40 : 400,
+    codex: fast ? 30 : 200
+  };
+  if (S.state === 'title') botT = setTimeout(showSelect, d.title);
+  else if (S.state === 'select') botT = setTimeout(() => startStage(botStage), d.select);
+  else if (S.state === 'play') botT = setTimeout(botStep, d.play);
+  else if (S.state === 'reveal') botT = setTimeout(nextAfterReveal, d.reveal);
+  else if (S.state === 'result') botT = setTimeout(botResult, d.result);
+  else if (S.state === 'codex') {
+    botT = setTimeout(() => {
+      if (codexReturn === 'select') showSelect();
+      else showTitle();
+    }, d.codex);
+  }
+}
+
+function onDown(e) {
+  if (S.state !== 'play') return;
+  if (e.button !== undefined && e.button !== 0) return;
+  if (e.target.closest && e.target.closest('button')) return;
+  e.preventDefault();
+  const host = loupeOn ? $('loupeView') : $('itemCol');
+  try { host.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  const startX = e.clientX;
+  const startY = e.clientY;
+  gesture = {
+    id: e.pointerId,
+    x: startX,
+    y: startY,
+    lastX: startX,
+    lastY: startY,
+    moved: false,
+    loupe: false,
+    panning: loupeOn,
+    panX: loupePan.x,
+    panY: loupePan.y,
+    hold: 0
+  };
+  if (!loupeOn) {
+    gesture.hold = setTimeout(() => {
+      if (!gesture || gesture.moved || S.state !== 'play') return;
+      gesture.loupe = true;
+      openLoupe();
+      gesture.panning = true;
+      gesture.panX = 0;
+      gesture.panY = 0;
+      gesture.x = gesture.lastX;
+      gesture.y = gesture.lastY;
+    }, 460);
+  }
+}
+function onMove(e) {
+  if (!gesture || e.pointerId !== gesture.id) return;
+  gesture.lastX = e.clientX;
+  gesture.lastY = e.clientY;
+  const dx = e.clientX - gesture.x;
+  const dy = e.clientY - gesture.y;
+  if (gesture.panning || gesture.loupe) {
+    loupePan.x = gesture.panX + dx;
+    loupePan.y = gesture.panY + dy;
+    clampPan();
+    gesture.panX = loupePan.x;
+    gesture.panY = loupePan.y;
+    gesture.x = e.clientX;
+    gesture.y = e.clientY;
+    return;
+  }
+  if (Math.hypot(dx, dy) > 10) {
+    gesture.moved = true;
+    if (gesture.hold) clearTimeout(gesture.hold);
+  }
+  if (gesture.moved) {
+    const z = $('zoomwrap');
+    z.classList.add('dragging');
+    z.style.transform = 'translate(' + dx + 'px) rotate(' + (dx / 18) + 'deg)';
+    setDrag(dx);
+  }
+}
+function onUp(e) {
+  if (!gesture || e.pointerId !== gesture.id) return;
+  if (gesture.hold) clearTimeout(gesture.hold);
+  const dx = e.clientX - gesture.x;
+  const dy = e.clientY - gesture.y;
+  const g = gesture;
+  gesture = null;
+  if (g.panning || g.loupe) return;
+  if (g.moved && Math.abs(dx) > 64 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+    judge(dx > 0);
+    return;
+  }
+  const z = $('zoomwrap');
+  z.classList.remove('dragging');
+  z.style.transform = '';
+  setDrag(0);
+  const now = Date.now();
+  if (!g.moved && now - lastTap < 300) {
+    openLoupe();
+    lastTap = 0;
+  } else if (!g.moved) {
+    lastTap = now;
+  }
+}
+
+function validate() {
+  if (CASES.length < 40) throw new Error('cases ' + CASES.length);
+  const ids = new Set();
+  const custs = new Set();
+  const items = new Set();
+  const stages = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  const need = ['id', 'stage', 'cust', 'item', 'real', 'say', 'name', 'meta', 'clues', 'act', 'why', 'hint', 'ok', 'ng'];
+  const knownC = CUST_IDS.slice();
+  const knownI = ITEM_IDS.slice();
+  CASES.forEach((c) => {
+    need.forEach((k) => { if (!(k in c)) throw new Error('missing ' + k + ' ' + c.id); });
+    if (ids.has(c.id)) throw new Error('dup ' + c.id);
+    ids.add(c.id);
+    if (knownC.indexOf(c.cust) === -1) throw new Error('cust ' + c.id);
+    if (knownI.indexOf(c.item) === -1) throw new Error('item ' + c.id);
+    stages[c.stage] = (stages[c.stage] || 0) + 1;
+    custs.add(c.cust);
+    items.add(c.item);
+    const blob = c.say + c.meta.join('');
+    const suspect = (c.clues || []).some((x) => !x.harmless);
+    if ((c.why === 'contra' || c.why === 'mix') && blob.indexOf('[[') === -1) throw new Error('no mark ' + c.id);
+    if ((c.why === 'visual' || c.why === 'behavior' || c.why === 'clean' || c.why === 'trap') && blob.indexOf('[[') !== -1) throw new Error('stray ' + c.id);
+    if ((c.why === 'visual' || c.why === 'mix') && !suspect) throw new Error('no visual ' + c.id);
+    if (c.why === 'contra' && suspect) throw new Error('contra visual ' + c.id);
+    if (c.why === 'behavior' && !/(shifty|fast)/.test(c.act)) throw new Error('no act ' + c.id);
+    if (c.why === 'behavior' && suspect) throw new Error('behavior clue ' + c.id);
+    if (c.why === 'trap' && (!c.real || c.act.indexOf('sweat') === -1)) throw new Error('trap ' + c.id);
+    if ((c.why === 'clean' || c.why === 'trap') && !c.real) throw new Error('not real ' + c.id);
+    if ((c.why === 'clean' || c.why === 'trap') && suspect) throw new Error('real suspect ' + c.id);
+    if ((c.why === 'visual' || c.why === 'contra' || c.why === 'behavior' || c.why === 'mix') && c.real) throw new Error('fake real ' + c.id);
+    if (c.real && /(shifty|fast)/.test(c.act || '')) throw new Error('honest tell ' + c.id);
+    if (c.boss && (c.stage !== 5 || c.cust !== 'cust_boss')) throw new Error('boss ' + c.id);
+    if (c.cust === 'cust_boss' && !c.boss) throw new Error('boss flag ' + c.id);
+  });
+  [1, 2, 3, 4].forEach((s) => { if (stages[s] < 8) throw new Error('short ' + s); });
+  const bosses = CASES.filter((c) => c.stage === 5 && c.boss).length;
+  const rest = CASES.filter((c) => c.stage === 5 && !c.boss).length;
+  if (bosses < 1 || rest < 7) throw new Error('boss pool');
+  knownC.forEach((n) => { if (!custs.has(n)) throw new Error('missing cust ' + n); });
+  knownI.forEach((n) => { if (!items.has(n)) throw new Error('missing item ' + n); });
+}
+
+function bind() {
+  document.addEventListener('pointerdown', unlockAudio);
+  document.addEventListener('keydown', unlockAudio);
+  $('btnStart').addEventListener('click', () => { soundUi(); showSelect(); });
+  $('btnCodexTitle').addEventListener('click', () => { soundUi(); showCodex('title'); });
+  $('btnCodexSelect').addEventListener('click', () => { soundUi(); showCodex('select'); });
+  $('btnCodexBack').addEventListener('click', () => leaveCodex());
+  $('tabItems').addEventListener('click', () => { codexTab = 'items'; soundUi(); renderCodex(); });
+  $('tabCusts').addEventListener('click', () => { codexTab = 'custs'; soundUi(); renderCodex(); });
+  $('codexGrid').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-dex]');
+    if (!btn || btn.disabled) return;
+    soundUi();
+    openDexDetail(btn.dataset.dex);
+  });
+  $('btnSelectTitle').addEventListener('click', () => { soundUi(); showTitle(); });
+  $('btnEndSelect').addEventListener('click', () => { soundUi(); showSelect(); });
+  $('btnEndTitle').addEventListener('click', () => { soundUi(); showTitle(); });
+  $('btnToSelect').addEventListener('click', () => { soundUi(); showSelect(); });
+  $('btnRetry').addEventListener('click', () => { soundUi(); startStage(S.stageId); });
+  $('btnNextStage').addEventListener('click', () => { soundUi(); startStage(S.stageId + 1); });
+  $('btnEnding').addEventListener('click', () => { soundUi(); showEnding(); });
+  $('stageList').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-stage]');
+    if (!btn || btn.disabled) return;
+    soundUi();
+    startStage(Number(btn.dataset.stage));
+  });
+  $('btnFake').addEventListener('click', () => judge(false));
+  $('btnReal').addEventListener('click', () => judge(true));
+  $('btnAsk').addEventListener('click', () => doAsk());
+  $('reveal').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act="next"]');
+    if (b) nextAfterReveal();
+  });
+  $('btnLoupeClose').addEventListener('click', () => closeLoupe());
+  const col = $('itemCol');
+  col.addEventListener('pointerdown', onDown);
+  col.addEventListener('pointermove', onMove);
+  col.addEventListener('pointerup', onUp);
+  col.addEventListener('pointercancel', onUp);
+  col.addEventListener('contextmenu', (e) => e.preventDefault());
+  $('loupeView').addEventListener('pointerdown', onDown);
+  $('loupeView').addEventListener('pointermove', onMove);
+  $('loupeView').addEventListener('pointerup', onUp);
+  $('loupeView').addEventListener('pointercancel', onUp);
+  document.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      if (S.state === 'play') judge(false);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      if (S.state === 'play') judge(true);
+    } else if (e.key === 'Enter') {
+      if (S.state === 'reveal') { e.preventDefault(); nextAfterReveal(); }
+      else if (S.state === 'title') { e.preventDefault(); showSelect(); }
+      else if (S.state === 'result') {
+        e.preventDefault();
+        if (S.passed && S.stageId >= 5) showEnding();
+        else if (S.passed && S.stageId < 5) startStage(S.stageId + 1);
+        else startStage(S.stageId);
+      }
+    } else if (e.key === 'q' || e.key === 'Q') {
+      if (S.state === 'play') { e.preventDefault(); doAsk(); }
+    } else if (e.key === 'Escape' && loupeOn) {
+      closeLoupe();
+    } else if (e.key === 'Escape' && S.state === 'codex') {
+      leaveCodex();
+    }
+  });
+  window.addEventListener('resize', fitCard);
+  if (window.ResizeObserver) {
+    const slot = $('cardSlot');
+    if (slot) new ResizeObserver(() => fitCard()).observe(slot);
+  }
+  if (params.get('review') === '1') {
+    window.__review = {
+      startStage: startStage,
+      showId: (id) => {
+        const c = CASES.find((x) => x.id === id);
+        if (!c) return;
+        const st = stageOf(c.stage);
+        S.stageId = c.stage;
+        S.correct = 0;
+        S.served = 0;
+        S.quota = 1;
+        S.total = 1;
+        S.passed = false;
+        queue = [cloneCase(c)];
+        showScreen('screenPlay');
+        showCase();
+        if (st) { /* stage scale already applied in showCase */ }
+      }
+    };
+  }
+}
+
+function preload() {
+  const srcs = [];
+  CUST_IDS.forEach((n) => srcs.push('../assets/' + n + '.jpg'));
+  ITEM_IDS.forEach((n) => srcs.push('../assets/' + n + '.jpg'));
+  srcs.forEach((src) => { const img = new Image(); img.src = src; });
+}
+
+function boot() {
+  validate();
+  loadSave();
+  bind();
+  preload();
+  showTitle();
+}
+boot();
+</script>
+</body>
+</html>
