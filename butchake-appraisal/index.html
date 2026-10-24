@@ -82,16 +82,19 @@ button[hidden] { display: none !important; }
 #hudTime.low { color: #ffb4a8; }
 #timebar { flex: 0 0 auto; height: 3px; background: #4a3024; }
 #timefill { display: block; height: 100%; width: 0; background: var(--gold); }
-.screen { display: none; flex: 1 1 auto; min-height: 0; position: relative; }
+.screen { display: none; flex: 1 1 auto; min-height: 0; min-width: 0; max-width: 100%; position: relative; }
 .screen.on { display: flex; flex-direction: column; }
 #screenTitle.on, #screenResult.on, #screenEnding.on, #screenTalk.on {
-  justify-content: center;
+  justify-content: safe center;
   align-items: center;
   text-align: center;
   padding: 18px 18px 22px;
   gap: 8px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
+#screenTitle.on { padding: 10px 14px 14px; gap: 6px; }
 #screenSelect.on {
   padding: 10px 12px 12px;
   gap: 8px;
@@ -129,19 +132,19 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
 .cast, .goods { display: flex; align-items: flex-end; justify-content: center; flex-wrap: wrap; width: 100%; max-width: 100%; min-width: 0; }
 .cast { gap: 4px; }
 .cast img {
-  width: 44px; height: 44px;
+  width: 36px; height: 36px;
   object-fit: cover;
   object-position: center 18%;
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--cream);
   border: 2px solid rgba(255,255,255,.4);
-  box-shadow: 0 3px 0 rgba(0,0,0,.28);
+  box-shadow: 0 2px 0 rgba(0,0,0,.28);
 }
 .cast img.boss {
-  width: 72px; height: 72px;
-  border: 3px solid var(--gold);
-  border-radius: 16px;
-  margin: 0 -4px;
+  width: 52px; height: 52px;
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  margin: 0 -2px;
   z-index: 1;
 }
 .goods {
@@ -150,10 +153,10 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   padding: 0 2px 3px;
 }
 .goods img {
-  width: 36px; height: 36px;
+  width: 24px; height: 24px;
   object-fit: contain;
   background: #fff;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 2px solid #f3ead7;
 }
 .signboard {
@@ -196,7 +199,15 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   font-size: 10px;
   letter-spacing: .14em;
 }
-.howline { display: none; margin: 0; font-size: 12px; opacity: .85; }
+.howline {
+  display: block;
+  margin: 0;
+  max-width: min(360px, 100%);
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: .85;
+}
 .rank-name {
   margin: 0;
   font-family: "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif CJK JP", serif;
@@ -502,13 +513,18 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   top: 10px;
   z-index: 3;
   font-weight: 900;
-  font-size: 20px;
+  font-size: 18px;
   opacity: 0;
   pointer-events: none;
-  text-shadow: 0 1px 0 #fff;
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 3px solid currentColor;
+  background: rgba(255, 255, 255, .9);
+  max-width: 46%;
+  line-height: 1.1;
 }
-.drag-tag.left { left: 8px; color: var(--vermilion); }
-.drag-tag.right { right: 8px; color: var(--green); }
+.drag-tag.left { left: 6px; color: var(--vermilion); }
+.drag-tag.right { right: 6px; color: var(--green); }
 .stamp {
   position: absolute;
   z-index: 3;
@@ -780,7 +796,43 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   padding: 4px 12px 10px;
   min-width: 0;
   max-width: 100%;
+  position: relative;
+  z-index: 4;
 }
+.thumb-row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+.thumb-row button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.38);
+  background: rgba(0,0,0,.28);
+  color: var(--paper);
+  font-weight: 800;
+  font-size: 13px;
+  padding: 4px 6px;
+}
+.thumb-row button:disabled { opacity: .38; }
+.thumb-row button:active { transform: translateY(1px); }
+.thumb-row #btnAsk { flex: 1 1 0; align-self: stretch; min-height: 40px; border-radius: 12px; }
+.swipe-call {
+  height: 16px;
+  line-height: 16px;
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .16em;
+  opacity: 0;
+}
+.swipe-call.show { opacity: 1; }
+.swipe-call.real { color: #b6f0c8; }
+.swipe-call.fake { color: #ffb4a8; }
 .judge-row {
   display: flex;
   gap: 8px;
@@ -913,22 +965,26 @@ em.hot {
   .seal { width: 46px; height: 46px; font-size: 16px; }
   .rules { font-size: 12px; margin: 2px 0; }
   .btn { padding: 8px 12px; }
-  #screenTitle.on, #screenResult.on, #screenEnding.on, #screenTalk.on { padding: 8px 16px; gap: 4px; }
+  #screenResult.on, #screenEnding.on, #screenTalk.on { padding: 8px 16px; gap: 4px; }
+  #screenTitle.on { padding: 4px 12px 8px; gap: 3px; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .talk-cast img { width: 36px; height: 36px; }
   .talk-lines p { font-size: 12px; padding: 3px 6px; }
   .event-panel { padding: 6px; gap: 4px; }
   .event-panel button { padding: 6px; font-size: 12px; }
   .fame { font-size: 13px; }
   #screenSelect.on { padding: 6px 10px; }
-  .cast img { width: 36px; height: 36px; }
-  .cast img.boss { width: 58px; height: 58px; }
-  .goods img { width: 28px; height: 28px; }
-  .signboard { padding: 2px 10px 4px; transform: none; }
-  .signboard h1 { font-size: 22px; }
-  .sign-kicker { letter-spacing: .16em; font-size: 10px; }
-  .grok-quip { font-size: 12px; padding: 3px 6px; }
-  .rules { display: none; }
-  .howline { display: block; }
+  .title-art { width: min(760px, 100%); gap: 3px; }
+  .cast img { width: 30px; height: 30px; border-radius: 8px; }
+  .cast img.boss { width: 40px; height: 40px; border-radius: 10px; margin: 0; }
+  .goods { gap: 3px; padding-bottom: 2px; }
+  .goods img { width: 24px; height: 24px; border-radius: 6px; }
+  .signboard { padding: 1px 8px 2px; transform: none; }
+  .signboard h1 { font-size: 18px; }
+  .sign-kicker { letter-spacing: .12em; font-size: 9px; }
+  .grok-quip { font-size: 11px; line-height: 1.3; padding: 2px 6px; width: min(640px, 100%); }
+  .howline { font-size: 11px; }
+  .title-badge { font-size: 12px; }
+  .title-actions { gap: 4px; width: min(520px, 100%); }
   .rank-name { font-size: 22px; }
   .hanko-seal { width: 112px; height: 112px; margin: -56px 0 0 -56px; font-size: 28px; border-width: 5px; }
   #hankoFx { width: 160px; height: 160px; margin: -80px 0 0 -80px; top: 40%; }
@@ -960,7 +1016,10 @@ em.hot {
   }
   #screenPlay .judge-row { flex-direction: column; flex: 1 1 auto; min-height: 0; gap: 6px; }
   #screenPlay .judge-row button { min-height: 0; flex: 1; font-size: 14px; }
-  #screenPlay #btnAsk { align-self: center; min-height: 24px; padding: 2px 8px; font-size: 11px; }
+  #screenPlay .thumb-row { flex: 0 0 auto; }
+  #screenPlay .thumb-row button { min-height: 28px; font-size: 11px; padding: 2px 4px; }
+  #screenPlay .swipe-call { height: 14px; font-size: 11px; }
+  #screenPlay #btnAsk { min-height: 28px; padding: 2px 4px; font-size: 11px; }
   .portrait-wrap { width: min(96px, 30vh); align-self: center; }
   .bubble { font-size: 12px; flex: 1; min-height: 0; max-height: none; align-self: stretch; overflow: hidden; }
   #line { flex: 1 1 auto; max-height: none; }
@@ -1205,10 +1264,176 @@ em.hot {
   padding: 8px;
   font-size: 13px;
 }
+.title-badge { margin: 0; color: var(--gold); font-weight: 800; font-size: 13px; letter-spacing: .08em; }
+.title-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: min(360px, 100%);
+  min-width: 0;
+}
+.title-actions .span2 { grid-column: 1 / -1; }
+.title-actions > * { min-width: 0; }
+.title-actions .btn { padding: 10px 8px; font-size: 14px; min-width: 0; }
+.mini { margin: 0; font-size: 11px; line-height: 1.35; opacity: .9; overflow-wrap: anywhere; }
+#btnHard { width: 100%; max-width: 100%; }
+#btnPause {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.35);
+  background: rgba(0,0,0,.28);
+  color: var(--paper);
+  font-weight: 900;
+  font-size: 12px;
+  padding: 0;
+}
+#btnPause[hidden] { display: none !important; }
+.btn.on { box-shadow: inset 0 0 0 2px var(--gold); }
+#screenHelp.on, #screenSettings.on, #screenAch.on {
+  padding: 10px 12px 14px;
+  gap: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  align-items: stretch;
+  text-align: left;
+}
+#screenHelp h2, #screenSettings h2, #screenAch h2 { text-align: center; }
+.help-card, .set-card {
+  background: rgba(0,0,0,.22);
+  border-radius: 12px;
+  padding: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.help-card h3 { margin: 0 0 4px; font-size: 14px; font-family: inherit; }
+.help-card p, .set-card p { margin: 4px 0 0; font-size: 12px; line-height: 1.45; }
+.help-card .rules { margin: 0; padding-left: 1.15em; max-width: none; font-size: 12px; line-height: 1.45; }
+.fig-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.fig { min-width: 0; background: rgba(255,255,255,.04); border-radius: 8px; padding: 4px; }
+.fig b { display: block; font-size: 11px; margin-bottom: 2px; }
+.fig-card {
+  height: 48px;
+  border-radius: 8px;
+  background: #fff;
+  position: relative;
+  overflow: hidden;
+}
+.fig-bar {
+  position: absolute;
+  left: 16%; right: 16%; top: 8px;
+  height: 14px;
+  background: repeating-linear-gradient(90deg, #161616 0 2px, transparent 2px 5px);
+}
+.fig-speech {
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.fig-speech em { background: #ffe14a; font-style: normal; }
+.fig-sweat { font-size: 18px; line-height: 48px; text-align: center; }
+.rank-pips { display: flex; flex-wrap: wrap; gap: 4px; }
+.rank-pips span {
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: rgba(255,255,255,.08);
+  font-size: 11px;
+  font-weight: 800;
+}
+.set-row { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 800; min-width: 0; }
+.set-row input[type="range"] { width: 100%; max-width: 100%; margin: 0; }
+.set-row.inline { flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
+.choice { display: flex; gap: 6px; min-width: 0; }
+.choice button { flex: 1; min-width: 0; }
+.ach-list { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ach-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  text-align: left;
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 8px;
+  background: rgba(255,255,255,.06);
+  color: inherit;
+  min-width: 0;
+}
+.ach-row.locked { opacity: .45; }
+.ach-row.equipped { box-shadow: inset 0 0 0 2px var(--gold); }
+.ach-row span { min-width: 0; flex: 1; }
+.ach-row b { display: block; font-size: 13px; }
+.ach-row small { display: block; font-size: 11px; opacity: .85; line-height: 1.35; }
+.ach-mark { flex: 0 0 auto; width: 28px; text-align: center; font-weight: 900; }
+.modal[hidden] { display: none !important; }
+.modal {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  background: rgba(10, 6, 4, .72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-card {
+  width: min(320px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  background: #2a1810;
+  border: 2px solid var(--gold);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.modal-card h2 { font-size: 22px; }
+.modal-card p { margin: 0; font-size: 14px; line-height: 1.45; }
+#toast {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 48px;
+  z-index: 75;
+  background: #1c140f;
+  color: var(--paper);
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity .25s ease, transform .25s ease, visibility .25s;
+  pointer-events: none;
+}
+#toast.on { opacity: 1; visibility: visible; transform: translateY(0); }
+#app.font-lg .bubble { font-size: 16px; }
+#app.font-lg #itemName { font-size: 17px; }
+#app.font-lg #itemMeta, #app.font-lg .rev-line, #app.font-lg .rev-hint, #app.font-lg .note { font-size: 14px; }
+#app.font-lg .judge-row button { font-size: 18px; }
+#app.font-lg .hud-stats { font-size: 12px; gap: 4px; }
+#app.font-lg .rules { font-size: 15px; }
+#app.calm #hankoFx.on .hanko-seal { animation-duration: .01s; }
+#app.calm #sparkLayer { display: none; }
 @media (orientation: landscape) and (max-height: 540px) {
   .codex-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
   #screenCodex.on { padding: 6px 10px; }
   .codex-detail-head img { width: 64px; height: 64px; }
+  .title-actions .btn { padding: 4px 6px; font-size: 12px; }
+  .fig-card, .fig-sweat { height: 36px; line-height: 36px; }
+  .help-card h3 { font-size: 13px; }
+  #screenHelp.on, #screenSettings.on, #screenAch.on { padding: 6px 10px 8px; gap: 6px; }
+  .modal-card { padding: 10px; gap: 6px; }
+  .modal-card h2 { font-size: 18px; }
 }
 </style>
 </head>
@@ -1222,6 +1447,7 @@ em.hot {
       <span id="hudPts"></span>
       <span id="hudTime"></span>
     </div>
+    <button type="button" id="btnPause" hidden>停</button>
   </header>
   <div id="timebar"><i id="timefill"></i></div>
 
@@ -1258,16 +1484,16 @@ em.hot {
       <h1>ぶっちゃけ鑑定所</h1>
     </div>
     <p class="grok-quip" id="titleQuip"><b>GROKのひとこと</b><span id="titleQuipText"></span></p>
-    <ul class="rules">
-      <li>右スワイプ（または右ボタン、→キー）で本物。左でニセモノ。</li>
-      <li>手がかりは3つ。品物の違和感、セリフと説明札の矛盾、客のそぶり。</li>
-      <li>汗は緊張だけのこともある。長押しかダブルタップでルーペ。</li>
-      <li>「質問する」は1人2回まで。タイマーを少し使って、動揺や矛盾を引き出す。</li>
-      <li>あなたは新米店主。評判★は、ステージをクリアするたびに上がる。</li>
-    </ul>
-    <p class="howline">右で本物、左でニセモノ。質問は2回まで。長押しでルーペ。</p>
-    <div class="stack">
-      <button type="button" class="btn" id="btnStart">ステージ選択へ</button>
+    <p class="title-badge" id="titleBadge">称号　新米店主</p>
+    <p class="howline">右で本物、左でニセモノ。ボタンは画面下。詳しくは遊び方。</p>
+    <div class="title-actions">
+      <button type="button" class="btn span2" id="btnStart">ステージ選択へ</button>
+      <button type="button" class="btn" id="btnDaily">今日の一品</button>
+      <button type="button" class="btn" id="btnEndless">エンドレス</button>
+      <p class="mini span2" id="homeBlurb"></p>
+      <button type="button" class="btn ghost" id="btnHelp">遊び方</button>
+      <button type="button" class="btn ghost" id="btnAch">実績・称号</button>
+      <button type="button" class="btn ghost" id="btnSettings">設定</button>
       <button type="button" class="btn ghost" id="btnCodexTitle">鑑定図鑑</button>
     </div>
   </section>
@@ -1275,6 +1501,7 @@ em.hot {
   <section id="screenSelect" class="screen">
     <h2>ステージ</h2>
     <p class="sub" id="selectProgress"></p>
+    <button type="button" class="btn ghost" id="btnHard">ハード（全クリアで解放）</button>
     <div id="stageList" class="stage-list"></div>
     <button type="button" class="btn ghost" id="btnCodexSelect">鑑定図鑑</button>
     <button type="button" class="btn ghost" id="btnSelectTitle">タイトルへ</button>
@@ -1314,7 +1541,7 @@ em.hot {
         <div id="itemMeta"></div>
       </div>
       <div id="coach" class="coach" hidden></div>
-      <div class="loupe-hint">長押し / ダブルタップでルーペ</div>
+      <div class="loupe-hint">ルーペは下のボタン、長押し、ダブルタップ</div>
       <div id="comboPop" hidden></div>
       <div id="gainPop"></div>
       <div id="sparkLayer" aria-hidden="true"></div>
@@ -1324,7 +1551,11 @@ em.hot {
       </div>
     </div>
     <div class="actions">
-      <button type="button" id="btnAsk">質問する 2</button>
+      <div class="thumb-row">
+        <button type="button" id="btnLoupe">ルーペ</button>
+        <button type="button" id="btnAsk">質問する 2</button>
+      </div>
+      <div id="swipeCall" class="swipe-call" aria-hidden="true"></div>
       <div class="judge-row">
         <button type="button" id="btnFake">← ニセモノ</button>
         <button type="button" id="btnReal">本物 →</button>
@@ -1388,13 +1619,118 @@ em.hot {
       <button type="button" class="btn ghost" id="btnEndTitle">タイトルへ</button>
     </div>
   </section>
+
+  <section id="screenHelp" class="screen">
+    <h2>遊び方</h2>
+    <div class="help-card">
+      <h3>操作</h3>
+      <ul class="rules">
+        <li>右で本物、左でニセモノ。スワイプ、下のボタン、←→キー。</li>
+        <li>手がかりは品物・セリフと札・客のそぶり。汗だけのこともある。</li>
+        <li>ルーペはボタン、長押し、ダブルタップ。質問は1人2回（ハードは1回）。</li>
+        <li>評判★は、ステージをクリアするたびに上がる。</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <h3>三つの手がかり</h3>
+      <div class="fig-row">
+        <div class="fig">
+          <div class="fig-card" aria-hidden="true"><i class="fig-bar"></i></div>
+          <b>品物の違和感</b>
+          <p>バーコード、誤字、値札。本物にはない印を、コードで品物の上に描いています。</p>
+        </div>
+        <div class="fig">
+          <div class="fig-speech">祖父が<em>100年前</em><br>製造：<em>1975年</em></div>
+          <b>セリフと札</b>
+          <p>吹き出しと説明札の食い違い。色が付いたところが矛盾です。</p>
+        </div>
+        <div class="fig">
+          <div class="fig-card fig-sweat" aria-hidden="true">汗</div>
+          <b>客のそぶり</b>
+          <p>汗、目が泳ぐ、早口。汗だけの客は、緊張した正直者のことがあります。</p>
+        </div>
+      </div>
+    </div>
+    <div class="help-card">
+      <h3>質問する</h3>
+      <p>画面下のボタン。1人2回まで（ハードは1回）。数秒を使って、落ち着き・動揺・はぐらかしを聞きます。宇宙の客は、質問で翻訳が直ります。</p>
+    </div>
+    <div class="help-card">
+      <h3>ルーペ</h3>
+      <p>下の「ルーペ」、品物の長押し、ダブルタップ。拡大した画面をドラッグして、小さい印を探します。</p>
+    </div>
+    <div class="help-card">
+      <h3>ボスの指摘</h3>
+      <p>最後の段階は、決め手の印をタップします。ダミーの印もあります。光る強調は、当てたあとだけ。外れは時間が減ります。</p>
+    </div>
+    <div class="help-card">
+      <h3>スコア</h3>
+      <p>正解は 100＋残り秒×10。コンボは1段ごとに ×0.25、最大 ×2（5連続）。値切りの相場、質草の差し替え、ライバルに釣られない判定にボーナス。</p>
+    </div>
+    <div class="help-card">
+      <h3>ランク</h3>
+      <div class="rank-pips">
+        <span>節穴</span><span>見習い</span><span>目利き</span><span>鑑定士</span><span>神の目</span>
+      </div>
+      <p>正解率と、1人あたりの点数で決まります。神の目は全問正解かつ高得点。ベストはステージ選択に残ります。</p>
+    </div>
+    <div class="help-card">
+      <h3>繰り返し遊ぶ</h3>
+      <p>今日の一品は、日付で決まる5人。記録は1日1回、再挑戦は練習。連続挑戦日数が伸びます。ハードは全クリアで解放。エンドレスはミス3回まで、だんだん難しくなります。</p>
+    </div>
+    <button type="button" class="btn ghost" id="btnHelpBack">戻る</button>
+  </section>
+
+  <section id="screenSettings" class="screen">
+    <h2>設定</h2>
+    <div class="set-card">
+      <label class="set-row">BGM <input id="volBgm" type="range" min="0" max="100" value="35"></label>
+      <label class="set-row">効果音 <input id="volSfx" type="range" min="0" max="100" value="100"></label>
+      <label class="set-row inline">判定で振動 <input id="optVibrate" type="checkbox" checked></label>
+      <div class="set-row">文字サイズ
+        <div class="choice">
+          <button type="button" class="btn" id="fontStd">標準</button>
+          <button type="button" class="btn ghost" id="fontLg">大</button>
+        </div>
+      </div>
+      <label class="set-row inline">演出控えめ <input id="optCalm" type="checkbox"></label>
+      <p>振動は対応端末だけ。演出控えめは、揺れ・キラッ・フラッシュを弱くします。汗や目の泳ぎは残します。</p>
+    </div>
+    <button type="button" class="btn ghost" id="btnSettingsBack">戻る</button>
+  </section>
+
+  <section id="screenAch" class="screen">
+    <h2>実績・称号</h2>
+    <p class="sub" id="achCount"></p>
+    <div id="achList" class="ach-list"></div>
+    <button type="button" class="btn ghost" id="btnAchBack">戻る</button>
+  </section>
+  <div id="pauseLayer" class="modal" hidden>
+    <div class="modal-card">
+      <h2>一時停止</h2>
+      <p>タイマーは止まっています。</p>
+      <button type="button" class="btn" id="btnResume">再開</button>
+      <button type="button" class="btn" id="btnPauseRetry">やり直し</button>
+      <button type="button" class="btn ghost" id="btnPauseTitle">タイトルへ</button>
+    </div>
+  </div>
+  <div id="tipLayer" class="modal" hidden>
+    <div class="modal-card">
+      <h2 id="tipTitle">初めて</h2>
+      <p id="tipText"></p>
+      <button type="button" class="btn" id="btnTipOk">わかった</button>
+    </div>
+  </div>
+  <div id="toast"></div>
 </div>
 <script>
 'use strict';
 const params = new URLSearchParams(location.search);
 const BOT = params.get('bot') === '1';
 const BOT_FAST = params.get('fast') === '1';
+const BOT_MODE = params.get('mode') || '';
 const SAVE_KEY = 'butchake-appraisal-v1';
+let hardWant = BOT_MODE === 'hard';
 
 const STAGES = [
   { id: 1, name: '町の骨董市', blurb: '手がかりは大きめ。値切りは相場で。', n: 8, need: 6, time: 24, scale: 1, opacity: 1 },
@@ -1504,6 +1840,48 @@ const SLOW_LINES = [
 ];
 const RANK_NAMES = ['節穴', '見習い', '目利き', '鑑定士', '神の目'];
 const RANK_CHAR = ['穴', '習', '目', '鑑', '神'];
+const ACHIEVEMENTS = [
+  { id: 'barcode', name: 'バーコード・ハンター', desc: 'バーコードの偽物を見破る' },
+  { id: 'doubt', name: '疑心暗鬼', desc: '本物を5回疑う' },
+  { id: 'heart', name: '人情派', desc: '緊張しただけの正直者を3人見抜く' },
+  { id: 'boss', name: 'ボス看破', desc: 'ボスの決め手を指摘する' },
+  { id: 'allend', name: '全ED回収', desc: 'エンディングを3種見る' },
+  { id: 'open', name: '開店', desc: 'ステージ1をクリアする' },
+  { id: 'five', name: '五つの場', desc: '全ステージをクリアする' },
+  { id: 'kami', name: '神の目', desc: 'ランク「神の目」を取る' },
+  { id: 'combo', name: '連撃の目', desc: 'コンボを5まで繋ぐ' },
+  { id: 'asker', name: '質問上手', desc: '質問を10回する' },
+  { id: 'haggle', name: '値切り名人', desc: '値切りで相場を当てる' },
+  { id: 'swap', name: '差し替え看破', desc: '質草の差し替えを見抜く' },
+  { id: 'daily', name: '今日の常連', desc: '今日の一品を1回終える' },
+  { id: 'streak', name: '三日坊主じゃない', desc: 'デイリーを3日連続で挑む' },
+  { id: 'endless', name: '底なしの目', desc: 'エンドレスで8人以上さばく' },
+  { id: 'hard', name: '辛口上等', desc: 'ハードでステージをクリアする' },
+  { id: 'clean', name: '無傷の鑑定', desc: 'ステージを全問正解でクリアする' }
+];
+const EVENT_TIP = {
+  haggle: '値切り合戦です。本物と見たら、相場の値段を選ぶとボーナスが付きます。',
+  pawn: '常連の質入れです。前回の品と見比べて、差し替えを見抜いてください。',
+  auction: 'ライバルが先に「本物！」と叫びます。釣られず、自分の目で判定してください。',
+  translate: '翻訳機が壊れています。質問すると、正しい意味が出ます。',
+  reunion: '前のステージの客が戻ってきました。話の続きに注意してください。'
+};
+function freshMeta() {
+  return {
+    settings: { bgm: 0.35, sfx: 1, vibrate: true, font: 'std', calm: false },
+    daily: { lastDate: '', streak: 0, bestStreak: 0, byDate: {} },
+    endlessBest: 0,
+    endlessBestN: 0,
+    ach: [],
+    titleId: '',
+    tips: {},
+    stats: {
+      doubt: 0, trap: 0, barcode: 0, asks: 0, haggle: 0, pawn: 0, boss: 0,
+      endings: [], combo: 0, clean: 0, hardClear: 0, dailyDone: 0, endlessN: 0, kami: 0
+    }
+  };
+}
+let META = freshMeta();
 const TITLE_QUIPS = [
   '本物ですか？ その質問、だいたい先に嘘の匂いがします。',
   'バーコードは江戸より雄弁です。底を見なさい。',
@@ -2165,6 +2543,9 @@ const S = {
   rankIdx: 0,
   rankName: '',
   endingId: '',
+  mode: 'stage',
+  misses: 0,
+  practice: false,
   codex: { items: {}, custs: {} }
 };
 
@@ -2328,7 +2709,15 @@ window.__game = {
   event: null,
   bossPhase: 0,
   ending: null,
-  seen: []
+  seen: [],
+  mode: 'stage',
+  misses: 0,
+  streak: 0,
+  practice: false,
+  endlessBest: 0,
+  title: '',
+  achievements: [],
+  hard: false
 };
 
 const $ = (id) => document.getElementById(id);
@@ -2388,7 +2777,61 @@ function loadSave() {
       S.best = normalizeBest(o.best);
     }
     if (o && o.codex) S.codex = loadCodex(o.codex);
+    if (o && o.meta) META = loadMeta(o.meta);
   } catch (e) { /* ignore */ }
+}
+function loadMeta(raw) {
+  const m = freshMeta();
+  if (!raw || typeof raw !== 'object') return m;
+  const s = raw.settings;
+  if (s && typeof s === 'object') {
+    const bgm = Number(s.bgm);
+    const sfx = Number(s.sfx);
+    if (bgm >= 0 && bgm <= 1) m.settings.bgm = bgm;
+    if (sfx >= 0 && sfx <= 1) m.settings.sfx = sfx;
+    if (typeof s.vibrate === 'boolean') m.settings.vibrate = s.vibrate;
+    if (s.font === 'lg' || s.font === 'std') m.settings.font = s.font;
+    if (typeof s.calm === 'boolean') m.settings.calm = s.calm;
+  }
+  const d = raw.daily;
+  if (d && typeof d === 'object') {
+    m.daily.lastDate = String(d.lastDate || '');
+    m.daily.streak = Math.max(0, Number(d.streak) || 0);
+    m.daily.bestStreak = Math.max(0, Number(d.bestStreak) || 0);
+    if (d.byDate && typeof d.byDate === 'object') {
+      Object.keys(d.byDate).sort().slice(-40).forEach((k) => {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(k)) return;
+        const rec = d.byDate[k];
+        if (!rec || typeof rec !== 'object') return;
+        m.daily.byDate[k] = {
+          correct: Math.max(0, Number(rec.correct) || 0),
+          score: Math.max(0, Number(rec.score) || 0),
+          locked: !!rec.locked
+        };
+      });
+    }
+  }
+  m.endlessBest = Math.max(0, Number(raw.endlessBest) || 0);
+  m.endlessBestN = Math.max(0, Number(raw.endlessBestN) || 0);
+  const allow = {};
+  ACHIEVEMENTS.forEach((a) => { allow[a.id] = 1; });
+  if (Array.isArray(raw.ach)) {
+    m.ach = raw.ach.map((id) => String(id)).filter((id) => allow[id]);
+  }
+  if (allow[raw.titleId]) m.titleId = String(raw.titleId);
+  if (raw.tips && typeof raw.tips === 'object') {
+    ['ask', 'event', 'point'].forEach((k) => { if (raw.tips[k]) m.tips[k] = 1; });
+  }
+  const st = raw.stats;
+  if (st && typeof st === 'object') {
+    ['doubt', 'trap', 'barcode', 'asks', 'haggle', 'pawn', 'boss', 'combo', 'clean', 'hardClear', 'dailyDone', 'endlessN', 'kami'].forEach((k) => {
+      m.stats[k] = Math.max(0, Number(st[k]) || 0);
+    });
+    if (Array.isArray(st.endings)) {
+      m.stats.endings = st.endings.map((x) => String(x)).filter((x) => x === 'legend' || x === 'prosper' || x === 'steady');
+    }
+  }
+  return m;
 }
 function loadCodex(raw) {
   const out = { items: {}, custs: {} };
@@ -2446,7 +2889,9 @@ function normalizeBest(raw) {
 }
 function saveSave() {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ cleared: S.cleared, best: S.best, codex: S.codex }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      cleared: S.cleared, best: S.best, codex: S.codex, meta: META
+    }));
   } catch (e) { /* ignore */ }
 }
 function unlocked(id) {
@@ -2467,12 +2912,67 @@ function unlockAudio() {
     const ctx = audioCtx();
     if (ctx && ctx.state === 'suspended') {
       const p = ctx.resume();
-      if (p && typeof p.catch === 'function') p.catch(() => {});
-    }
+      if (p && typeof p.then === 'function') p.then(() => startBgm()).catch(() => {});
+      else startBgm();
+    } else startBgm();
   } catch (e) { /* ignore */ }
+}
+let bgmGain = null;
+let bgmSrc = null;
+function makeBgmBuffer(ctx) {
+  const sr = ctx.sampleRate;
+  const dur = 8;
+  const len = Math.floor(sr * dur);
+  const buf = ctx.createBuffer(1, len, sr);
+  const data = buf.getChannelData(0);
+  const chord = [174.61, 220, 261.63, 329.63];
+  for (let i = 0; i < len; i++) {
+    const t = i / sr;
+    let s = 0;
+    for (let k = 0; k < chord.length; k++) {
+      s += Math.sin(2 * Math.PI * chord[k] * t + k) * (0.22 - k * 0.03);
+    }
+    const edge = Math.min(1, i / (sr * 0.08), (len - i) / (sr * 0.08));
+    data[i] = (s / 4) * edge * 0.9;
+  }
+  return buf;
+}
+function startBgm() {
+  try {
+    const ctx = audioCtx();
+    if (!ctx || ctx.state !== 'running') return;
+    if (!(META.settings.bgm > 0)) { stopBgm(); return; }
+    if (bgmSrc) { setBgmVol(); return; }
+    const src = ctx.createBufferSource();
+    src.buffer = makeBgmBuffer(ctx);
+    src.loop = true;
+    const g = ctx.createGain();
+    g.gain.value = META.settings.bgm * 0.08;
+    src.connect(g);
+    g.connect(ctx.destination);
+    src.start();
+    bgmSrc = src;
+    bgmGain = g;
+  } catch (e) { /* ignore */ }
+}
+function stopBgm() {
+  try { if (bgmSrc) bgmSrc.stop(); } catch (e) { /* ignore */ }
+  bgmSrc = null;
+  bgmGain = null;
+}
+function setBgmVol() {
+  if (!(META.settings.bgm > 0)) { stopBgm(); return; }
+  if (!bgmGain) { startBgm(); return; }
+  try { bgmGain.gain.value = META.settings.bgm * 0.08; } catch (e) { /* ignore */ }
+}
+function sfxMul() {
+  const m = META.settings && Number(META.settings.sfx);
+  return m > 0 ? m : 0;
 }
 function blip(freq, dur, type, vol, when) {
   try {
+    const mul = sfxMul();
+    if (!(mul > 0)) return;
     const ctx = audioCtx();
     if (!ctx || ctx.state !== 'running') return;
     const t = ctx.currentTime + (when || 0);
@@ -2480,7 +2980,7 @@ function blip(freq, dur, type, vol, when) {
     const g = ctx.createGain();
     o.type = type || 'sine';
     o.frequency.setValueAtTime(freq, t);
-    g.gain.setValueAtTime(Math.max(0.0001, vol), t);
+    g.gain.setValueAtTime(Math.max(0.0001, vol * mul), t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g);
     g.connect(ctx.destination);
@@ -2491,6 +2991,8 @@ function blip(freq, dur, type, vol, when) {
 function soundSwipe() { blip(240, 0.08, 'triangle', 0.05); }
 function soundStamp() {
   try {
+    const mul = sfxMul();
+    if (!(mul > 0)) return;
     const ctx = audioCtx();
     if (!ctx || ctx.state !== 'running') return;
     const t = ctx.currentTime;
@@ -2499,7 +3001,7 @@ function soundStamp() {
     o.type = 'sine';
     o.frequency.setValueAtTime(170, t);
     o.frequency.exponentialRampToValueAtTime(48, t + 0.1);
-    g.gain.setValueAtTime(0.16, t);
+    g.gain.setValueAtTime(0.16 * mul, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
     o.connect(g);
     g.connect(ctx.destination);
@@ -2518,7 +3020,7 @@ function soundStamp() {
     f.frequency.value = 680;
     f.Q.value = 0.7;
     const ng = ctx.createGain();
-    ng.gain.setValueAtTime(0.2, t);
+    ng.gain.setValueAtTime(0.2 * mul, t);
     ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
     src.connect(f);
     f.connect(ng);
@@ -2750,19 +3252,35 @@ function publish() {
   g.bossPhase = current && current.boss ? (current._bossPhase || 0) : 0;
   g.ending = S.endingId || null;
   g.seen = RUN.events.slice();
+  g.mode = S.mode || 'stage';
+  g.misses = S.misses || 0;
+  g.streak = (META.daily && META.daily.streak) || 0;
+  g.practice = !!S.practice;
+  g.endlessBest = META.endlessBest || 0;
+  g.title = titleName();
+  g.achievements = META.ach.slice();
+  g.hard = S.mode === 'hard';
+  g.dailyDate = todayKey();
+  g.asks = (current && S.state === 'play') ? Math.max(0, askMax() - ((current._asks && current._asks.length) || 0)) : 0;
   paintHud();
+  paintPauseBtn();
 }
 function paintHud() {
   const st = stageOf(S.stageId);
-  const inRound = S.state === 'play' || S.state === 'reveal' || S.state === 'result';
+  const inRound = S.state === 'play' || S.state === 'reveal' || S.state === 'result' || S.state === 'pause' || S.state === 'haggle';
   const named = inRound || S.state === 'talk';
-  $('hudStage').textContent = st && named ? st.name : 'ぶっちゃけ鑑定所';
-  $('hudLeft').textContent = inRound ? ('残り ' + Math.max(0, S.total - S.served) + '人') : '';
+  let stageLabel = st && named ? st.name : 'ぶっちゃけ鑑定所';
+  if (inRound && S.mode === 'daily') stageLabel = '今日の一品';
+  else if (inRound && S.mode === 'endless') stageLabel = 'エンドレス';
+  else if (inRound && S.mode === 'hard' && st) stageLabel = st.name + '・辛';
+  $('hudStage').textContent = stageLabel;
+  if (inRound && S.mode === 'endless') $('hudLeft').textContent = 'ミス ' + S.misses + '/3';
+  else $('hudLeft').textContent = inRound ? ('残り ' + Math.max(0, S.total - S.served) + '人') : '';
   $('hudScore').textContent = inRound ? hudScoreText() : '';
   $('hudPts').textContent = inRound ? (S.score + '点') : '';
   paintCombo();
   const timeEl = $('hudTime');
-  if (S.state === 'play' || S.state === 'reveal') {
+  if (S.state === 'play' || S.state === 'reveal' || S.state === 'pause' || S.state === 'haggle') {
     const sec = Math.ceil(S.timeLeftRaw || 0);
     timeEl.textContent = String(sec);
     timeEl.classList.toggle('low', S.state === 'play' && sec <= 5);
@@ -2771,12 +3289,13 @@ function paintHud() {
     timeEl.classList.remove('low');
   }
   const cap = timerCap || (st ? st.time : 1);
-  const ratio = (S.state === 'play' || S.state === 'reveal' || S.state === 'haggle') ? Math.max(0, Math.min(1, (S.timeLeftRaw || 0) / cap)) : 0;
+  const ratio = (S.state === 'play' || S.state === 'reveal' || S.state === 'haggle' || S.state === 'pause') ? Math.max(0, Math.min(1, (S.timeLeftRaw || 0) / cap)) : 0;
   const fill = $('timefill');
   fill.style.width = (ratio * 100) + '%';
   fill.style.background = (S.state === 'play' && S.timeLeftRaw <= 5) ? '#d6453d' : '#e0b85a';
 }
 function hudScoreText() {
+  if (S.mode === 'endless') return '正解 ' + S.correct;
   if (S.quota > 0 && S.correct >= S.quota) {
     return '正解 ' + S.correct + '（目標' + S.quota + ' 達成✓）';
   }
@@ -2841,6 +3360,9 @@ function resetTally() {
   S.rankIdx = 0;
   S.rankName = '';
   S.endingId = '';
+  S.mode = 'stage';
+  S.misses = 0;
+  S.practice = false;
 }
 function burstSparkle() {
   const layer = $('sparkLayer');
@@ -2876,20 +3398,23 @@ function showGain(gain, mult) {
   el.classList.add('on');
   placeGain();
 }
+function calmFx() { return !!(META.settings && META.settings.calm); }
 function fxJudge(isReal, hit, timeout) {
   const app = $('app');
   const fx = $('hankoFx');
+  const calm = calmFx();
   app.classList.remove('shake-soft', 'shake-hard', 'buzz');
   fx.classList.remove('on', 'real', 'fake');
   $('sparkLayer').classList.remove('on');
   void app.offsetWidth;
   if (timeout) {
-    app.classList.add('shake-hard', 'buzz');
+    if (!calm) app.classList.add('shake-hard', 'buzz');
     return;
   }
   $('hankoWord').textContent = isReal ? '本物' : '贋作';
   fx.classList.add('on', isReal ? 'real' : 'fake');
   soundStamp();
+  if (calm) return;
   if (hit) {
     app.classList.add('shake-soft');
     burstSparkle();
@@ -2925,6 +3450,7 @@ function scoreCase(hit, timeout) {
   showGain(gain, mult);
 }
 function showScreen(id) {
+  hideOverlays();
   screens().forEach((s) => s.classList.toggle('on', s.id === id));
   if (id === 'screenPlay') {
     requestAnimationFrame(fitCard);
@@ -2968,12 +3494,45 @@ function timeLeftNow() {
   if (!timerOrigin) return Math.max(0, S.timeLeftRaw || 0);
   return Math.max(0, timerTotal - timeSkew - (performance.now() - timerOrigin) / 1000);
 }
-function startTimer() {
-  stopTimer();
-  const st = stageOf(S.stageId);
-  let base = st ? st.time : 10;
+function roundTime() {
+  if (S.mode === 'endless') return endlessSpec().time;
+  let base = 12;
   if (current && current.boss) base = 32;
-  timerCap = base;
+  else if (S.mode === 'daily' && current) {
+    const cst = stageOf(current.stage);
+    base = cst ? cst.time : 12;
+  } else {
+    const st = stageOf(S.stageId);
+    base = st ? st.time : 12;
+  }
+  if (S.mode === 'hard') base = Math.max(5, Math.round(base * 0.55));
+  return base;
+}
+function endlessSpec() {
+  const step = Math.floor((S.served || 0) / 2);
+  return {
+    time: Math.max(5, 16 - step),
+    scale: Math.max(0.34, 1 - step * 0.06),
+    opacity: Math.max(0.4, 1 - step * 0.05)
+  };
+}
+function clueDim() {
+  if (S.mode === 'endless') {
+    const spec = endlessSpec();
+    return { scale: spec.scale, opacity: spec.opacity };
+  }
+  let st = stageOf(S.stageId) || { scale: 1, opacity: 1 };
+  if (S.mode === 'daily' && current) st = stageOf(current.stage) || st;
+  if (S.mode === 'hard') {
+    return { scale: Math.min(0.36, st.scale * 0.7), opacity: Math.min(0.42, st.opacity * 0.7) };
+  }
+  return { scale: st.scale, opacity: st.opacity };
+}
+function askMax() { return S.mode === 'hard' ? 1 : 2; }
+function armTimer(base, keepCap) {
+  stopTimer();
+  if (!keepCap) timerCap = base;
+  else if (!timerCap) timerCap = base;
   timerTotal = base;
   timerOrigin = performance.now();
   timeSkew = 0;
@@ -3001,6 +3560,15 @@ function startTimer() {
     }
   }, 100);
 }
+function startTimer() { armTimer(roundTime(), false); }
+function resumeTimer() {
+  const left = Math.max(0, S.timeLeftRaw || 0);
+  if (left <= 0) {
+    timeUp();
+    return;
+  }
+  armTimer(left, true);
+}
 function spendTime(sec) {
   timeSkew += sec;
   const left = timeLeftNow();
@@ -3020,8 +3588,30 @@ function spendTime(sec) {
 }
 
 function setDrag(dx) {
-  $('tagR').style.opacity = dx > 0 ? String(Math.min(1, dx / 72)) : '0';
-  $('tagL').style.opacity = dx < 0 ? String(Math.min(1, -dx / 72)) : '0';
+  const tagR = $('tagR');
+  const tagL = $('tagL');
+  if (tagR) tagR.style.opacity = dx > 0 ? String(Math.min(1, dx / 56)) : '0';
+  if (tagL) tagL.style.opacity = dx < 0 ? String(Math.min(1, -dx / 56)) : '0';
+  const card = $('card');
+  if (card) {
+    if (dx) {
+      const tilt = Math.max(-8, Math.min(8, dx / 14));
+      card.style.transform = 'rotate(' + tilt.toFixed(2) + 'deg)';
+    } else card.style.transform = '';
+  }
+  const call = $('swipeCall');
+  if (call) {
+    if (dx > 18) {
+      call.textContent = '本物';
+      call.className = 'swipe-call show real';
+    } else if (dx < -18) {
+      call.textContent = 'ニセモノ';
+      call.className = 'swipe-call show fake';
+    } else {
+      call.textContent = '';
+      call.className = 'swipe-call';
+    }
+  }
 }
 function cancelGesture() {
   if (gesture && gesture.hold) clearTimeout(gesture.hold);
@@ -3157,13 +3747,13 @@ function showCase() {
   cancelGesture();
   closeLoupe();
   clearFx();
+  if (!queue.length && S.mode === 'endless' && S.misses < 3) queue = buildEndlessQueue();
   current = queue.shift() || null;
   if (!current) {
     showResult();
     return;
   }
   const c = current;
-  const st = stageOf(S.stageId);
   const info = CUSTS[c.cust] || { name: '客' };
   if (!c._asks) c._asks = [];
   if (!c._extraActs) c._extraActs = [];
@@ -3180,7 +3770,7 @@ function showCase() {
   $('portrait').classList.toggle('is-sweat', acts.indexOf('sweat') !== -1);
   $('portrait').classList.toggle('shifty', acts.indexOf('shifty') !== -1);
   $('bubble').classList.toggle('fast', acts.indexOf('fast') !== -1);
-  renderClues(c.clues, { scale: st.scale, opacity: st.opacity });
+  renderClues(c.clues, clueDim());
   S.verdict = null;
   S.lastHit = null;
   S.state = 'play';
@@ -3195,6 +3785,7 @@ function showCase() {
   startTimer();
   publish();
   scheduleBot();
+  offerTips(c);
   requestAnimationFrame(fitCard);
 }
 
@@ -3261,6 +3852,7 @@ function applyPending(list, stageId) {
   MEM.pending = keep.slice(0, 8);
 }
 function rememberJudgement() {
+  if (S.mode === 'daily' || S.mode === 'endless') return;
   if (!current || current.boss || current._visit) return;
   let kind = null;
   if (!current.real && S.verdict === 'real') kind = 'smug';
@@ -3480,15 +4072,12 @@ function applyBossPhase(phase) {
   $('itemImg').alt = src.name;
   $('itemName').textContent = src.name;
   $('itemMeta').innerHTML = current.meta.map((m) => '<div>' + rich(m, false) + '</div>').join('');
-  const st = stageOf(S.stageId);
-  renderClues(current.clues, {
-    scale: st ? st.scale : 1,
-    opacity: st ? st.opacity : 1
-  });
+  renderClues(current.clues, clueDim());
   typeLine(src.say, true);
   fillWho(current);
   paintBossChrome();
   noteEvent('boss' + phase);
+  if (phase >= 3) offerPointTip();
 }
 function advanceBoss() {
   if (!current || !current.boss || current._pointMode) return;
@@ -3524,17 +4113,21 @@ function fxExpose() {
   $('sparkLayer').classList.remove('on');
   void app.offsetWidth;
   $('hankoWord').textContent = '看破';
-  fx.classList.add('on', 'fake', 'barrage');
+  fx.classList.add('on', 'fake');
+  soundStamp();
+  if (calmFx()) return;
+  fx.classList.add('barrage');
   app.classList.add('flash', 'shake-soft');
   if (flashClear) clearTimeout(flashClear);
   flashClear = setTimeout(dropFlash, 460);
-  soundStamp();
   burstSparkle();
 }
 function exposeBoss() {
   if (S.state !== 'play' || !current || !current._pointMode) return;
   current._exposed = true;
   noteEvent('boss-expose');
+  META.stats.boss = 1;
+  checkAch();
   finishCase(false, false);
 }
 function mockBoss() {
@@ -3578,6 +4171,8 @@ function pickHaggle(idx) {
     current._haggleBonus = 180;
     S.score += 180;
     noteEvent('haggle-ok');
+    META.stats.haggle = (META.stats.haggle || 0) + 1;
+    checkAch();
   } else noteEvent('haggle-miss');
   const panel = $('eventPanel');
   panel.hidden = true;
@@ -3588,7 +4183,7 @@ function pickHaggle(idx) {
 function setupTutorial() {
   const coach = $('coach');
   if (!coach) return;
-  if (S.stageId !== 1 || S.served >= 2 || !current || current.boss) {
+  if ((S.mode !== 'stage' && S.mode !== 'hard') || S.stageId !== 1 || S.served >= 2 || !current || current.boss) {
     coach.hidden = true;
     return;
   }
@@ -3601,8 +4196,8 @@ function setupTutorial() {
   }
   coach.hidden = false;
   coach.textContent = S.served === 0
-    ? (has ? '光る印が手がかり。長押しでルーペ。' : 'セリフと札の色枠を見て。長押しでルーペ。')
-    : '「質問する」は2回まで。少し時間が減ります。';
+    ? (has ? '光る印が手がかり。下のルーペか長押し。' : 'セリフと札の色枠を見て。下のルーペか長押し。')
+    : ('「質問する」は' + askMax() + '回まで。少し時間が減ります。');
   noteEvent('tutor' + S.served);
 }
 function showTalk(id) {
@@ -3629,15 +4224,17 @@ function showTalk(id) {
 function beginRound(id) {
   const st = stageOf(id);
   if (!st || !CASES.length) return;
+  const mode = (hardWant && hardAllowed()) ? 'hard' : 'stage';
   stopTimer();
   stopType();
   cancelGesture();
   closeLoupe();
   resetTally();
+  S.mode = mode;
   S.stageId = id;
   S.quota = st.need;
   S.total = st.n;
-  S.timeLeftRaw = st.time;
+  S.timeLeftRaw = roundTime();
   queue = buildQueue(id);
   showScreen('screenPlay');
   showCase();
@@ -3774,6 +4371,7 @@ function finishCase(isReal, timeout) {
   S.served += 1;
   if (hit) S.correct += 1;
   scoreCase(hit, !!timeout);
+  noteOutcome(hit, !!timeout);
   const card = $('card');
   card.classList.remove('fly-l', 'fly-r', 'shake');
   if (timeout) card.classList.add('shake');
@@ -3783,6 +4381,7 @@ function finishCase(isReal, timeout) {
   else fxJudge(!!isReal, hit, !!timeout);
   if (hit) soundOk();
   else soundNg();
+  buzzJudge(hit);
   rememberJudgement();
   renderReveal();
   updateAskBtn();
@@ -3807,6 +4406,11 @@ function timeUp() { finishCase(false, true); }
 function nextAfterReveal() {
   if (S.state !== 'reveal') return;
   soundUi();
+  if (S.mode === 'endless') {
+    if (S.misses >= 3) showResult();
+    else showCase();
+    return;
+  }
   if (S.served >= S.total) showResult();
   else showCase();
 }
@@ -3855,19 +4459,28 @@ function showResult() {
   stopType();
   closeLoupe();
   dropFlash();
-  const pass = S.correct >= S.quota;
+  const rankTotal = S.mode === 'endless' ? Math.max(1, S.served) : (S.total || 1);
+  let pass = S.correct >= S.quota;
+  if (S.mode === 'endless') pass = true;
   S.passed = pass;
-  S.rankIdx = judgeRank(S.correct, S.total, S.score);
+  S.rankIdx = judgeRank(S.correct, rankTotal, S.score);
   S.rankName = RANK_NAMES[S.rankIdx];
   let dirty = false;
-  const knownClear = S.cleared.indexOf(S.stageId) !== -1;
   const beforeStars = starCount();
-  if (pass && !knownClear) {
-    S.cleared.push(S.stageId);
-    dirty = true;
+  if (S.mode === 'stage' || S.mode === 'hard') {
+    const knownClear = S.cleared.indexOf(S.stageId) !== -1;
+    if (pass && !knownClear) {
+      S.cleared.push(S.stageId);
+      dirty = true;
+    }
+    if (pass) RUN.byStage[S.stageId] = S.rankIdx;
+    if (commitBest()) dirty = true;
+  } else if (S.mode === 'daily') {
+    if (commitDaily()) dirty = true;
+  } else if (S.mode === 'endless') {
+    if (commitEndless()) dirty = true;
   }
-  if (pass) RUN.byStage[S.stageId] = S.rankIdx;
-  if (commitBest()) dirty = true;
+  noteClear();
   if (dirty) saveSave();
   if (pass) soundClear();
   else soundFail();
@@ -3877,13 +4490,26 @@ function showResult() {
   const rankEl = $('resultRank');
   rankEl.textContent = S.rankName;
   rankEl.className = 'rank-name r' + S.rankIdx;
-  $('resultTitle').textContent = pass ? 'ステージクリア' : '未達';
-  const rate = S.total ? Math.round((S.correct / S.total) * 100) : 0;
-  $('resultScore').textContent = '正解 ' + S.correct + '/' + S.total + '（' + rate + '%）　' + S.score + '点　最大コンボ ' + S.maxCombo;
-  $('resultFame').textContent = '評判 ' + starString(starCount()) + (pass && starCount() > beforeStars ? '　上がった' : '');
+  const rate = rankTotal ? Math.round((S.correct / rankTotal) * 100) : 0;
+  if (S.mode === 'daily') {
+    $('resultTitle').textContent = S.practice ? '練習おしまい' : '今日の一品';
+    $('resultScore').textContent = '正解 ' + S.correct + '/5（' + rate + '%）　' + S.score + '点　最大コンボ ' + S.maxCombo;
+    $('resultFame').textContent = '連続挑戦 ' + (META.daily.streak || 0) + '日' + (S.practice ? '　この結果は練習です' : '　本日の記録');
+  } else if (S.mode === 'endless') {
+    $('resultTitle').textContent = 'エンドレス記録';
+    $('resultScore').textContent = '正解 ' + S.correct + '　' + S.score + '点　到達 ' + S.served + '人';
+    $('resultFame').textContent = 'ベスト ' + (META.endlessBest || 0) + '点 / ' + (META.endlessBestN || 0) + '人';
+  } else {
+    $('resultTitle').textContent = pass ? (S.mode === 'hard' ? 'ハード・クリア' : 'ステージクリア') : '未達';
+    $('resultScore').textContent = '正解 ' + S.correct + '/' + S.total + '（' + rate + '%）　' + S.score + '点　最大コンボ ' + S.maxCombo;
+    $('resultFame').textContent = '評判 ' + starString(starCount()) + (pass && starCount() > beforeStars ? '　上がった' : '');
+  }
   $('resultNote').textContent = resultComment(pass);
-  $('btnNextStage').hidden = !(pass && S.stageId < 5);
-  $('btnEnding').hidden = !(pass && S.stageId === 5);
+  $('btnRetry').hidden = false;
+  $('btnRetry').textContent = S.mode === 'daily' ? 'もう一度（練習）' : 'もう一度';
+  $('btnNextStage').hidden = !((S.mode === 'stage' || S.mode === 'hard') && pass && S.stageId < 5);
+  $('btnEnding').hidden = !((S.mode === 'stage' || S.mode === 'hard') && pass && S.stageId === 5);
+  $('btnToSelect').textContent = (S.mode === 'daily' || S.mode === 'endless') ? 'タイトルへ' : 'ステージ選択';
   S.state = 'result';
   showScreen('screenResult');
   publish();
@@ -3904,6 +4530,9 @@ function showEnding() {
   $('endCast').innerHTML = ['cust_grandpa', 'cust_madam', 'cust_alien', 'cust_student', 'cust_boss'].map((cid) =>
     '<img src="assets/' + cid + '.jpg" alt="">').join('');
   noteEvent('ending-' + tier);
+  if (META.stats.endings.indexOf(tier) === -1) META.stats.endings.push(tier);
+  checkAch();
+  saveSave();
   showScreen('screenEnding');
   publish();
   scheduleBot();
@@ -3915,7 +4544,8 @@ function showSelect() {
   resetTally();
   S.state = 'select';
   const done = S.cleared.length;
-  $('selectProgress').textContent = '評判 ' + starString(starCount()) + '　' + (done >= 5 ? '全ステージクリア' : ('クリア ' + done + ' / 5'));
+  $('selectProgress').textContent = '評判 ' + starString(starCount()) + '　' + (done >= 5 ? '全ステージクリア' : ('クリア ' + done + ' / 5')) + '　デイリー連続' + (META.daily.streak || 0) + '日';
+  paintHardBtn();
   const list = $('stageList');
   list.innerHTML = '';
   STAGES.forEach((st) => {
@@ -3958,6 +4588,7 @@ function showTitle() {
   RUN.talked = {};
   S.state = 'title';
   pickTitleQuip();
+  paintHome();
   showScreen('screenTitle');
   publish();
   scheduleBot();
@@ -4043,8 +4674,8 @@ function askCostSec() {
 function updateAskBtn() {
   const btn = $('btnAsk');
   if (!btn) return;
-  const left = current ? Math.max(0, 2 - ((current._asks && current._asks.length) || 0)) : 0;
-  btn.textContent = left ? ('質問する ' + left) : '質問する';
+  const left = current ? Math.max(0, askMax() - ((current._asks && current._asks.length) || 0)) : 0;
+  btn.textContent = left ? ('質問 ' + left) : '質問';
   btn.disabled = S.state !== 'play' || !current || left <= 0 || !!(current && current.boss);
 }
 function soundAsk() {
@@ -4054,7 +4685,7 @@ function soundAsk() {
 function doAsk() {
   if (S.state !== 'play' || !current || current.boss) return;
   if (!current._asks) current._asks = [];
-  if (current._asks.length >= 2) return;
+  if (current._asks.length >= askMax()) return;
   if (current.event === 'translate' && !current._translated) {
     current._translated = true;
     current.say = current._trueSay || current.say;
@@ -4071,6 +4702,8 @@ function doAsk() {
   }
   current._asks.push(built);
   applyAskStyle(current, built.style, n);
+  META.stats.asks = (META.stats.asks || 0) + 1;
+  checkAch();
   soundAsk();
   renderSpeech(current);
   updateAskBtn();
@@ -4259,6 +4892,10 @@ function botAnswer() {
 }
 function botResult() {
   if (S.state !== 'result') return;
+  if (S.mode === 'daily' || S.mode === 'endless') {
+    showTitle();
+    return;
+  }
   if (S.correct >= S.quota) {
     if (S.stageId >= 5) showEnding();
     else startStage(S.stageId + 1);
@@ -4308,7 +4945,8 @@ function botStep() {
     return;
   }
   const used = current._asks ? current._asks.length : 0;
-  const want = used < 2 && Math.random() < (used === 0 ? 0.48 : 0.28);
+  const cap = askMax();
+  const want = used < cap && Math.random() < (used === 0 ? 0.48 : 0.28);
   if (want) {
     doAsk();
     if (S.state !== 'play') return;
@@ -4332,7 +4970,11 @@ function scheduleBot() {
     haggle: fast ? 40 : 420,
     talk: fast ? 30 : 420
   };
-  if (S.state === 'title') botT = setTimeout(showSelect, d.title);
+  if (S.state === 'title') {
+    if (BOT_MODE === 'daily') botT = setTimeout(startDaily, d.title);
+    else if (BOT_MODE === 'endless') botT = setTimeout(startEndless, d.title);
+    else botT = setTimeout(showSelect, d.title);
+  }
   else if (S.state === 'select') botT = setTimeout(() => startStage(botStage), d.select);
   else if (S.state === 'talk') botT = setTimeout(() => beginRound(S.stageId), d.talk);
   else if (S.state === 'haggle') botT = setTimeout(() => {
@@ -4347,6 +4989,8 @@ function scheduleBot() {
       else showTitle();
     }, d.codex);
   }
+  else if (S.state === 'pause') botT = setTimeout(resumePlay, fast ? 20 : 180);
+  else if (S.state === 'help' || S.state === 'settings' || S.state === 'ach') botT = setTimeout(showTitle, d.title);
 }
 
 function onDown(e) {
@@ -4354,7 +4998,8 @@ function onDown(e) {
   if (e.button !== undefined && e.button !== 0) return;
   if (e.target.closest && e.target.closest('button')) return;
   e.preventDefault();
-  const host = loupeOn ? $('loupeView') : $('itemCol');
+  const fromCard = !!(e.target && e.target.closest && e.target.closest('#itemCol'));
+  const host = loupeOn ? $('loupeView') : $('screenPlay');
   try { host.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
   const startX = e.clientX;
   const startY = e.clientY;
@@ -4367,12 +5012,13 @@ function onDown(e) {
     moved: false,
     loupe: false,
     panning: loupeOn,
+    fromCard: fromCard,
     panX: loupePan.x,
     panY: loupePan.y,
     travel: 0,
     hold: 0
   };
-  if (!loupeOn) {
+  if (!loupeOn && fromCard) {
     gesture.hold = setTimeout(() => {
       if (!gesture || gesture.moved || S.state !== 'play') return;
       gesture.loupe = true;
@@ -4443,7 +5089,7 @@ function onUp(e) {
   z.style.transform = '';
   setDrag(0);
   const now = Date.now();
-  if (!g.moved && now - lastTap < 300) {
+  if (!g.moved && g.fromCard && now - lastTap < 300) {
     openLoupe();
     lastTap = 0;
   } else if (!g.moved) {
@@ -4497,6 +5143,14 @@ function bind() {
   document.addEventListener('pointerdown', unlockAudio);
   document.addEventListener('keydown', unlockAudio);
   $('btnStart').addEventListener('click', () => { soundUi(); showSelect(); });
+  $('btnDaily').addEventListener('click', () => { soundUi(); startDaily(); });
+  $('btnEndless').addEventListener('click', () => { soundUi(); startEndless(); });
+  $('btnHelp').addEventListener('click', () => { soundUi(); showHelp(); });
+  $('btnAch').addEventListener('click', () => { soundUi(); showAch(); });
+  $('btnSettings').addEventListener('click', () => { soundUi(); showSettings(); });
+  $('btnHelpBack').addEventListener('click', () => { soundUi(); showTitle(); });
+  $('btnSettingsBack').addEventListener('click', () => { soundUi(); showTitle(); });
+  $('btnAchBack').addEventListener('click', () => { soundUi(); showTitle(); });
   $('btnCodexTitle').addEventListener('click', () => { soundUi(); showCodex('title'); });
   $('btnCodexSelect').addEventListener('click', () => { soundUi(); showCodex('select'); });
   $('btnCodexBack').addEventListener('click', () => leaveCodex());
@@ -4511,8 +5165,66 @@ function bind() {
   $('btnSelectTitle').addEventListener('click', () => { soundUi(); showTitle(); });
   $('btnEndSelect').addEventListener('click', () => { soundUi(); showSelect(); });
   $('btnEndTitle').addEventListener('click', () => { soundUi(); showTitle(); });
-  $('btnToSelect').addEventListener('click', () => { soundUi(); showSelect(); });
-  $('btnRetry').addEventListener('click', () => { soundUi(); startStage(S.stageId); });
+  $('btnToSelect').addEventListener('click', () => {
+    soundUi();
+    if (S.mode === 'daily' || S.mode === 'endless') showTitle();
+    else showSelect();
+  });
+  $('btnRetry').addEventListener('click', () => {
+    soundUi();
+    if (S.mode === 'daily') startDaily();
+    else if (S.mode === 'endless') startEndless();
+    else startStage(S.stageId);
+  });
+  $('btnHard').addEventListener('click', () => {
+    if (!allCleared()) return;
+    hardWant = !hardWant;
+    soundUi();
+    paintHardBtn();
+  });
+  $('btnPause').addEventListener('click', () => pausePlay());
+  $('btnResume').addEventListener('click', () => { soundUi(); resumePlay(); });
+  $('btnPauseRetry').addEventListener('click', () => { soundUi(); retryMode(); });
+  $('btnPauseTitle').addEventListener('click', () => { soundUi(); showTitle(); });
+  $('btnTipOk').addEventListener('click', () => { soundUi(); closeTip(); });
+  $('btnLoupe').addEventListener('click', () => openLoupe());
+  $('achList').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-ach]');
+    if (!btn || btn.disabled) return;
+    soundUi();
+    equipTitle(btn.dataset.ach || '');
+  });
+  $('volBgm').addEventListener('input', () => {
+    META.settings.bgm = Number($('volBgm').value) / 100;
+    unlockAudio();
+    setBgmVol();
+    saveSave();
+  });
+  $('volSfx').addEventListener('input', () => {
+    META.settings.sfx = Number($('volSfx').value) / 100;
+    unlockAudio();
+    saveSave();
+  });
+  $('optVibrate').addEventListener('change', () => {
+    META.settings.vibrate = !!$('optVibrate').checked;
+    saveSave();
+    if (META.settings.vibrate) buzzJudge(true);
+  });
+  $('optCalm').addEventListener('change', () => {
+    META.settings.calm = !!$('optCalm').checked;
+    applySettings();
+    saveSave();
+  });
+  $('fontStd').addEventListener('click', () => {
+    META.settings.font = 'std';
+    applySettings();
+    saveSave();
+  });
+  $('fontLg').addEventListener('click', () => {
+    META.settings.font = 'lg';
+    applySettings();
+    saveSave();
+  });
   $('btnNextStage').addEventListener('click', () => { soundUi(); startStage(S.stageId + 1); });
   $('btnEnding').addEventListener('click', () => { soundUi(); showEnding(); });
   $('btnTalkGo').addEventListener('click', () => {
@@ -4536,8 +5248,8 @@ function bind() {
     soundUi();
     startStage(Number(btn.dataset.stage));
   });
-  $('btnFake').addEventListener('click', () => judge(false));
-  $('btnReal').addEventListener('click', () => judge(true));
+  $('btnFake').addEventListener('click', () => userJudge(false));
+  $('btnReal').addEventListener('click', () => userJudge(true));
   $('btnAsk').addEventListener('click', () => doAsk());
   $('reveal').addEventListener('click', (e) => {
     const b = e.target.closest('[data-act="next"]');
@@ -4554,33 +5266,49 @@ function bind() {
   $('loupeView').addEventListener('pointermove', onMove);
   $('loupeView').addEventListener('pointerup', onUp);
   $('loupeView').addEventListener('pointercancel', onUp);
+  const play = $('screenPlay');
+  play.addEventListener('pointerdown', (e) => {
+    if (S.state !== 'play' || loupeOn) return;
+    if (e.target.closest && e.target.closest('#itemCol, .loupe, button, .reveal, .event-panel')) return;
+    const r = play.getBoundingClientRect();
+    if (e.clientY < r.top + r.height * 0.5) return;
+    onDown(e);
+  });
+  play.addEventListener('pointermove', onMove);
+  play.addEventListener('pointerup', onUp);
+  play.addEventListener('pointercancel', onUp);
   document.addEventListener('keydown', (e) => {
     if (e.repeat) return;
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      if (S.state === 'play') judge(false);
+      if (S.state === 'play') userJudge(false);
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
-      if (S.state === 'play') judge(true);
+      if (S.state === 'play') userJudge(true);
     } else if (e.key === 'Enter') {
       if (S.state === 'reveal') { e.preventDefault(); nextAfterReveal(); }
       else if (S.state === 'title') { e.preventDefault(); showSelect(); }
       else if (S.state === 'talk') { e.preventDefault(); beginRound(S.stageId); }
+      else if (S.state === 'pause') { e.preventDefault(); resumePlay(); }
       else if (S.state === 'result') {
         e.preventDefault();
-        if (S.passed && S.stageId >= 5) showEnding();
+        if (S.mode === 'daily' || S.mode === 'endless') showTitle();
+        else if (S.passed && S.stageId >= 5) showEnding();
         else if (S.passed && S.stageId < 5) startStage(S.stageId + 1);
         else startStage(S.stageId);
       }
     } else if (e.key === 'q' || e.key === 'Q') {
       if (S.state === 'play') { e.preventDefault(); doAsk(); }
-    } else if (e.key === 'Escape' && loupeOn) {
-      closeLoupe();
-    } else if (e.key === 'Escape' && S.state === 'codex') {
-      leaveCodex();
+    } else if (e.key === 'Escape') {
+      if (tipOpen) { closeTip(); return; }
+      if (loupeOn) { closeLoupe(); return; }
+      if (S.state === 'pause') { resumePlay(); return; }
+      if (S.state === 'play' || S.state === 'haggle') { pausePlay(); return; }
+      if (S.state === 'codex') leaveCodex();
+      else if (S.state === 'help' || S.state === 'settings' || S.state === 'ach') showTitle();
     }
   });
-  window.addEventListener('resize', fitCard);
+  window.addEventListener('resize', () => { fitCard(); placeToast(); });
   if (window.ResizeObserver) {
     const slot = $('cardSlot');
     if (slot) new ResizeObserver(() => fitCard()).observe(slot);
@@ -4607,6 +5335,447 @@ function bind() {
   }
 }
 
+let tipWait = [];
+let tipOpen = false;
+let pausedFrom = '';
+let judgeTap = 0;
+let toastQ = [];
+let toastOn = false;
+function todayKey(d) {
+  const dt = d || new Date();
+  const z = (n) => String(n).padStart(2, '0');
+  return dt.getFullYear() + '-' + z(dt.getMonth() + 1) + '-' + z(dt.getDate());
+}
+function prevDateKey(key) {
+  const p = String(key).split('-').map(Number);
+  const dt = new Date(p[0], (p[1] || 1) - 1, p[2] || 1);
+  dt.setDate(dt.getDate() - 1);
+  return todayKey(dt);
+}
+function hashSeed(str) {
+  let h = 2166136261;
+  const s = String(str);
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+function rngOf(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function seededShuffle(arr, rng) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = a[i];
+    a[i] = a[j];
+    a[j] = tmp;
+  }
+  return a;
+}
+function buildDailyQueue(key) {
+  const rng = rngOf(hashSeed('daily:' + key));
+  const pool = seededShuffle(CASES.filter((c) => !c.boss), rng);
+  const reals = pool.filter((c) => c.real);
+  const fakes = pool.filter((c) => !c.real);
+  const picked = [];
+  const startFake = rng() < 0.5;
+  for (let i = 0; i < 5; i++) {
+    const wantFake = startFake ? (i % 2 === 0) : (i % 2 === 1);
+    const src = wantFake ? fakes : reals;
+    const other = wantFake ? reals : fakes;
+    const c = src.length ? src.shift() : other.shift();
+    if (c) picked.push(cloneCase(c));
+  }
+  return picked;
+}
+function buildEndlessQueue() {
+  return shuffle(CASES.filter((c) => !c.boss)).map(cloneCase);
+}
+function startDaily() {
+  stopTimer();
+  stopType();
+  cancelGesture();
+  closeLoupe();
+  const key = todayKey();
+  const rec = META.daily.byDate[key];
+  resetTally();
+  S.mode = 'daily';
+  S.practice = !!(rec && rec.locked);
+  S.stageId = 1;
+  S.quota = 3;
+  S.total = 5;
+  queue = buildDailyQueue(key);
+  showScreen('screenPlay');
+  showCase();
+}
+function startEndless() {
+  stopTimer();
+  stopType();
+  cancelGesture();
+  closeLoupe();
+  resetTally();
+  S.mode = 'endless';
+  S.stageId = 1;
+  S.quota = 0;
+  S.total = 0;
+  S.misses = 0;
+  queue = buildEndlessQueue();
+  showScreen('screenPlay');
+  showCase();
+}
+function allCleared() {
+  return [1, 2, 3, 4, 5].every((id) => S.cleared.indexOf(id) !== -1);
+}
+function hardAllowed() {
+  return allCleared() || BOT_MODE === 'hard';
+}
+function titleName() {
+  const def = ACHIEVEMENTS.find((a) => a.id === META.titleId);
+  return def ? def.name : '新米店主';
+}
+function paintHome() {
+  const key = todayKey();
+  const rec = META.daily.byDate[key];
+  const dailyTxt = rec && rec.locked ? ('本日 ' + rec.correct + '/5・' + rec.score + '点') : '本日 未記録';
+  const el = $('homeBlurb');
+  if (el) {
+    el.textContent = dailyTxt + '　連続' + (META.daily.streak || 0) + '日　／　エンドレス最高 ' + (META.endlessBest || 0) + '点';
+  }
+  const badge = $('titleBadge');
+  if (badge) badge.textContent = '称号　' + titleName();
+}
+function paintHardBtn() {
+  const b = $('btnHard');
+  if (!b) return;
+  if (!allCleared()) {
+    if (BOT_MODE !== 'hard') hardWant = false;
+    b.disabled = true;
+    b.textContent = 'ハード（全クリアで解放）';
+    b.classList.remove('on');
+    return;
+  }
+  b.disabled = false;
+  b.textContent = hardWant ? 'ハード ON' : 'ハード OFF';
+  b.classList.toggle('on', hardWant);
+}
+function paintPauseBtn() {
+  const b = $('btnPause');
+  if (!b) return;
+  b.hidden = !(S.state === 'play' || S.state === 'haggle');
+}
+function commitDaily() {
+  const key = todayKey();
+  const prev = META.daily.byDate[key];
+  if (prev && prev.locked) {
+    S.practice = true;
+    return false;
+  }
+  META.daily.byDate[key] = { correct: S.correct, score: S.score, locked: true };
+  const y = prevDateKey(key);
+  if (META.daily.lastDate === y) META.daily.streak = (META.daily.streak || 0) + 1;
+  else if (META.daily.lastDate !== key) META.daily.streak = 1;
+  META.daily.lastDate = key;
+  if ((META.daily.streak || 0) > (META.daily.bestStreak || 0)) META.daily.bestStreak = META.daily.streak;
+  META.stats.dailyDone = (META.stats.dailyDone || 0) + 1;
+  S.practice = false;
+  return true;
+}
+function commitEndless() {
+  let better = false;
+  if (S.score > (META.endlessBest || 0)) {
+    META.endlessBest = S.score;
+    better = true;
+  }
+  if (S.served > (META.endlessBestN || 0)) {
+    META.endlessBestN = S.served;
+    better = true;
+  }
+  if ((META.stats.endlessN || 0) < S.served) META.stats.endlessN = S.served;
+  return better;
+}
+function noteOutcome(hit, timeout) {
+  if (!current) return;
+  if (!timeout && !hit && current.real) META.stats.doubt = (META.stats.doubt || 0) + 1;
+  if (!timeout && hit && current.why === 'trap') META.stats.trap = (META.stats.trap || 0) + 1;
+  if (!timeout && hit && !current.real && (current.clues || []).some((x) => x.kind === 'barcode' && !x.harmless)) {
+    META.stats.barcode = (META.stats.barcode || 0) + 1;
+  }
+  if (!timeout && hit && current.event === 'pawn' && current._swap) META.stats.pawn = (META.stats.pawn || 0) + 1;
+  if ((META.stats.combo || 0) < S.combo) META.stats.combo = S.combo;
+  if (S.mode === 'endless' && !hit) S.misses += 1;
+  saveSave();
+  checkAch();
+}
+function noteClear() {
+  if (S.rankIdx >= 4) META.stats.kami = 1;
+  if ((S.mode === 'stage' || S.mode === 'hard') && S.passed && S.correct === S.total && S.timeouts === 0 && S.missReal === 0 && S.missFake === 0) {
+    META.stats.clean = (META.stats.clean || 0) + 1;
+  }
+  if (S.mode === 'hard' && S.passed) META.stats.hardClear = (META.stats.hardClear || 0) + 1;
+  if (S.mode === 'endless' && (META.stats.endlessN || 0) < S.served) META.stats.endlessN = S.served;
+  saveSave();
+  checkAch();
+}
+function checkAch() {
+  const st = META.stats;
+  let dirty = false;
+  function need(id, ok) {
+    if (!ok || META.ach.indexOf(id) !== -1) return;
+    META.ach.push(id);
+    dirty = true;
+    const def = ACHIEVEMENTS.find((a) => a.id === id);
+    if (def) toast('実績　' + def.name);
+  }
+  need('barcode', st.barcode >= 1);
+  need('doubt', st.doubt >= 5);
+  need('heart', st.trap >= 3);
+  need('boss', st.boss >= 1);
+  need('allend', (st.endings || []).length >= 3);
+  need('open', S.cleared.indexOf(1) !== -1);
+  need('five', allCleared());
+  need('kami', st.kami >= 1);
+  need('combo', st.combo >= 5);
+  need('asker', st.asks >= 10);
+  need('haggle', st.haggle >= 1);
+  need('swap', st.pawn >= 1);
+  need('daily', st.dailyDone >= 1);
+  need('streak', (META.daily.streak || 0) >= 3 || (META.daily.bestStreak || 0) >= 3);
+  need('endless', st.endlessN >= 8);
+  need('hard', st.hardClear >= 1);
+  need('clean', st.clean >= 1);
+  if (dirty) saveSave();
+}
+function placeToast() {
+  const el = $('toast');
+  const bar = $('timebar');
+  const app = $('app');
+  if (!el || !bar || !app) return;
+  const top = Math.ceil(bar.getBoundingClientRect().bottom - app.getBoundingClientRect().top) + 8;
+  el.style.top = top + 'px';
+}
+function toast(text) {
+  toastQ.push(text);
+  if (!toastOn) pumpToast();
+}
+function pumpToast() {
+  const text = toastQ.shift();
+  const el = $('toast');
+  if (!text || !el) { toastOn = false; return; }
+  toastOn = true;
+  placeToast();
+  el.textContent = text;
+  el.classList.add('on');
+  setTimeout(() => {
+    el.classList.remove('on');
+    setTimeout(pumpToast, 220);
+  }, 1600);
+}
+function buzzJudge(hit) {
+  if (!META.settings || !META.settings.vibrate) return;
+  try {
+    if (navigator.vibrate) navigator.vibrate(hit ? 16 : [22, 36, 22]);
+  } catch (e) { /* ignore */ }
+}
+function hideOverlays() {
+  const pause = $('pauseLayer');
+  if (pause) pause.hidden = true;
+  const tip = $('tipLayer');
+  if (tip) tip.hidden = true;
+  tipOpen = false;
+  tipWait = [];
+  S._tipHold = false;
+  pausedFrom = '';
+}
+function holdTimerForTip() {
+  if (S.state !== 'play' || S._tipHold) return;
+  S.timeLeftRaw = timeLeftNow();
+  stopTimer();
+  timerOrigin = 0;
+  S._tipHold = true;
+}
+function showTipCard(title, text) {
+  if (BOT) return;
+  holdTimerForTip();
+  const layer = $('tipLayer');
+  if (!layer) return;
+  $('tipTitle').textContent = title;
+  $('tipText').textContent = text;
+  layer.hidden = false;
+  tipOpen = true;
+}
+function pushTip(title, text) {
+  if (BOT) return;
+  tipWait.push({ title: title, text: text });
+  if (!tipOpen) {
+    const next = tipWait.shift();
+    if (next) showTipCard(next.title, next.text);
+  }
+}
+function closeTip() {
+  const layer = $('tipLayer');
+  if (layer) layer.hidden = true;
+  const next = tipWait.shift();
+  if (next) {
+    showTipCard(next.title, next.text);
+    return;
+  }
+  tipOpen = false;
+  if (S._tipHold && S.state === 'play') {
+    S._tipHold = false;
+    resumeTimer();
+  }
+}
+function markTip(id) {
+  if (META.tips[id]) return false;
+  META.tips[id] = 1;
+  saveSave();
+  return true;
+}
+function offerTips(c) {
+  if (!c) return;
+  if (c.event && EVENT_TIP[c.event] && markTip('event')) pushTip('特色イベント', EVENT_TIP[c.event]);
+  const early = (S.mode === 'stage' || S.mode === 'hard') && S.stageId === 1 && S.served < 1;
+  if (!c.boss && !early && markTip('ask')) {
+    pushTip('質問する', '画面下のボタンです。1人' + (S.mode === 'hard' ? '1回' : '2回') + 'まで。時間を少し使って、矛盾や動揺を引き出します。');
+  }
+}
+function offerPointTip() {
+  if (!markTip('point')) return;
+  pushTip('決め手を指摘', '光っていない印を、ルーペで探してタップします。当たれば看破。外れは時間が減ります。ダミーの印もあります。');
+}
+function pausePlay() {
+  if (S.state !== 'play' && S.state !== 'haggle') return;
+  tipWait = [];
+  tipOpen = false;
+  const tip = $('tipLayer');
+  if (tip) tip.hidden = true;
+  S._tipHold = false;
+  pausedFrom = S.state;
+  if (S.state === 'play') {
+    S.timeLeftRaw = timeLeftNow();
+    stopTimer();
+    timerOrigin = 0;
+  }
+  S.state = 'pause';
+  closeLoupe();
+  const layer = $('pauseLayer');
+  if (layer) layer.hidden = false;
+  publish();
+}
+function resumePlay() {
+  if (S.state !== 'pause') return;
+  const layer = $('pauseLayer');
+  if (layer) layer.hidden = true;
+  const back = pausedFrom || 'play';
+  pausedFrom = '';
+  S.state = back;
+  if (back === 'play') resumeTimer();
+  publish();
+  scheduleBot();
+}
+function retryMode() {
+  const mode = S.mode;
+  const id = S.stageId;
+  hideOverlays();
+  if (mode === 'daily') startDaily();
+  else if (mode === 'endless') startEndless();
+  else startStage(id || 1);
+}
+function userJudge(isReal) {
+  const now = Date.now();
+  if (now - judgeTap < 420) return;
+  judgeTap = now;
+  judge(isReal);
+}
+function applySettings() {
+  const app = $('app');
+  if (!app) return;
+  app.classList.toggle('font-lg', META.settings.font === 'lg');
+  app.classList.toggle('calm', !!META.settings.calm);
+  const bgm = $('volBgm');
+  const sfx = $('volSfx');
+  const vib = $('optVibrate');
+  const calm = $('optCalm');
+  if (bgm) bgm.value = String(Math.round(META.settings.bgm * 100));
+  if (sfx) sfx.value = String(Math.round(META.settings.sfx * 100));
+  if (vib) vib.checked = !!META.settings.vibrate;
+  if (calm) calm.checked = !!META.settings.calm;
+  const std = $('fontStd');
+  const lg = $('fontLg');
+  if (std) std.classList.toggle('ghost', META.settings.font === 'lg');
+  if (lg) lg.classList.toggle('ghost', META.settings.font !== 'lg');
+  setBgmVol();
+  requestAnimationFrame(fitCard);
+}
+function showHelp() {
+  stopTimer();
+  stopType();
+  closeLoupe();
+  S.state = 'help';
+  showScreen('screenHelp');
+  publish();
+  scheduleBot();
+}
+function showSettings() {
+  stopTimer();
+  stopType();
+  closeLoupe();
+  S.state = 'settings';
+  applySettings();
+  showScreen('screenSettings');
+  publish();
+  scheduleBot();
+}
+function showAch() {
+  stopTimer();
+  stopType();
+  closeLoupe();
+  S.state = 'ach';
+  renderAch();
+  showScreen('screenAch');
+  publish();
+  scheduleBot();
+}
+function renderAch() {
+  const list = $('achList');
+  const count = $('achCount');
+  if (!list) return;
+  if (count) count.textContent = META.ach.length + ' / ' + ACHIEVEMENTS.length + '　装備中：' + titleName();
+  list.innerHTML = '';
+  const base = document.createElement('button');
+  base.type = 'button';
+  base.className = 'ach-row' + (META.titleId ? '' : ' equipped');
+  base.dataset.ach = '';
+  base.innerHTML = '<b class="ach-mark">新</b><span><b>新米店主</b><small>称号を外す</small></span>';
+  list.appendChild(base);
+  ACHIEVEMENTS.forEach((a) => {
+    const on = META.ach.indexOf(a.id) !== -1;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ach-row' + (on ? '' : ' locked') + (META.titleId === a.id ? ' equipped' : '');
+    btn.disabled = !on;
+    btn.dataset.ach = a.id;
+    btn.innerHTML = '<b class="ach-mark">' + (on ? '★' : '？') + '</b><span><b>' + esc(a.name) + '</b><small>' +
+      esc(a.desc) + (on ? '　タップで称号' : '') + '</small></span>';
+    list.appendChild(btn);
+  });
+}
+function equipTitle(id) {
+  if (id && META.ach.indexOf(id) === -1) return;
+  META.titleId = id || '';
+  saveSave();
+  renderAch();
+  paintHome();
+  publish();
+}
 function preload() {
   const srcs = [];
   CUST_IDS.forEach((n) => srcs.push('assets/' + n + '.jpg'));
@@ -4617,6 +5786,7 @@ function preload() {
 function boot() {
   validate();
   loadSave();
+  applySettings();
   bind();
   preload();
   showTitle();
