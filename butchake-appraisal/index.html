@@ -120,15 +120,16 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
 .seal.ok { border-color: var(--green); color: var(--green); background: rgba(28, 122, 66, .12); }
 .title-art {
   width: min(360px, 100%);
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
 }
-.cast, .goods { display: flex; align-items: flex-end; justify-content: center; max-width: 100%; }
+.cast, .goods { display: flex; align-items: flex-end; justify-content: center; flex-wrap: wrap; width: 100%; max-width: 100%; min-width: 0; }
 .cast { gap: 4px; }
 .cast img {
-  width: 50px; height: 50px;
+  width: 44px; height: 44px;
   object-fit: cover;
   object-position: center 18%;
   border-radius: 12px;
@@ -137,7 +138,7 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   box-shadow: 0 3px 0 rgba(0,0,0,.28);
 }
 .cast img.boss {
-  width: 84px; height: 84px;
+  width: 72px; height: 72px;
   border: 3px solid var(--gold);
   border-radius: 16px;
   margin: 0 -4px;
@@ -269,6 +270,9 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   padding: 6px 10px 0;
   max-height: 32%;
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 .portrait-wrap { width: clamp(76px, 18vh, 118px); flex: 0 0 auto; position: relative; }
 .portrait {
@@ -312,7 +316,16 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   20% { opacity: 1; }
   100% { transform: translateY(16px); opacity: 0; }
 }
-.cust-name { text-align: center; font-size: 10px; margin-top: 2px; opacity: .88; }
+.cust-name {
+  text-align: center;
+  font-size: 10px;
+  margin-top: 2px;
+  opacity: .88;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .tells {
   position: absolute;
   left: 0; right: 0; bottom: 20px;
@@ -338,6 +351,8 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   flex: 1;
   min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--paper);
   color: var(--ink);
   border-radius: 16px;
@@ -345,8 +360,21 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   font-size: clamp(12px, 3.1vw, 15px);
   line-height: 1.45;
   box-shadow: 0 4px 0 rgba(0,0,0,.15);
-  max-height: 100%;
-  overflow: auto;
+  overflow: visible;
+}
+#line {
+  margin: 0;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  overscroll-behavior: contain;
+}
+@media (orientation: portrait) {
+  .bubble { max-height: min(20vh, 146px); align-self: center; }
+  #line { flex: 0 1 auto; max-height: min(14vh, 104px); }
 }
 .bubble:before {
   content: "";
@@ -356,6 +384,48 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   border-right-color: var(--paper);
   border-left: 0;
 }
+.who {
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.35;
+  color: #8a3b32;
+  margin-bottom: 3px;
+  overflow-wrap: anywhere;
+}
+.who:empty { display: none; margin: 0; }
+.qa {
+  margin-top: 4px;
+  padding-top: 3px;
+  border-top: 1px dashed rgba(28, 20, 15, .2);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.qa b { display: block; font-size: 10px; color: #8a3b32; }
+.qa i { display: block; margin-top: 1px; font-style: normal; font-size: 10px; font-weight: 800; }
+.qa-body { display: block; overflow-wrap: anywhere; }
+.qa.old { opacity: .48; }
+.qa.old:not([open]) > .qa-body { display: none; }
+.qa.old summary {
+  display: block;
+  cursor: pointer;
+  list-style: none;
+}
+.qa.old summary::-webkit-details-marker { display: none; }
+.qa.old summary b,
+.qa.old summary i { display: inline; }
+.qa.old summary i::before { content: " · "; font-weight: 700; }
+.qa.old .qa-body { margin-top: 2px; font-size: 11px; }
+.qa.latest {
+  background: rgba(224, 184, 90, .3);
+  border-radius: 8px;
+  padding: 3px 6px 4px;
+  border-top: 0;
+  box-shadow: inset 3px 0 0 var(--gold);
+}
+.qa i.slip { color: var(--vermilion); }
+.qa i.calm { color: var(--green); }
+.qa i.dodge { color: #8a5a12; }
 .bubble.fast { animation: jabber .11s linear infinite; }
 @keyframes jabber {
   50% { transform: translateX(2px); }
@@ -667,11 +737,22 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
 .actions {
   flex: 0 0 auto;
   display: flex;
-  gap: 8px;
-  padding: 8px 12px 12px;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 10px;
+  min-width: 0;
+  max-width: 100%;
 }
-.actions button {
+.judge-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.judge-row button {
   flex: 1;
+  min-width: 0;
   border: 0;
   border-radius: 14px;
   min-height: 48px;
@@ -680,9 +761,25 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
   font-size: clamp(14px, 3.8vw, 18px);
   box-shadow: 0 4px 0 rgba(0,0,0,.25);
 }
-.actions button:active { transform: translateY(2px); box-shadow: none; }
+.judge-row button:active { transform: translateY(2px); box-shadow: none; }
 #btnFake { background: #b4332a; }
 #btnReal { background: #1f7a45; }
+#btnAsk {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255,255,255,.38);
+  background: transparent;
+  color: var(--paper);
+  border-radius: 999px;
+  min-height: 26px;
+  padding: 2px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  box-shadow: none;
+  max-width: 100%;
+}
+#btnAsk:disabled { opacity: .38; }
+#btnAsk:active { transform: translateY(1px); }
 .reveal {
   position: absolute;
   left: 8px; right: 8px; bottom: 8px;
@@ -705,6 +802,7 @@ h2 { font-size: clamp(20px, 5vw, 28px); }
 .rev-kicker.good { color: var(--green); }
 .rev-kicker.bad { color: var(--vermilion); }
 .rev-line { margin: 2px 0; font-size: 13px; }
+.rev-trait { margin: 2px 0 0; font-size: 12px; font-weight: 800; color: #6b3a32; }
 .rev-hint {
   margin: 4px 0;
   font-size: 13px;
@@ -814,11 +912,15 @@ em.hot {
     grid-column: 3; grid-row: 1;
     flex-direction: column;
     justify-content: center;
+    align-items: stretch;
     padding: 6px;
   }
-  #screenPlay .actions button { min-height: 0; flex: 1; font-size: 14px; }
+  #screenPlay .judge-row { flex-direction: column; flex: 1 1 auto; min-height: 0; gap: 6px; }
+  #screenPlay .judge-row button { min-height: 0; flex: 1; font-size: 14px; }
+  #screenPlay #btnAsk { align-self: center; min-height: 24px; padding: 2px 8px; font-size: 11px; }
   .portrait-wrap { width: min(96px, 30vh); align-self: center; }
-  .bubble { font-size: 12px; flex: 1; }
+  .bubble { font-size: 12px; flex: 1; min-height: 0; max-height: none; align-self: stretch; overflow: hidden; }
+  #line { flex: 1 1 auto; max-height: none; }
   .bubble:before {
     left: 16px; top: -7px;
     border: 7px solid transparent;
@@ -841,9 +943,116 @@ em.hot {
 }
 @media (max-height: 700px) and (orientation: portrait) {
   .cust { max-height: 28%; }
-  .actions { padding: 6px 10px 8px; }
-  .actions button { min-height: 44px; }
+  .actions { padding: 4px 10px 8px; }
+  .judge-row button { min-height: 44px; }
   .plaque { margin-top: 6px; padding: 4px 8px 5px; }
+}
+#screenCodex.on {
+  padding: 10px 12px 12px;
+  gap: 8px;
+  overflow: hidden;
+}
+.codex-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; }
+.codex-head h2 { min-width: 0; }
+#codexCount { white-space: nowrap; }
+.codex-tabs { display: flex; gap: 6px; }
+.codex-tabs button {
+  flex: 1;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.3);
+  background: transparent;
+  color: var(--paper);
+  font-weight: 800;
+  padding: 6px 8px;
+}
+.codex-tabs button.on { background: var(--paper); color: var(--ink); }
+.codex-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+.codex-grid[hidden], .codex-detail[hidden] { display: none !important; }
+.codex-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 12px;
+  padding: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: left;
+}
+.codex-card:disabled { opacity: .85; }
+.codex-card .pic {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #efe6d6;
+}
+.codex-card .pic img, .codex-card .pic svg { width: 100%; height: 100%; display: block; }
+.codex-card .pic img { object-fit: contain; background: #fff; }
+.codex-card.person .pic img { object-fit: cover; object-position: center 18%; }
+.codex-card b, .codex-card small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.codex-card b { font-size: 11px; margin-top: 3px; }
+.codex-card small { font-size: 10px; opacity: .75; }
+.codex-detail {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 10px;
+}
+.codex-detail-head { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.codex-detail-head img {
+  width: 84px; height: 84px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+}
+.codex-detail-head.person img { object-fit: cover; object-position: center 18%; }
+.codex-detail h3 { margin: 0 0 4px; font-size: 18px; overflow-wrap: anywhere; }
+.codex-detail .trait { margin: 0; font-size: 12px; line-height: 1.4; }
+.dex-entry {
+  border-top: 1px solid rgba(0,0,0,.12);
+  padding: 6px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.dex-entry p { margin: 2px 0; }
+.badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-right: 4px;
+}
+.badge.real { background: #e5f6ea; color: var(--green); }
+.badge.fake { background: #fde8e6; color: var(--vermilion); }
+.badge.return { background: #fff4c2; color: #7a4e12; margin-right: 0; }
+.badge.revenge { background: #fde8e6; color: var(--vermilion); margin-right: 0; }
+@media (orientation: landscape) and (max-height: 540px) {
+  .codex-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+  #screenCodex.on { padding: 6px 10px; }
+  .codex-detail-head img { width: 64px; height: 64px; }
 }
 </style>
 </head>
@@ -863,21 +1072,29 @@ em.hot {
   <section id="screenTitle" class="screen on">
     <div class="title-art" aria-hidden="true">
       <div class="cast">
+        <img src="assets/cust_student.jpg" alt="">
+        <img src="assets/cust_grandma.jpg" alt="">
         <img src="assets/cust_madam.jpg" alt="">
-        <img src="assets/cust_grandpa.jpg" alt="">
         <img class="boss" src="assets/cust_boss.jpg" alt="">
+        <img src="assets/cust_grandpa.jpg" alt="">
+        <img src="assets/cust_robot.jpg" alt="">
         <img src="assets/cust_shady.jpg" alt="">
         <img src="assets/cust_alien.jpg" alt="">
       </div>
       <div class="goods">
         <img src="assets/item_vase.jpg" alt="">
+        <img src="assets/item_ukiyoe.jpg" alt="">
+        <img src="assets/item_violin.jpg" alt="">
         <img src="assets/item_painting.jpg" alt="">
         <img src="assets/item_katana.jpg" alt="">
+        <img src="assets/item_coin.jpg" alt="">
+        <img src="assets/item_fossil.jpg" alt="">
         <img src="assets/item_crown.jpg" alt="">
         <img src="assets/item_watch.jpg" alt="">
         <img src="assets/item_daruma.jpg" alt="">
         <img src="assets/item_crystal.jpg" alt="">
         <img src="assets/item_moonrock.jpg" alt="">
+        <img src="assets/item_raygun.jpg" alt="">
       </div>
     </div>
     <div class="signboard">
@@ -889,10 +1106,12 @@ em.hot {
       <li>右スワイプ（または右ボタン、→キー）で本物。左でニセモノ。</li>
       <li>手がかりは3つ。品物の違和感、セリフと説明札の矛盾、客のそぶり。</li>
       <li>汗は緊張だけのこともある。長押しかダブルタップでルーペ。</li>
+      <li>「質問する」は1人2回まで。タイマーを少し使って、動揺や矛盾を引き出す。</li>
     </ul>
-    <p class="howline">右で本物、左でニセモノ。長押しでルーペ。</p>
+    <p class="howline">右で本物、左でニセモノ。質問は2回まで。長押しでルーペ。</p>
     <div class="stack">
       <button type="button" class="btn" id="btnStart">ステージ選択へ</button>
+      <button type="button" class="btn ghost" id="btnCodexTitle">鑑定図鑑</button>
     </div>
   </section>
 
@@ -900,6 +1119,7 @@ em.hot {
     <h2>ステージ</h2>
     <p class="sub" id="selectProgress"></p>
     <div id="stageList" class="stage-list"></div>
+    <button type="button" class="btn ghost" id="btnCodexSelect">鑑定図鑑</button>
     <button type="button" class="btn ghost" id="btnSelectTitle">タイトルへ</button>
   </section>
 
@@ -913,7 +1133,10 @@ em.hot {
         <div class="cust-name" id="custName"></div>
         <div class="tells" id="tells"></div>
       </div>
-      <div class="bubble" id="bubble"><p id="line" style="margin:0"></p></div>
+      <div class="bubble" id="bubble">
+        <div class="who" id="whoLine"></div>
+        <div id="line"></div>
+      </div>
     </div>
     <div class="item-col" id="itemCol">
       <div class="card-slot" id="cardSlot">
@@ -941,8 +1164,11 @@ em.hot {
       </div>
     </div>
     <div class="actions">
-      <button type="button" id="btnFake">← ニセモノ</button>
-      <button type="button" id="btnReal">本物 →</button>
+      <button type="button" id="btnAsk">質問する 2</button>
+      <div class="judge-row">
+        <button type="button" id="btnFake">← ニセモノ</button>
+        <button type="button" id="btnReal">本物 →</button>
+      </div>
     </div>
     <div class="reveal" id="reveal" aria-live="polite"></div>
     <div class="loupe" id="loupe">
@@ -966,6 +1192,20 @@ em.hot {
       <button type="button" class="btn" id="btnEnding">大団円へ</button>
       <button type="button" class="btn ghost" id="btnToSelect">ステージ選択</button>
     </div>
+  </section>
+
+  <section id="screenCodex" class="screen">
+    <div class="codex-head">
+      <h2>鑑定図鑑</h2>
+      <p class="sub" id="codexCount"></p>
+    </div>
+    <div class="codex-tabs">
+      <button type="button" id="tabItems">品物</button>
+      <button type="button" id="tabCusts">お客</button>
+    </div>
+    <div id="codexGrid" class="codex-grid"></div>
+    <div id="codexDetail" class="codex-detail" hidden></div>
+    <button type="button" class="btn ghost" id="btnCodexBack">戻る</button>
   </section>
 
   <section id="screenEnding" class="screen">
@@ -993,13 +1233,96 @@ const STAGES = [
   { id: 5, name: '最後の大鑑定', blurb: 'ボスは笑って出す。嘘か、本当か。', n: 8, need: 6, time: 8, scale: 0.4, opacity: 0.52 }
 ];
 
-const NAMES = {
-  cust_grandpa: '木村のじいちゃん',
-  cust_madam: '黒川夫人',
-  cust_salaryman: '山田課長',
-  cust_shady: '謎の男',
-  cust_alien: 'グリー星人',
-  cust_boss: 'ボス・ウルフ'
+const CUSTS = {
+  cust_grandpa: { name: '木村のじいちゃん', tic: '〜じゃよ', persona: 'nervous', trait: '正直・話が長い' },
+  cust_grandma: { name: '花村キヨ', tic: 'あらまあ', persona: 'nervous', trait: '正直・孫の受け売り' },
+  cust_madam: { name: '黒川夫人', tic: 'ですわ', persona: 'slick', trait: '見栄っ張り・質問をかわす' },
+  cust_salaryman: { name: '山田課長', tic: '一応', persona: 'nervous', trait: '正直・緊張しやすい' },
+  cust_student: { name: '佐藤あかり', tic: 'マジで', persona: 'liar', trait: '見栄っ張り・嘘が下手' },
+  cust_shady: { name: '謎の男', tic: '今なら特別', persona: 'liar', trait: '嘘つき常習犯' },
+  cust_robot: { name: '鑑定ロボK-7', tic: 'データによれば', persona: 'logical', trait: '論理的・ログが正直' },
+  cust_alien: { name: 'グリー星人', tic: 'ぼくの星では', persona: 'nervous', trait: '素直・文化が違う' },
+  cust_boss: { name: 'ボス・ウルフ', tic: '私を疑え', persona: 'slick', trait: '威圧・巧妙にかわす' }
+};
+const ITEM_IDS = ['item_vase', 'item_painting', 'item_ukiyoe', 'item_violin', 'item_watch', 'item_katana', 'item_daruma', 'item_crown', 'item_crystal', 'item_coin', 'item_fossil', 'item_moonrock', 'item_raygun'];
+const ITEM_LABEL = {
+  item_vase: '壺', item_painting: '絵画', item_ukiyoe: '浮世絵', item_violin: 'バイオリン',
+  item_watch: '懐中時計', item_katana: '刀', item_daruma: 'だるま', item_crown: '冠',
+  item_crystal: '結晶', item_coin: '古代金貨', item_fossil: '恐竜の化石', item_moonrock: '月の石',
+  item_raygun: '宇宙光線銃'
+};
+const CUST_IDS = ['cust_grandpa', 'cust_grandma', 'cust_madam', 'cust_salaryman', 'cust_student', 'cust_shady', 'cust_robot', 'cust_alien', 'cust_boss'];
+const ASK_Q = { when: 'いつ手に入れました？', where: 'どこで手に入れました？', cert: '鑑定書はありますか？' };
+const ASK_BOOK = {
+  cust_grandpa: {
+    when: { real: ['札と同じ年じゃよ。焦らず見れば、同じことが書いてある。', 'もう一度言う。入手の年は、札のとおりじゃ。'], fake: ['百年前じゃと言うたが…手元に来たのは、もっと最近じゃった。', '孫が古いと言うので信じた。自信は、ない。'] },
+    where: { real: ['蔵じゃよ。札の伝来と、同じ場所じゃ。', '実家の蔵。目録と場所は一致しとる。'], fake: ['蔵じゃと言うたが、本当は露店じゃ。', '出所を聞かれると、喉が渇くのう。'] },
+    cert: { real: ['あるぞ。番号は説明札と同じじゃ。', '登録の紙はここじゃ。手は震えても、紙は震えておらん。'], fake: ['鑑定書はのう…孫が「あとで」と言うたきりじゃ。', '紙はない。口だけが、百年前じゃ。'] }
+  },
+  cust_grandma: {
+    when: { real: ['あらまあ、札の年と同じですよ。蔵にずっとありました。', '落ち着いて思い出しても、年は札のとおり。'], fake: ['あらまあ、代々と言うたけど…孫が昨日、箱を持ってきたの。', '昔から、は孫のセリフでした。わたしは信じていたのよ。'] },
+    where: { real: ['実家の蔵ですよ。説明札の由来と一緒。', 'あらまあ、場所まで札と同じ。安心しました。'], fake: ['孫が「いい店」と言うの。店の名は、聞いていないの。', 'あらまあ、本当の場所は駅前だったかも。'] },
+    cert: { real: ['ありますよ。番号は、この札と一緒です。', '紙を見せますね。手が少し震えても、中身は本当。'], fake: ['鑑定書？ 孫が「気持ちが鑑定書」と言うの。紙は、ないわ。', 'あらまあ、隠すのは苦手。証明書は最初からありません。'] }
+  },
+  cust_madam: {
+    when: { any: ['時期なんて野暮ですわ。由緒を見なさいな。', '年号を二度聞く方は、目がない証拠ですわ。'] },
+    where: { any: ['サロンですわ。レディに、それ以上は聞きませんこと。', '流出元は守秘ですわ。質問が二度目ですのね。'] },
+    cert: { any: ['鑑定書？ わたくしの言葉が鑑定書ですわ。', '紙を求めるなんて。柔軟な鑑定士も、いたものですわ。'] }
+  },
+  cust_salaryman: {
+    when: { real: ['一応、稟議の日付は説明札と一致しています。', 'もう一度確認しました。年は札のとおりです。'], fake: ['一応、書類を見たら申告と日付が違います。すみません。', '入手日を聞かれただけで、額に汗が。'] },
+    where: { real: ['預かり元は札の記載と同じです。一応、相違なし。', '経路は報告書どおり。緊張していますが、相違はありません。'], fake: ['一応、経路が空欄です。口頭だけの預かりで。', 'どこで、と聞かれると書類の無さがバレます。'] },
+    cert: { real: ['ここにあります。番号は説明札と同じです。', '一応、原本を持参しています。手が汗ばむのは緊張です。'], fake: ['鑑定書は未着です。一応、それが全部です。', 'コピーも原本も、今日は机の上にありません。'] }
+  },
+  cust_student: {
+    when: { real: ['マジで札に書いてある年。今回は盛ってない。', 'もう一回言うけど、年は説明と同じ。緊張してるだけ。'], fake: ['いつって…先週のフリマ。いや、百年前！ 今の無し。', 'マジで時期、自分でも分かんない。盛ったかも。'] },
+    where: { real: ['学校の先生の紹介。札の由来と一緒。マジで。', '入手先、説明札と同じ店。バズりたいだけで、嘘はなし。'], fake: ['どこって、駅前…じゃなくて海外！ マジで海外。', 'インスタで見た店。店の名、今は言えない。'] },
+    cert: { real: ['あるよ。番号、札と同じ。見て。', '鑑定書、今回は本物の紙。盛ってないから。'], fake: ['鑑定書？ いいねが鑑定書。紙は、ない。', 'マジで紙は文化祭までできない。つまり、ない。'] }
+  },
+  cust_shady: {
+    when: { real: ['いつ？ 札の年だ。今なら特別に、本当のことを言う。', '年は説明どおり。疑うなら紙を見ろ。'], fake: ['いつ？ 先週…百年前だ。今なら特別に、その話は無し。', '時期が二回変わっただろ。それが、匂いだ。'] },
+    where: { real: ['出所は札に書いてある。今なら特別に、それだけだ。', '場所は隠さん。説明と同じだ。'], fake: ['出所は闇…いや正規だ。今なら特別に、場所は無し。', '店の名を二度変えた。犬も食わない話だ。'] },
+    cert: { real: ['ある。番号は札と同じ。今なら特別に、見せてやる。', '紙はここだ。疑う前に読め。'], fake: ['鑑定書は犬が食べた。コピーは明日。今日は口だけだ。', '紙を出すなら、今なら特別に高い。つまり、無い。'] }
+  },
+  cust_robot: {
+    when: { real: ['データによれば、製造年は説明札と一致。誤差ゼロ。', '再照会。タイムスタンプは札と同一。'], fake: ['データによれば、入手ログは昨日。申告の古さと不一致。', '誤差を再計算。申告年と実ログが、同時に真ではない。'] },
+    where: { real: ['データによれば、入手経路は説明札と一致。', '経路ログ、一致。動揺の定義は未実装。'], fake: ['データによれば、経路は「工場出荷」。申告の伝来と不一致。', '経路フィールドが空。口頭申告は信頼度ゼロ。'] },
+    cert: { real: ['鑑定番号、説明札と一致。提示可能。', '証明書ファイル、健全。誤差ゼロ。'], fake: ['鑑定書ファイル、未検出。エラー。', '証明書を要求された。該当レコードなし。'] }
+  },
+  cust_alien: {
+    when: { real: ['ぼくの星の暦でも、札の年と同じだ。', 'もう一度数えた。地球の札と、ぼくの記憶が一致。'], fake: ['ぼくの星では昨日を一万年と言う。地球の札と、数が合わない。', 'いつ、と聞かれた。地球語の年が、舌の上で割れた。'] },
+    where: { real: ['拾った場所は、札の採取地と同じ。ぼくは隠さない。', '経路は申告どおり。汗は、重力のせい。'], fake: ['ぼくの星の市場…いや、地球の露店だった。', 'どこで、と聞くから答える。母星、ではなかった。'] },
+    cert: { real: ['書類の番号は、札と同じ。税関にも見せた。', '紙はある。ぼくの星では、紙は重い。でも本当。'], fake: ['鑑定書は、ぼくの星の言葉で「ない」。', '紙を食べる文化はない。最初から、持っていない。'] }
+  },
+  cust_boss: {
+    when: { any: ['いつ、だと？ 私を疑うなら、年号より先に覚悟を疑え。', '時期は私の記憶だ。記憶に、ルーペは通さん。'] },
+    where: { any: ['出所を聞くとは、いい度胸だ。答えは、私の手元だ。', '場所は言わん。かわしている、と気づけ。それが手がかりだ。'] },
+    cert: { any: ['鑑定書は、私の眼光だ。紙は弱い者の道具だ。', '二度聞くか。証明書は出さん。それが、答えだ。'] }
+  }
+};
+const VISIT_LEADS = {
+  smug: {
+    cust_grandpa: 'この前はどうもじゃ♪ また古い品を持ってきたぞ。',
+    cust_grandma: 'この前はどうも♪ あらまあ、通っちゃったから、また来たわ。',
+    cust_madam: 'この前はどうもですわ♪ あなたの目、とってもお優しい。',
+    cust_salaryman: 'この前はどうもです。通ってしまったので、一応もう一点。',
+    cust_student: 'この前はどうも♪ マジで通ったじゃん。じゃあこれも見て？',
+    cust_shady: 'この前はどうも♪ いいお客だ。また持ってきた。今なら特別。',
+    cust_robot: 'この前はどうも。判定ログは「見逃し」。再入力します。',
+    cust_alien: 'この前はどうも♪ ぼくの星では、通った者は友達だ。',
+    cust_boss: 'この前はどうも♪ 私を疑う目が、あの時は曇っていた。'
+  },
+  revenge: {
+    cust_grandpa: 'この前は見破られたのう。今度こそ、本物じゃ…と思う。',
+    cust_grandma: 'あらまあ、この前は見破られちゃった。今度こそ、孫が本物って。',
+    cust_madam: 'この前は失礼しましたわ。リベンジですの。今度は本物ですわよ。',
+    cust_salaryman: 'この前は見破られました。一応、リベンジで持ってきました。',
+    cust_student: 'この前マジでバレた…。リベンジだから。今度は本物、だと思う。',
+    cust_shady: 'この前は見破ったな。今度はそう簡単にいかない。今なら特別。',
+    cust_robot: '前回の判定は検知成功。リベンジ手順を起動します。',
+    cust_alien: 'この前は見破られた。ぼくの星では、リベンジは礼儀だ。',
+    cust_boss: 'この前はよく見破った。私を疑うなら、今度も疑ってみろ。'
+  }
 };
 
 const TELL_LABEL = { sweat: '汗', shifty: '目が泳ぐ', fast: '早口' };
@@ -1019,6 +1342,9 @@ const TITLE_QUIPS = [
   '値札のついた月の石。宇宙は、思ったより安い。',
   '疑え。そして、疑ったあとにまだ本物なら、それを認めろ。',
   'あなたの目が節穴か神の目か。客はもう、並んでいます。',
+  '北斎の波に西暦が浮かぶ。著作権は、潮より新しい。',
+  'ストラディバリウスがシール貼りなら、音より先に糊を聴きなさい。',
+  '古代の金貨が溶けるなら、それは歴史ではなくお菓子です。',
   '早口の客は急いでいます。急ぐ理由は、だいたい本物ではありません。',
   'ハンコを押すのは、あなたです。押し間違えると、音が不機嫌になります。'
 ];
@@ -1426,7 +1752,222 @@ const CASES = [
     clues: [], act: 'sweat', why: 'trap',
     hint: '汗は冠の重さ。申告と札に矛盾なし',
     ok: '重い冠、正直な汗。ボスの言葉、今回は額面どおりです。',
-    ng: '緊張…いや重さで汗をかいただけです。疑うとは、私も人のこと言えませんね。' }
+    ng: '緊張…いや重さで汗をかいただけです。疑うとは、私も人のこと言えませんね。' },
+
+  { id: 's1-11', stage: 1, cust: 'cust_student', item: 'item_ukiyoe', real: false,
+    say: 'マジで北斎の浮世絵。インスタでバズる波。江戸時代の本物だよ。',
+    name: '神奈川沖浪裏', meta: ['作者：葛飾北斎', '時代：江戸', '版：初摺り（申告）'],
+    clues: [{ kind: 'copy', text: '©2023', x: 68, y: 72, rot: -6 }], act: '', why: 'visual',
+    hint: '絵の右下の「©2023」',
+    ok: '北斎の著作権表示が2023年。タイムスタンプが、波より新しい。',
+    ng: '右下の©2023。江戸の版元は、西暦で著作権を主張しません。' },
+  { id: 's1-12', stage: 1, cust: 'cust_grandma', item: 'item_violin', real: false,
+    say: 'あらまあ、孫がストラディバリウスだって。屋根裏に百年あったのよ。',
+    name: '古いバイオリン', meta: ['製作者：申告ストラディバリ', '年代：18世紀', '弓：付き'],
+    clues: [{ kind: 'label', text: 'STRADIVARI', sub: '印刷シール', x: 36, y: 60, rot: -8 }], act: '', why: 'visual',
+    hint: '胴の中の印刷シール',
+    ok: 'ストラディバリウスがシール貼り。印刷のインクが、一番新しい音です。',
+    ng: 'f字孔の奥、印刷シールです。工房のラベルは、こうは光りません。' },
+  { id: 's1-13', stage: 1, cust: 'cust_student', item: 'item_coin', real: false,
+    say: 'マジで古代ローマの金貨。文化祭の展示で、先生が本物って言った。',
+    name: '古代の金貨', meta: ['時代：ローマ', '素材：金（申告）', '出土：申告地中海'],
+    clues: [{ kind: 'choco', text: 'チョコレート', x: 50, y: 68 }], act: '', why: 'visual',
+    hint: '金貨の「チョコレート」の刻印',
+    ok: '古代金貨の刻印がチョコレート。溶ける前に、判定が溶けました。',
+    ng: '皇帝の胸に、チョコレート。歴史は甘い。金は、もっと甘い。' },
+  { id: 's1-14', stage: 1, cust: 'cust_grandma', item: 'item_fossil', real: true,
+    say: 'あらまあ、初めてで手が震えて。博物館で払ってもらった、本物の化石なの。',
+    name: '小型獣脚類の頭骨', meta: ['分類：獣脚類', '時代：白亜紀', '由来：博物館の払い下げ'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は初鑑定の緊張。時代と由来は一致',
+    ok: '緊張の汗だけで、骨は骨。自由研究が、今日は本当。',
+    ng: 'おばあちゃんの汗を、石膏にしましたね。由来は博物館で一致しています。' },
+  { id: 's1-15', stage: 1, cust: 'cust_robot', item: 'item_vase', real: false,
+    say: 'データによれば、この壺は[[江戸・百年前]]の製造です。誤差は許容範囲。',
+    name: '染付壺', meta: ['[[製造：2020年]]', '材質：磁器', 'ログ：自動査定'],
+    clues: [], act: '', why: 'contra',
+    hint: '「百年前」と札の「2020年」',
+    ok: 'ロボットのログが、百年と2020年を同時に真と言う。演算がオーバーフローです。',
+    ng: '札は2020年。データが百年前と言うとき、データは願望です。' },
+  { id: 's1-16', stage: 1, cust: 'cust_grandpa', item: 'item_ukiyoe', real: true,
+    say: '北斎の波じゃよ。版元の印も、札の年と同じじゃ。',
+    name: '富嶽三十六景', meta: ['作者：葛飾北斎', '時代：天保', '版元：一致'],
+    clues: [], act: '', why: 'clean',
+    hint: '版元と時代が申告と一致。違和感なし',
+    ok: '印も年も揃った波。著作権表示が無いだけで、今日は安心です。',
+    ng: '矛盾なし。波に飲まれて、本物を見逃しました。' },
+
+  { id: 's2-11', stage: 2, cust: 'cust_shady', item: 'item_violin', real: false,
+    say: '質流れのストラディバリだ。今なら特別。証明は音だ。',
+    name: '質流れの提琴', meta: ['製作者：申告ストラディバリ', '預かり：質札', '証明：なし'],
+    clues: [{ kind: 'label', text: 'STRADIVARI', sub: 'PRINTED', x: 34, y: 58, rot: -6, sc: 0.92 }], act: '', why: 'visual',
+    hint: 'f字孔の奥の印刷ラベル',
+    ok: '音の前に、印刷がある。ストラディバリは、シールを弾きません。',
+    ng: '奥の印刷。今なら特別、は今なら偽物の合図です。' },
+  { id: 's2-12', stage: 2, cust: 'cust_student', item: 'item_fossil', real: false,
+    say: 'マジでティラノの化石。パパが海外で買った。学校じゃ見せられないやつ。',
+    name: '恐竜の頭骨', meta: ['分類：申告ティラノ', '時代：白亜紀', '入手：個人輸入'],
+    clues: [{ kind: 'flash', x: 40, y: 76, rot: -18 }], act: '', why: 'visual',
+    hint: '下あごのプラ成形のバリ',
+    ok: 'ティラノのあごに、成形バリ。白亜紀は、金型を使っていません。',
+    ng: 'バリが見えています。骨が光るのは、化石じゃなく樹脂です。' },
+  { id: 's2-13', stage: 2, cust: 'cust_grandma', item: 'item_coin', real: false,
+    say: 'あらまあ、[[お婆ちゃんの代からの金貨]]なの。明治より前から家にあるのよ。',
+    name: '家伝の金貨', meta: ['[[中身：チョコ菓子]]', '包装：なし', '年代：申告家伝'],
+    clues: [], act: '', why: 'contra',
+    hint: '「代々の金貨」と札の「チョコ菓子」',
+    ok: '家伝のチョコレート。明治の前から甘い家です。札が先に白状しています。',
+    ng: '札にチョコ菓子。お婆ちゃんの代から、というのは味の話でした。' },
+  { id: 's2-14', stage: 2, cust: 'cust_robot', item: 'item_watch', real: true,
+    say: 'データによれば、製造年は昭和35年。誤差ゼロ。緊張の定義は未実装。',
+    name: '懐中時計', meta: ['製造：昭和35年', '機構：手巻き', 'ログ：一致'],
+    clues: [], act: '', why: 'clean',
+    hint: 'ログの年と札が一致',
+    ok: '誤差ゼロ、は今回ほんとう。ロボットのほうが、書類に忠実です。',
+    ng: '年は一致しています。未実装の緊張を、罪にしないでください。' },
+  { id: 's2-15', stage: 2, cust: 'cust_salaryman', item: 'item_ukiyoe', real: false,
+    say: '取引先から預かった浮世絵です。一応、北斎の初摺りだと。',
+    name: '浪裏図', meta: ['作者：申告北斎', '預かり：質札', '証明：口頭'],
+    clues: [{ kind: 'copy', text: '©2023', x: 70, y: 74, rot: -4, sc: 0.88 }], act: '', why: 'visual',
+    hint: '余白の小さな「©2023」',
+    ok: '初摺りの著作権が2023年。取引先のカレンダーが、未来です。',
+    ng: '余白の©2023。一応、と前置きした時点で、一応ニセモノです。' },
+  { id: 's2-16', stage: 2, cust: 'cust_grandma', item: 'item_daruma', real: true,
+    say: 'あらまあ、質に出そうか迷って汗が。昭和のだるまで、年は札のとおりよ。',
+    name: '張子だるま', meta: ['年代：昭和', '産地：高崎', '預かり：相談'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は迷い。年は一致',
+    ok: '迷って汗をかくのは、人情です。だるまは本物。',
+    ng: '質に出す迷いの汗です。年は札と一致。疑うのは金利より高い。' },
+
+  { id: 's3-11', stage: 3, cust: 'cust_madam', item: 'item_ukiyoe', real: false,
+    say: '北斎の初摺りですわ。落札予定の品。ルーペで、どうぞ。',
+    name: '富嶽・浪裏', meta: ['作者：葛飾北斎', '時代：天保', 'Lot：12'],
+    clues: [{ kind: 'copy', text: '©2023', x: 72, y: 76, rot: -8, sc: 0.82 }], act: '', why: 'visual',
+    hint: '隅の極小「©2023」',
+    ok: 'ロット番号より、隅の西暦が雄弁です。北斎は2023年を知りません。',
+    ng: '隅を拡大しましたか。©2023。カタログが、一字で沈みます。' },
+  { id: 's3-12', stage: 3, cust: 'cust_student', item: 'item_violin', real: false,
+    say: 'マジで[[ストラディバリウスの一点物]]。オークションデビュー。先生が保証した。',
+    name: '提琴', meta: ['[[教材用・型番VN-19]]', '購入：楽器店', '証明：なし'],
+    clues: [], act: '', why: 'contra',
+    hint: '「一点物」と札の「型番VN-19」',
+    ok: '一点物の型番。教材が、落札札の上で音程を外しています。',
+    ng: '札のVN-19。一点物が量産だと、拍手も量産です。' },
+  { id: 's3-13', stage: 3, cust: 'cust_grandma', item: 'item_ukiyoe', real: true,
+    say: 'あらまあ、会場が広くて汗が。北斎の波は、目録の年と同じですのよ。',
+    name: '神奈川沖浪裏', meta: ['作者：葛飾北斎', '時代：天保', '目録：一致'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は会場の広さ。目録と一致',
+    ok: '目録どおりの波。汗は照明です。北斎は無罪。',
+    ng: '汗と本物を、同じ容疑にしました。目録は一致しています。' },
+  { id: 's3-14', stage: 3, cust: 'cust_robot', item: 'item_coin', real: false,
+    say: 'データによれば、純金の古代貨幣。比重は測定不能。いま判定せよ。',
+    name: '古代貨幣', meta: ['素材：申告金', '時代：ローマ', 'ログ：比重不能'],
+    clues: [{ kind: 'choco', text: 'チョコレート', x: 50, y: 66, sc: 0.9 }], act: '', why: 'visual',
+    hint: '貨幣下面の「チョコレート」',
+    ok: '比重不能の理由は、溶けるからです。刻印が先に答えました。',
+    ng: '下面の刻印。データが純金と言うとき、舌が正しい測定器です。' },
+  { id: 's3-15', stage: 3, cust: 'cust_shady', item: 'item_fossil', real: false,
+    say: '発掘直後の恐竜だ。質問は無し。ハンマーの前に決めて。今なら特別。',
+    name: '発掘頭骨', meta: ['分類：申告恐竜', '書類：なし', '出品：当日'],
+    clues: [], act: 'fast,shifty', why: 'behavior',
+    hint: '書類なし。早口で目が泳ぐ',
+    ok: '発掘直後にしては、口が先に発掘されています。書類がない骨は、話だけです。',
+    ng: '質問するな、は質問の答えです。目が泳いで、骨は座っています。' },
+  { id: 's3-16', stage: 3, cust: 'cust_student', item: 'item_crystal', real: true,
+    say: 'マジで初めてのオークションで緊張してて。天然水晶。鑑定の番号は札と同じ。',
+    name: '天然水晶', meta: ['処理：なし', '鑑定：登録済', '産地：ブラジル'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は初参加。鑑定は登録と一致',
+    ok: '初参加の汗。登録は本物。バズより、番号が正しい。',
+    ng: '緊張を偽造にしました。鑑定番号は札と一致。マジで本物です。' },
+
+  { id: 's4-11', stage: 4, cust: 'cust_alien', item: 'item_raygun', real: false,
+    say: 'ぼくの星の光線銃。ほんもの。電源はいらない。光は心で出す。',
+    name: '宇宙光線銃', meta: ['動力：申告・心', '製造：母星', '書類：口頭'],
+    clues: [{ kind: 'battery', text: '単3×2', x: 30, y: 72, rot: -8 }], act: '', why: 'visual',
+    hint: 'グリップの電池ボックス「単3×2」',
+    ok: '心の動力が、単3×2。母星のコンビニは、電池を売っています。',
+    ng: 'グリップの蓋。心で光る銃が、乾電池を二本求めます。' },
+  { id: 's4-12', stage: 4, cust: 'cust_robot', item: 'item_raygun', real: false,
+    say: 'データによれば、恒星間武装。エネルギー源はプラズマ。誤差は機密。',
+    name: '恒星間レイガン', meta: ['動力：申告プラズマ', '所属：不明', 'ログ：一部欠落'],
+    clues: [{ kind: 'battery', text: '単3×2', x: 40, y: 46, sc: 0.85 }], act: '', why: 'visual',
+    hint: '本体側面の電池蓋「単3×2」',
+    ok: 'プラズマの欠落ログが、単三で埋まっています。機密の中身は百円です。',
+    ng: '側面の蓋、ルーペです。プラズマが乾電池だと、恒星が泣きます。' },
+  { id: 's4-13', stage: 4, cust: 'cust_alien', item: 'item_fossil', real: false,
+    say: 'ぼくの星の[[1億年化石]]。地球の博物館に寄贈したい。',
+    name: '異星の頭骨', meta: ['[[成形：プラスチック]]', '時代：申告1億年', '寄贈：希望'],
+    clues: [], act: '', why: 'contra',
+    hint: '「1億年」と札の「プラスチック」',
+    ok: '1億年のプラスチック。寄贈する前に、分別が要ります。',
+    ng: '札がプラスチック。1億年は、成型機のキャッチコピーです。' },
+  { id: 's4-14', stage: 4, cust: 'cust_robot', item: 'item_moonrock', real: true,
+    say: 'データによれば、試料番号74220。アポロ17号。ログは札と一致。',
+    name: '月の石', meta: ['試料番号：74220', '採取：アポロ17号', 'ログ：一致'],
+    clues: [], act: '', why: 'clean',
+    hint: '試料番号が札と一致',
+    ok: '番号が一致した月。ロボットのログが、今回は詩より正確。',
+    ng: '一致しています。欠落を想像して、月を偽物にしないでください。' },
+  { id: 's4-15', stage: 4, cust: 'cust_student', item: 'item_raygun', real: true,
+    say: 'マジで映画の小道具じゃなくて、研究部の実験銃。汗は発表のせい。動力は札のとおり内蔵電池。',
+    name: '実験用光線銃', meta: ['動力：内蔵電池', '所属：科学部', '許可：校内のみ'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は発表の緊張。動力の申告は札と一致',
+    ok: '科学部の汗。電池の申告は一致。玩具の蓋はありません。',
+    ng: '高校生と銃で短絡しました。動力は札と一致。汗は発表の緊張です。' },
+  { id: 's4-16', stage: 4, cust: 'cust_shady', item: 'item_coin', real: false,
+    say: '宇宙港で拾った古代金貨だ。出所は聞くな。今なら特別。',
+    name: '未登録の金貨', meta: ['時代：申告古代', '書類：なし', '価格：要相談'],
+    clues: [{ kind: 'choco', text: 'チョコレート', x: 50, y: 70, sc: 0.82 }], act: '', why: 'visual',
+    hint: '金貨下部の極小「チョコレート」',
+    ok: '宇宙港のチョコレート。出所を隠すより、刻印が先に出所を言います。',
+    ng: '下部の刻印、ルーペ案件。古代は、こんなに溶けやすくありません。' },
+
+  { id: 's5-09', stage: 5, cust: 'cust_student', item: 'item_ukiyoe', real: false,
+    say: 'マジで最後の大鑑定に北斎を持ってきた。本物。見て、波がやばい。',
+    name: '浪裏', meta: ['作者：申告北斎', '時代：江戸', '証明：口頭'],
+    clues: [{ kind: 'copy', text: '©2023', x: 73, y: 75, rot: -6, sc: 0.75 }], act: '', why: 'visual',
+    hint: '隅の薄い「©2023」',
+    ok: '最後の波に、2023年。やばいのは、著作権のほうです。',
+    ng: '薄い©2023。大鑑定でこれを見逃すと、波が勝ちます。' },
+  { id: 's5-10', stage: 5, cust: 'cust_grandma', item: 'item_violin', real: false,
+    say: 'あらまあ、これが[[孫の家宝のストラディバリウス]]。最後だから本当のことよ。',
+    name: '家宝の提琴', meta: ['[[教材・印刷ラベル付き]]', '年代：申告18世紀', '弓：付き'],
+    clues: [], act: '', why: 'contra',
+    hint: '「家宝のストラディバリ」と札の「教材・印刷ラベル」',
+    ok: '家宝の教材。本当のことを言ったのは、説明札のほうです。',
+    ng: '札が教材と書いています。孫の本当は、だいたい孫の願望です。' },
+  { id: 's5-11', stage: 5, cust: 'cust_robot', item: 'item_fossil', real: false,
+    say: 'データによれば、白亜紀の頭骨。復元率ゼロ。つまり未加工。',
+    name: '白亜紀頭骨', meta: ['時代：白亜紀', '加工：申告なし', 'ログ：復元率ゼロ'],
+    clues: [{ kind: 'flash', x: 64, y: 56, rot: 16, sc: 0.8 }], act: '', why: 'visual',
+    hint: '頭骨の縁の小さな成形バリ',
+    ok: '復元率ゼロの金型。未加工のバリは、工場の正直さです。',
+    ng: '縁のバリ。ルーペは恐竜より近い。データが未加工と言うとき、縁を見なさい。' },
+  { id: 's5-12', stage: 5, cust: 'cust_alien', item: 'item_coin', real: true,
+    say: '地球の古代金貨。汗は税関。刻印は皇帝で、番号は札と同じ。',
+    name: 'ローマ金貨', meta: ['時代：ローマ', '素材：金', '申告番号：一致'],
+    clues: [], act: 'sweat', why: 'trap',
+    hint: '汗は税関。申告は札と一致し、甘い刻印はない',
+    ok: '税関の汗。皇帝は皇帝のまま。チョコを想像したのは、経験のほうです。',
+    ng: 'チョコを予感して、本物の皇帝を溶かしましたね。汗は税関です。' },
+  { id: 's5-13', stage: 5, cust: 'cust_student', item: 'item_raygun', real: false,
+    say: 'マジで宇宙の本物。質問とか無しで。今決めて。文化祭に間に合わせたい。',
+    name: '光線銃', meta: ['動力：申告プラズマ', '証明：なし', '用途：申告・実物'],
+    clues: [], act: 'fast,shifty', why: 'behavior',
+    hint: '証明なし。早口で目が泳ぐ',
+    ok: '文化祭の期限が、プラズマより急いでいます。証明がない銃は、話が先に発射。',
+    ng: '目が泳いで早口。光線より、言い訳のほうが速い。' },
+  { id: 's5-14', stage: 5, cust: 'cust_grandma', item: 'item_ukiyoe', real: true,
+    say: 'あらまあ、最後に本当の北斎。目録の年と、この絵の印は同じなのよ。',
+    name: '富嶽三十六景', meta: ['作者：葛飾北斎', '時代：天保', '目録：一致'],
+    clues: [], act: '', why: 'clean',
+    hint: '印と目録が一致。違和感なし',
+    ok: '最後の平和な波。印が同じことを言う。今日は、それが一番珍しい。',
+    ng: '矛盾がありません。最後だからと、おばあちゃんの北斎まで沈めないで。' }
 ];
 
 const S = {
@@ -1451,7 +1992,8 @@ const S = {
   missFake: 0,
   timeouts: 0,
   rankIdx: 0,
-  rankName: ''
+  rankName: '',
+  codex: { items: {}, custs: {} }
 };
 
 let current = null;
@@ -1468,6 +2010,13 @@ let loupePan = { x: 0, y: 0 };
 let gesture = null;
 let lastTap = 0;
 let quipPrev = -1;
+let timerOrigin = 0;
+let timerTotal = 0;
+let timeSkew = 0;
+let codexReturn = 'title';
+let codexTab = 'items';
+let codexDetailOn = false;
+const MEM = { pending: [] };
 
 window.__game = {
   stage: 0,
@@ -1488,7 +2037,9 @@ window.__game = {
   score: 0,
   combo: 0,
   maxCombo: 0,
-  rank: ''
+  rank: '',
+  asks: 0,
+  visit: null
 };
 
 const $ = (id) => document.getElementById(id);
@@ -1517,7 +2068,10 @@ function rich(s, hot) {
   return out;
 }
 function actsOf(c) {
-  return String(c.act || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const base = String((c && c.act) || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const extra = (c && c._extraActs) || [];
+  extra.forEach((a) => { if (base.indexOf(a) === -1) base.push(a); });
+  return base;
 }
 function stageOf(id) {
   return STAGES[id - 1] || null;
@@ -1544,7 +2098,40 @@ function loadSave() {
     if (o && o.best && typeof o.best === 'object') {
       S.best = normalizeBest(o.best);
     }
+    if (o && o.codex) S.codex = loadCodex(o.codex);
   } catch (e) { /* ignore */ }
+}
+function loadCodex(raw) {
+  const out = { items: {}, custs: {} };
+  if (!raw || typeof raw !== 'object') return out;
+  [['items', ITEM_IDS], ['custs', CUST_IDS]].forEach((pair) => {
+    const group = pair[0];
+    const allow = pair[1];
+    const src = raw[group];
+    if (!src || typeof src !== 'object') return;
+    allow.forEach((key) => {
+      const bucket = src[key];
+      if (!bucket || typeof bucket !== 'object') return;
+      const keep = {};
+      Object.keys(bucket).forEach((id) => {
+        const e = bucket[id];
+        if (!e || typeof e !== 'object') return;
+        keep[id] = {
+          name: String(e.name || ''),
+          item: String(e.item || ''),
+          itemName: String(e.itemName || ''),
+          real: !!e.real,
+          hint: String(e.hint || ''),
+          comment: String(e.comment || ''),
+          stage: Number(e.stage) || 0,
+          outcome: String(e.outcome || ''),
+          asks: Array.isArray(e.asks) ? e.asks.map((x) => String(x)).slice(0, 4) : []
+        };
+      });
+      if (Object.keys(keep).length) out[group][key] = keep;
+    });
+  });
+  return out;
 }
 function normalizeBest(raw) {
   const out = {};
@@ -1570,7 +2157,7 @@ function normalizeBest(raw) {
 }
 function saveSave() {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ cleared: S.cleared, best: S.best }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ cleared: S.cleared, best: S.best, codex: S.codex }));
   } catch (e) { /* ignore */ }
 }
 function unlocked(id) {
@@ -1759,6 +2346,61 @@ function drawKind(c) {
     return '<path d="M-8,-3 C-4,-1 -3,2 -1,1 S 3,-2 8,2" fill="none" stroke="#ffffff" stroke-width="1.15" stroke-linecap="round"/>' +
       '<path d="M-8,-3 C-4,-1 -3,2 -1,1 S 3,-2 8,2" fill="none" stroke="#5b4a78" stroke-width="0.45" stroke-linecap="round"/>';
   }
+  if (kind === 'copy') {
+    const label = c.text || '©2023';
+    const fs = c.size || 3.5;
+    const w = Math.max(12, textWidth(label, fs) + 2.2);
+    const h = fs + 2.4;
+    return '<rect x="' + (-w / 2) + '" y="' + (-h / 2) + '" width="' + w + '" height="' + h +
+      '" rx="0.35" fill="rgba(255,255,255,.92)" stroke="#111" stroke-width="0.28"/>' +
+      textEl(label, fs, '#111', 'sans-serif', '800');
+  }
+  if (kind === 'label') {
+    const label = c.text || 'STRADIVARI';
+    const sub = c.sub || '印刷シール';
+    const fs = c.size || 2.35;
+    const fs2 = Math.max(1.7, fs - 0.45);
+    const w = Math.max(textWidth(label, fs), textWidth(sub, fs2)) + 2.4;
+    const h = fs + fs2 + 2.8;
+    const x = -w / 2;
+    const y = -h / 2;
+    return '<rect x="' + x.toFixed(2) + '" y="' + y.toFixed(2) + '" width="' + w.toFixed(2) + '" height="' + h.toFixed(2) +
+      '" rx="0.3" fill="#f4edd6" stroke="#6b5434" stroke-width="0.3" stroke-dasharray="0.9 0.45"/>' +
+      '<text x="0" y="' + (y + fs * 0.95).toFixed(2) + '" text-anchor="middle" font-size="' + fs +
+      '" font-family="sans-serif" font-weight="800" fill="#3a2918">' + esc(label) + '</text>' +
+      '<text x="0" y="' + (y + fs + fs2 * 0.95 + 0.4).toFixed(2) + '" text-anchor="middle" font-size="' + fs2 +
+      '" font-family="sans-serif" font-weight="800" fill="#8a1f1f">' + esc(sub) + '</text>';
+  }
+  if (kind === 'flash') {
+    const fs = c.size || 2.5;
+    return '<path d="M-11,1.2 L-8,-2.4 L-6,2.1 L-3,-2.8 L-1,2 L2,-2.2 L5,2.6 L8,-1.4 L11,1.6" fill="none" stroke="#f3e6cf" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>' +
+      '<path d="M-11,1.2 L-8,-2.4 L-6,2.1 L-3,-2.8 L-1,2 L2,-2.2 L5,2.6 L8,-1.4 L11,1.6" fill="none" stroke="#7d6a56" stroke-width="0.45" stroke-linejoin="round"/>' +
+      '<text x="0" y="' + (fs + 1.2) + '" text-anchor="middle" font-size="' + fs +
+      '" font-family="sans-serif" font-weight="800" fill="#5c4636" stroke="#fff" stroke-width="0.45" paint-order="stroke">バリ</text>';
+  }
+  if (kind === 'choco') {
+    const label = c.text || 'チョコレート';
+    const fs = c.size || 2.7;
+    const w = textWidth(label, fs) + 2.2;
+    const rx = w / 2 + 0.8;
+    const ry = fs / 2 + 1.35;
+    return '<ellipse cx="0" cy="0" rx="' + rx.toFixed(2) + '" ry="' + ry.toFixed(2) + '" fill="rgba(255,236,170,.55)" stroke="#6a4a12" stroke-width="0.4"/>' +
+      textEl(label, fs, '#5a3d10', 'serif', '800');
+  }
+  if (kind === 'battery') {
+    const label = c.text || '単3×2';
+    const fs = c.size || 2.7;
+    const w = Math.max(15, textWidth(label, fs) + 2.6);
+    const h = fs + 5.2;
+    const cellW = (w - 3.2) / 2;
+    return '<rect x="' + (-w / 2) + '" y="' + (-h / 2) + '" width="' + w + '" height="' + h +
+      '" rx="0.7" fill="#d5dae1" stroke="#222831" stroke-width="0.45"/>' +
+      '<rect x="' + (-w / 2 + 1.1) + '" y="' + (-h / 2 + 0.9) + '" width="' + cellW.toFixed(2) + '" height="2.5" rx="0.3" fill="#8ea04a" stroke="#222" stroke-width="0.22"/>' +
+      '<rect x="' + (0.5) + '" y="' + (-h / 2 + 0.9) + '" width="' + cellW.toFixed(2) + '" height="2.5" rx="0.3" fill="#8ea04a" stroke="#222" stroke-width="0.22"/>' +
+      '<circle cx="' + (-w / 2 + 1.5) + '" cy="' + (h / 2 - 1.15) + '" r="0.55" fill="none" stroke="#333" stroke-width="0.25"/>' +
+      '<text x="0" y="' + (h / 2 - fs * 0.15).toFixed(2) + '" text-anchor="middle" font-size="' + fs +
+      '" font-family="sans-serif" font-weight="800" fill="#1a1a1a">' + esc(label) + '</text>';
+  }
   return '';
 }
 function renderClues(list, dim) {
@@ -1811,6 +2453,8 @@ function publish() {
   g.combo = S.combo;
   g.maxCombo = S.maxCombo;
   g.rank = S.rankName || '';
+  g.asks = (current && S.state === 'play') ? Math.max(0, 2 - ((current._asks && current._asks.length) || 0)) : 0;
+  g.visit = (current && current._visit) ? current._visit : null;
   paintHud();
 }
 function paintHud() {
@@ -2019,13 +2663,18 @@ function stopType() {
     typeId = 0;
   }
 }
+function timeLeftNow() {
+  if (!timerOrigin) return Math.max(0, S.timeLeftRaw || 0);
+  return Math.max(0, timerTotal - timeSkew - (performance.now() - timerOrigin) / 1000);
+}
 function startTimer() {
   stopTimer();
   const st = stageOf(S.stageId);
-  const total = st ? st.time : 10;
-  const t0 = performance.now();
-  S.timeLeftRaw = total;
-  lastTickSec = Math.ceil(total);
+  timerTotal = st ? st.time : 10;
+  timerOrigin = performance.now();
+  timeSkew = 0;
+  S.timeLeftRaw = timerTotal;
+  lastTickSec = Math.ceil(timerTotal);
   paintHud();
   window.__game.timeLeft = lastTickSec;
   timerId = setInterval(() => {
@@ -2033,8 +2682,8 @@ function startTimer() {
       stopTimer();
       return;
     }
-    const left = total - (performance.now() - t0) / 1000;
-    S.timeLeftRaw = Math.max(0, left);
+    const left = timeLeftNow();
+    S.timeLeftRaw = left;
     const sec = Math.ceil(S.timeLeftRaw);
     if (sec !== lastTickSec) {
       if (sec <= 5 && sec > 0) soundTick();
@@ -2047,6 +2696,23 @@ function startTimer() {
       timeUp();
     }
   }, 100);
+}
+function spendTime(sec) {
+  timeSkew += sec;
+  const left = timeLeftNow();
+  S.timeLeftRaw = left;
+  const shown = Math.ceil(left);
+  if (shown !== lastTickSec) {
+    if (shown <= 5 && shown > 0) soundTick();
+    lastTickSec = shown;
+  }
+  paintHud();
+  if (left <= 0 && S.state === 'play') {
+    stopTimer();
+    timeUp();
+    return true;
+  }
+  return false;
 }
 
 function setDrag(dx) {
@@ -2129,6 +2795,39 @@ function typeLine(text, fast) {
     if (i >= full.length) stopType();
   }, 26);
 }
+function spokenOf(c) {
+  return ((c && c._visitLead) || '') + ((c && c.say) || '');
+}
+function fillWho(c) {
+  const who = $('whoLine');
+  if (!c || (c._visit !== 'smug' && c._visit !== 'revenge')) {
+    who.textContent = '';
+    return;
+  }
+  const revenge = c._visit === 'revenge';
+  who.innerHTML = '<span class="badge ' + (revenge ? 'revenge' : 'return') + '">' +
+    (revenge ? 'リベンジ' : '再来店') + '</span>';
+}
+function renderSpeech(c) {
+  stopType();
+  const el = $('line');
+  const asks = c._asks || [];
+  let html = '<span class="say">' + esc(plain(spokenOf(c))) + '</span>';
+  asks.forEach((a, i) => {
+    const last = i === asks.length - 1;
+    if (last) {
+      html += '<div class="qa latest"><b>' + esc(a.q) + '</b>' +
+        '<span class="qa-body">' + esc(a.a) + '</span>' +
+        '<i class="' + esc(a.style || '') + '">' + esc(a.note) + '</i></div>';
+    } else {
+      html += '<details class="qa old"><summary><b>' + esc(a.q) + '</b>' +
+        '<i class="' + esc(a.style || '') + '">' + esc(a.note) + '</i></summary>' +
+        '<span class="qa-body">' + esc(a.a) + '</span></details>';
+    }
+  });
+  el.innerHTML = html;
+  el.scrollTop = el.scrollHeight;
+}
 
 function showCase() {
   stopTimer();
@@ -2143,9 +2842,13 @@ function showCase() {
   }
   const c = current;
   const st = stageOf(S.stageId);
+  const info = CUSTS[c.cust] || { name: '客' };
+  if (!c._asks) c._asks = [];
+  if (!c._extraActs) c._extraActs = [];
   $('custImg').src = 'assets/' + c.cust + '.jpg';
-  $('custImg').alt = NAMES[c.cust] || '客';
-  $('custName').textContent = NAMES[c.cust] || '';
+  $('custImg').alt = info.name;
+  $('custName').textContent = info.name;
+  fillWho(c);
   $('itemImg').src = 'assets/' + c.item + '.jpg';
   $('itemImg').alt = c.name;
   $('itemName').textContent = c.name;
@@ -2159,7 +2862,8 @@ function showCase() {
   S.verdict = null;
   S.lastHit = null;
   S.state = 'play';
-  typeLine(c.say, acts.indexOf('fast') !== -1);
+  updateAskBtn();
+  typeLine(spokenOf(c), acts.indexOf('fast') !== -1);
   showScreen('screenPlay');
   startTimer();
   publish();
@@ -2167,13 +2871,88 @@ function showCase() {
   requestAnimationFrame(fitCard);
 }
 
+function cloneCase(c) {
+  const copy = Object.assign({}, c);
+  copy.meta = c.meta.slice();
+  copy.clues = (c.clues || []).map((x) => Object.assign({}, x));
+  copy._baseId = c.id;
+  copy._asks = [];
+  copy._extraActs = [];
+  copy._visit = null;
+  copy._visitLead = '';
+  copy.boss = !!c.boss;
+  return copy;
+}
+function stageHasCust(stageId, cust) {
+  return CASES.some((c) => c.stage === stageId && c.cust === cust && !c.boss);
+}
+function laterHasCust(fromStage, cust) {
+  for (let s = fromStage + 1; s <= 5; s++) {
+    if (stageHasCust(s, cust)) return true;
+  }
+  return false;
+}
+function spareCase(stageId, cust, usedIds) {
+  const pool = CASES.filter((c) => c.stage === stageId && c.cust === cust && !c.boss && !usedIds.has(c.id));
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function stampVisit(c, kind) {
+  const table = VISIT_LEADS[kind] || {};
+  const lead = table[c.cust] || '';
+  c._visit = kind;
+  c._visitLead = lead ? (lead + ' ') : '';
+  c.id = (c._baseId || c.id) + '~' + kind;
+  return c;
+}
+function tryPlaceVisit(list, stageId, cust, kind) {
+  if (!list || list.filter((c) => c._visit).length >= 2) return false;
+  if (!stageHasCust(stageId, cust)) return false;
+  const idx = list.findIndex((c) => c.cust === cust && !c.boss && !c._visit);
+  if (idx !== -1) {
+    stampVisit(list[idx], kind);
+    return true;
+  }
+  const used = new Set(list.map((c) => c._baseId || c.id));
+  const spare = spareCase(stageId, cust, used);
+  if (!spare) return false;
+  let rep = -1;
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (!list[i].boss && !list[i]._visit) { rep = i; break; }
+  }
+  if (rep === -1) return false;
+  list[rep] = stampVisit(cloneCase(spare), kind);
+  return true;
+}
+function applyPending(list, stageId) {
+  const keep = [];
+  MEM.pending.forEach((p) => {
+    if (p.fromStage >= stageId) { keep.push(p); return; }
+    const placed = tryPlaceVisit(list, stageId, p.cust, p.kind);
+    if (!placed && laterHasCust(stageId, p.cust)) keep.push(p);
+  });
+  MEM.pending = keep.slice(0, 8);
+}
+function rememberJudgement() {
+  if (!current || current.boss || current._visit) return;
+  let kind = null;
+  if (!current.real && S.verdict === 'real') kind = 'smug';
+  else if (!current.real && S.verdict === 'fake') kind = 'revenge';
+  if (!kind) return;
+  if (tryPlaceVisit(queue, S.stageId, current.cust, kind)) return;
+  if (laterHasCust(S.stageId, current.cust) && !MEM.pending.some((p) => p.cust === current.cust)) {
+    MEM.pending.push({ cust: current.cust, kind: kind, fromStage: S.stageId });
+  }
+  if (MEM.pending.length > 8) MEM.pending = MEM.pending.slice(-8);
+}
 function buildQueue(stageId) {
   const st = stageOf(stageId);
   const pool = CASES.filter((c) => c.stage === stageId && !c.boss);
   const bosses = CASES.filter((c) => c.stage === stageId && c.boss);
   const take = st.n - (bosses.length ? 1 : 0);
-  const picked = shuffle(pool).slice(0, take);
-  if (bosses.length) picked.push(bosses[Math.floor(Math.random() * bosses.length)]);
+  const picked = shuffle(pool).slice(0, take).map(cloneCase);
+  if (bosses.length) picked.push(cloneCase(bosses[Math.floor(Math.random() * bosses.length)]));
+  applyPending(picked, stageId);
   return picked;
 }
 
@@ -2199,7 +2978,7 @@ function applyHighlights() {
   const c = current;
   const why = c.why;
   const hotContra = why === 'contra' || why === 'mix';
-  $('line').innerHTML = rich(c.say, hotContra);
+  $('line').innerHTML = rich(spokenOf(c), hotContra);
   $('itemMeta').innerHTML = c.meta.map((m) => '<div>' + rich(m, hotContra) + '</div>').join('');
   $('bubble').classList.toggle('mark', hotContra);
   $('plaque').classList.toggle('mark', hotContra);
@@ -2239,6 +3018,10 @@ function renderReveal() {
   let comment;
   if (timeout) comment = SLOW_LINES[(S.served + c.stage) % SLOW_LINES.length];
   else comment = hit ? c.ok : c.ng;
+  if (!timeout && c._visit === 'smug' && hit) comment += ' この前の笑顔、今日は通用しません。';
+  else if (!timeout && c._visit === 'smug' && !hit) comment += ' 「この前はどうも」が、二度目もあります。';
+  else if (!timeout && c._visit === 'revenge' && hit && c.real) comment += ' リベンジのつもりが、本物でした。';
+  else if (!timeout && c._visit === 'revenge' && !hit && !c.real) comment += ' リベンジ、成功されていますね。';
   const kicker = timeout ? '時間切れ' : (hit ? '正解' : '不正解');
   const choice = timeout ? '時間切れ' : (S.verdict === 'real' ? '本物' : '贋作');
   const truth = c.real ? '本物' : '贋作';
@@ -2246,14 +3029,21 @@ function renderReveal() {
   const gainLine = hit
     ? ('+' + S.lastGain + '点 ×' + trimMult(S.lastMult) + '　コンボ ' + S.combo)
     : (timeout ? '時間切れ　0点' : 'コンボ終了');
+  const askLine = (c._asks && c._asks.length)
+    ? '<div class="rev-hint">質問：' + esc(c._asks.map((a) => a.note).join(' / ')) + '</div>'
+    : '';
+  const traitLine = '<p class="rev-trait">性格：' + esc((custInfo(c.cust).trait) || '') + '</p>';
   $('reveal').innerHTML =
     '<div class="rev-body">' +
       '<p class="rev-kicker ' + (hit ? 'good' : 'bad') + '">' + kicker + '</p>' +
       '<p class="rev-line">あなたの判定：' + esc(choice) + '<br>真実：' + truth + '<br>' + esc(gainLine) + '</p>' +
+      traitLine +
       '<div class="rev-hint">根拠：' + esc(c.hint) + '</div>' +
+      askLine +
       '<p class="rev-grok"><span>GROKの一言</span><br>' + esc(comment) + '</p>' +
     '</div>' +
     '<button type="button" class="btn wide" data-act="next">' + nextLabel + '</button>';
+  recordCodex(comment);
   $('reveal').classList.add('on');
   $('screenPlay').classList.add('revealing');
   placeGain();
@@ -2285,7 +3075,9 @@ function finishCase(isReal, timeout) {
   fxJudge(!!isReal, hit, !!timeout);
   if (hit) soundOk();
   else soundNg();
+  rememberJudgement();
   renderReveal();
+  updateAskBtn();
   publish();
   scheduleBot();
 }
@@ -2435,6 +3227,283 @@ function showTitle() {
   scheduleBot();
 }
 
+function custInfo(id) {
+  return CUSTS[id] || { name: '客', tic: '…', persona: 'nervous', trait: '不明' };
+}
+function pickLine(entry, n) {
+  if (!entry) return '';
+  if (Array.isArray(entry)) return entry[Math.min(Math.max(n, 1), entry.length) - 1];
+  return String(entry);
+}
+function spill(c) {
+  const info = custInfo(c.cust);
+  const h = String(c.hint || '').replace(/。$/, '');
+  if (info.persona === 'logical') return '再計算。根拠候補は' + h + '。ログが矛盾。';
+  if (c.cust === 'cust_shady') return 'しまった。' + h + 'は、今なら特別に無かったことにしろ。';
+  if (info.persona === 'liar') return 'マジで今の無し！ ' + h + 'なんて、付いてない。付いてないから！';
+  if (c.cust === 'cust_alien') return 'ぼくの星では隠すのが下手だ。' + h + '。これ、まずいか。';
+  if (c.cust === 'cust_grandma') return 'あらまあ、隠さなくていいのね。' + h + '。孫には内緒よ。';
+  if (c.cust === 'cust_salaryman') return '一応、正直に言います。' + h + '。報告書と合いません。';
+  return '隠してもしょうがないのう。' + h + '。それが気になってな。';
+}
+function askNote(info, style, n) {
+  if (style === 'dodge') return n >= 2 ? '様子：二度かわされた' : '様子：はぐらかした';
+  if (style === 'slip') return n >= 2 ? '様子：口が滑った' : '様子：動揺している';
+  return '様子：落ち着いている';
+}
+function buildAsk(c, qid, n) {
+  const info = custInfo(c.cust);
+  const book = ASK_BOOK[c.cust] && ASK_BOOK[c.cust][qid];
+  const q = ASK_Q[qid] || '本当ですか？';
+  let style = 'calm';
+  let pool = null;
+  if (book && book.any) {
+    style = 'dodge';
+    pool = book.any;
+  } else if (!c.real && (info.persona === 'liar' || info.persona === 'nervous' || info.persona === 'logical')) {
+    style = 'slip';
+    pool = book && book.fake;
+  } else {
+    style = 'calm';
+    pool = (book && (book.real || book.fake)) || null;
+  }
+  let a = pickLine(pool, n) || '…さあ。';
+  if (style === 'slip' && n >= 2) a = spill(c);
+  return { qid: qid, q: q, a: a, note: askNote(info, style, n), style: style };
+}
+function nextQid(c) {
+  const used = (c._asks || []).map((a) => a.qid);
+  const left = ['when', 'where', 'cert'].filter((id) => used.indexOf(id) === -1);
+  if (!left.length) return 'when';
+  return left[Math.floor(Math.random() * left.length)];
+}
+function addTell(name) {
+  if (!current) return;
+  if (!current._extraActs) current._extraActs = [];
+  if (current._extraActs.indexOf(name) === -1) current._extraActs.push(name);
+  if (name === 'sweat') $('portrait').classList.add('is-sweat');
+  if (name === 'shifty') $('portrait').classList.add('shifty');
+  if (name === 'fast') $('bubble').classList.add('fast');
+}
+function applyAskStyle(c, style, n) {
+  if (style !== 'slip' || c.real) return;
+  const persona = custInfo(c.cust).persona;
+  if (persona === 'liar') {
+    addTell('shifty');
+    if (n >= 2) addTell('sweat');
+  } else if (persona === 'nervous') {
+    addTell('sweat');
+  } else if (persona === 'logical' && n >= 2) {
+    addTell('fast');
+  }
+}
+function askCostSec() {
+  const st = stageOf(S.stageId);
+  const t = st ? st.time : 12;
+  if (t <= 8) return 2;
+  if (t <= 12) return 2.5;
+  return 3;
+}
+function updateAskBtn() {
+  const btn = $('btnAsk');
+  if (!btn) return;
+  const left = current ? Math.max(0, 2 - ((current._asks && current._asks.length) || 0)) : 0;
+  btn.textContent = left ? ('質問する ' + left) : '質問する';
+  btn.disabled = S.state !== 'play' || !current || left <= 0;
+}
+function soundAsk() {
+  blip(520, 0.05, 'triangle', 0.04);
+  blip(680, 0.06, 'sine', 0.03, 0.05);
+}
+function doAsk() {
+  if (S.state !== 'play' || !current) return;
+  if (!current._asks) current._asks = [];
+  if (current._asks.length >= 2) return;
+  const n = current._asks.length + 1;
+  const built = buildAsk(current, nextQid(current), n);
+  current._asks.push(built);
+  applyAskStyle(current, built.style, n);
+  soundAsk();
+  renderSpeech(current);
+  updateAskBtn();
+  const died = spendTime(askCostSec());
+  if (!died) publish();
+}
+function outcomeOf() {
+  if (!current) return 'timeout';
+  if (S.verdict === null) return 'timeout';
+  if (S.lastHit && current.real) return 'trusted';
+  if (S.lastHit && !current.real) return 'caught';
+  if (!S.lastHit && current.real) return 'doubted';
+  return 'fooled';
+}
+function recordCodex(comment) {
+  const c = current;
+  if (!c) return;
+  const id = c.id || c._baseId;
+  if (!S.codex.items[c.item]) S.codex.items[c.item] = {};
+  S.codex.items[c.item][id] = {
+    name: c.name,
+    real: !!c.real,
+    hint: c.hint || '',
+    comment: comment || '',
+    stage: c.stage,
+    asks: (c._asks || []).map((a) => a.q + ' ' + a.a)
+  };
+  if (!S.codex.custs[c.cust]) S.codex.custs[c.cust] = {};
+  S.codex.custs[c.cust][id] = {
+    item: c.item,
+    itemName: c.name,
+    real: !!c.real,
+    comment: comment || '',
+    stage: c.stage,
+    outcome: outcomeOf(),
+    asks: (c._asks || []).map((a) => a.note)
+  };
+  saveSave();
+}
+function dexCount(group, ids) {
+  let n = 0;
+  ids.forEach((id) => {
+    const b = S.codex[group][id];
+    if (b && Object.keys(b).length) n += 1;
+  });
+  return n;
+}
+function silSvg(person) {
+  if (person) {
+    return '<svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#e7dcc8"/>' +
+      '<circle cx="32" cy="24" r="10" fill="#2a2118"/><path d="M12 58c2-14 10-18 20-18s18 4 20 18" fill="#2a2118"/></svg>';
+  }
+  return '<svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#e7dcc8"/>' +
+    '<path d="M32 10c9 9 16 12 16 24a16 16 0 1 1-32 0c0-12 7-15 16-24z" fill="#2a2118"/></svg>';
+}
+function closeDexDetail() {
+  codexDetailOn = false;
+  const grid = $('codexGrid');
+  const detail = $('codexDetail');
+  if (grid) grid.hidden = false;
+  if (detail) {
+    detail.hidden = true;
+    detail.innerHTML = '';
+  }
+}
+function renderCodex() {
+  closeDexDetail();
+  const itemsN = dexCount('items', ITEM_IDS);
+  const custN = dexCount('custs', CUST_IDS);
+  $('codexCount').textContent = '品物 ' + itemsN + '/' + ITEM_IDS.length + '　お客 ' + custN + '/' + CUST_IDS.length;
+  $('tabItems').classList.toggle('on', codexTab === 'items');
+  $('tabCusts').classList.toggle('on', codexTab === 'custs');
+  const grid = $('codexGrid');
+  grid.innerHTML = '';
+  if (codexTab === 'items') {
+    ITEM_IDS.forEach((id) => {
+      const bucket = S.codex.items[id] || {};
+      const keys = Object.keys(bucket);
+      const seen = keys.length > 0;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'codex-card' + (seen ? '' : ' unknown');
+      btn.dataset.dex = 'item:' + id;
+      btn.disabled = !seen;
+      let reals = 0;
+      let fakes = 0;
+      keys.forEach((k) => { if (bucket[k].real) reals += 1; else fakes += 1; });
+      const sub = seen ? ('真' + reals + ' 偽' + fakes) : '未発見';
+      btn.innerHTML = '<span class="pic">' + (seen
+        ? '<img src="assets/' + id + '.jpg" alt="' + esc(ITEM_LABEL[id] || '') + '">'
+        : silSvg(false)) + '</span><b>' + (seen ? esc(ITEM_LABEL[id] || id) : '？？？') + '</b><small>' + sub + '</small>';
+      grid.appendChild(btn);
+    });
+  } else {
+    CUST_IDS.forEach((id) => {
+      const bucket = S.codex.custs[id] || {};
+      const seen = Object.keys(bucket).length > 0;
+      const info = custInfo(id);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'codex-card person' + (seen ? '' : ' unknown');
+      btn.dataset.dex = 'cust:' + id;
+      btn.disabled = !seen;
+      btn.innerHTML = '<span class="pic">' + (seen
+        ? '<img src="assets/' + id + '.jpg" alt="' + esc(info.name) + '">'
+        : silSvg(true)) + '</span><b>' + (seen ? esc(info.name) : '？？？') + '</b><small>' +
+        (seen ? esc(info.trait) : '未発見') + '</small>';
+      grid.appendChild(btn);
+    });
+  }
+}
+function outcomeLabel(code) {
+  if (code === 'trusted') return '本物と見抜いた';
+  if (code === 'caught') return 'ニセモノを見破った';
+  if (code === 'doubted') return '本物を疑った';
+  if (code === 'fooled') return 'ニセモノを見逃した';
+  if (code === 'timeout') return '時間切れ';
+  return '';
+}
+function openDexDetail(key) {
+  const parts = String(key).split(':');
+  const kind = parts[0];
+  const id = parts[1];
+  const detail = $('codexDetail');
+  const grid = $('codexGrid');
+  let html = '';
+  if (kind === 'item') {
+    const bucket = S.codex.items[id] || {};
+    const rows = Object.keys(bucket).map((k) => bucket[k]).sort((a, b) => (a.stage - b.stage));
+    if (!rows.length) return;
+    html = '<div class="codex-detail-head"><img src="assets/' + id + '.jpg" alt="">' +
+      '<div><h3>' + esc(ITEM_LABEL[id] || id) + '</h3><p class="trait">見た記録 ' + rows.length + '件</p></div></div>';
+    rows.forEach((e) => {
+      const asks = (e.asks || []).filter(Boolean);
+      html += '<div class="dex-entry"><p><span class="badge ' + (e.real ? 'real' : 'fake') + '">' +
+        (e.real ? '本物' : 'ニセモノ') + '</span>' + esc(e.name || '') + '</p>' +
+        '<p>手がかり：' + esc(e.hint || 'なし') + '</p>' +
+        (asks.length ? '<p>質問：' + esc(asks.join(' ／ ')) + '</p>' : '') +
+        '<p>GROK：' + esc(e.comment || '') + '</p></div>';
+    });
+  } else {
+    const bucket = S.codex.custs[id] || {};
+    const rows = Object.keys(bucket).map((k) => bucket[k]).sort((a, b) => (a.stage - b.stage));
+    if (!rows.length) return;
+    const info = custInfo(id);
+    html = '<div class="codex-detail-head person"><img src="assets/' + id + '.jpg" alt="">' +
+      '<div><h3>' + esc(info.name) + '</h3><p class="trait">口癖「' + esc(info.tic) + '」　' + esc(info.trait) + '</p></div></div>';
+    rows.forEach((e) => {
+      html += '<div class="dex-entry"><p><span class="badge ' + (e.real ? 'real' : 'fake') + '">' +
+        (e.real ? '本物' : 'ニセモノ') + '</span>' + esc(e.itemName || '') + '</p>' +
+        '<p>' + esc(outcomeLabel(e.outcome)) + '</p>' +
+        '<p>GROK：' + esc(e.comment || '') + '</p></div>';
+    });
+  }
+  detail.innerHTML = html;
+  detail.hidden = false;
+  grid.hidden = true;
+  codexDetailOn = true;
+  detail.scrollTop = 0;
+}
+function showCodex(from) {
+  stopTimer();
+  stopType();
+  closeLoupe();
+  codexReturn = from || 'title';
+  codexTab = 'items';
+  S.state = 'codex';
+  renderCodex();
+  showScreen('screenCodex');
+  publish();
+  scheduleBot();
+}
+function leaveCodex() {
+  soundUi();
+  if (codexDetailOn) {
+    closeDexDetail();
+    return;
+  }
+  if (codexReturn === 'select') showSelect();
+  else showTitle();
+}
 function botAnswer() {
   if (S.state !== 'play' || !current) return;
   const tell = Math.random() < 0.7;
@@ -2449,6 +3518,19 @@ function botResult() {
     startStage(S.stageId);
   }
 }
+function botStep() {
+  if (S.state !== 'play' || !current) return;
+  const used = current._asks ? current._asks.length : 0;
+  const want = used < 2 && Math.random() < (used === 0 ? 0.48 : 0.28);
+  if (want) {
+    doAsk();
+    if (S.state !== 'play') return;
+    if (botT) clearTimeout(botT);
+    botT = setTimeout(botStep, BOT_FAST ? 50 : 400);
+    return;
+  }
+  botAnswer();
+}
 function scheduleBot() {
   if (!BOT) return;
   if (botT) clearTimeout(botT);
@@ -2458,13 +3540,20 @@ function scheduleBot() {
     select: fast ? 30 : 240,
     play: fast ? 80 : 620,
     reveal: fast ? 40 : 480,
-    result: fast ? 40 : 400
+    result: fast ? 40 : 400,
+    codex: fast ? 30 : 200
   };
   if (S.state === 'title') botT = setTimeout(showSelect, d.title);
   else if (S.state === 'select') botT = setTimeout(() => startStage(botStage), d.select);
-  else if (S.state === 'play') botT = setTimeout(botAnswer, d.play);
+  else if (S.state === 'play') botT = setTimeout(botStep, d.play);
   else if (S.state === 'reveal') botT = setTimeout(nextAfterReveal, d.reveal);
   else if (S.state === 'result') botT = setTimeout(botResult, d.result);
+  else if (S.state === 'codex') {
+    botT = setTimeout(() => {
+      if (codexReturn === 'select') showSelect();
+      else showTitle();
+    }, d.codex);
+  }
 }
 
 function onDown(e) {
@@ -2561,8 +3650,8 @@ function validate() {
   const items = new Set();
   const stages = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
   const need = ['id', 'stage', 'cust', 'item', 'real', 'say', 'name', 'meta', 'clues', 'act', 'why', 'hint', 'ok', 'ng'];
-  const knownC = ['cust_grandpa', 'cust_madam', 'cust_salaryman', 'cust_shady', 'cust_alien', 'cust_boss'];
-  const knownI = ['item_vase', 'item_painting', 'item_moonrock', 'item_watch', 'item_katana', 'item_crystal', 'item_crown', 'item_daruma'];
+  const knownC = CUST_IDS.slice();
+  const knownI = ITEM_IDS.slice();
   CASES.forEach((c) => {
     need.forEach((k) => { if (!(k in c)) throw new Error('missing ' + k + ' ' + c.id); });
     if (ids.has(c.id)) throw new Error('dup ' + c.id);
@@ -2600,6 +3689,17 @@ function bind() {
   document.addEventListener('pointerdown', unlockAudio);
   document.addEventListener('keydown', unlockAudio);
   $('btnStart').addEventListener('click', () => { soundUi(); showSelect(); });
+  $('btnCodexTitle').addEventListener('click', () => { soundUi(); showCodex('title'); });
+  $('btnCodexSelect').addEventListener('click', () => { soundUi(); showCodex('select'); });
+  $('btnCodexBack').addEventListener('click', () => leaveCodex());
+  $('tabItems').addEventListener('click', () => { codexTab = 'items'; soundUi(); renderCodex(); });
+  $('tabCusts').addEventListener('click', () => { codexTab = 'custs'; soundUi(); renderCodex(); });
+  $('codexGrid').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-dex]');
+    if (!btn || btn.disabled) return;
+    soundUi();
+    openDexDetail(btn.dataset.dex);
+  });
   $('btnSelectTitle').addEventListener('click', () => { soundUi(); showTitle(); });
   $('btnEndSelect').addEventListener('click', () => { soundUi(); showSelect(); });
   $('btnEndTitle').addEventListener('click', () => { soundUi(); showTitle(); });
@@ -2615,6 +3715,7 @@ function bind() {
   });
   $('btnFake').addEventListener('click', () => judge(false));
   $('btnReal').addEventListener('click', () => judge(true));
+  $('btnAsk').addEventListener('click', () => doAsk());
   $('reveal').addEventListener('click', (e) => {
     const b = e.target.closest('[data-act="next"]');
     if (b) nextAfterReveal();
@@ -2647,8 +3748,12 @@ function bind() {
         else if (S.passed && S.stageId < 5) startStage(S.stageId + 1);
         else startStage(S.stageId);
       }
+    } else if (e.key === 'q' || e.key === 'Q') {
+      if (S.state === 'play') { e.preventDefault(); doAsk(); }
     } else if (e.key === 'Escape' && loupeOn) {
       closeLoupe();
+    } else if (e.key === 'Escape' && S.state === 'codex') {
+      leaveCodex();
     }
   });
   window.addEventListener('resize', fitCard);
@@ -2669,7 +3774,7 @@ function bind() {
         S.quota = 1;
         S.total = 1;
         S.passed = false;
-        queue = [c];
+        queue = [cloneCase(c)];
         showScreen('screenPlay');
         showCase();
         if (st) { /* stage scale already applied in showCase */ }
@@ -2680,9 +3785,8 @@ function bind() {
 
 function preload() {
   const srcs = [];
-  Object.keys(NAMES).forEach((n) => srcs.push('assets/' + n + '.jpg'));
-  ['item_vase', 'item_painting', 'item_moonrock', 'item_watch', 'item_katana', 'item_crystal', 'item_crown', 'item_daruma']
-    .forEach((n) => srcs.push('assets/' + n + '.jpg'));
+  CUST_IDS.forEach((n) => srcs.push('assets/' + n + '.jpg'));
+  ITEM_IDS.forEach((n) => srcs.push('assets/' + n + '.jpg'));
   srcs.forEach((src) => { const img = new Image(); img.src = src; });
 }
 
