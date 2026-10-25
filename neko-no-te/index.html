@@ -350,6 +350,12 @@
       border-radius: 4px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
+    .vip-tag ~ .special-tag,
+    .tongue-tag ~ .special-tag {
+      top: auto;
+      bottom: -6px;
+      right: 2px;
+    }
 
     /* --- 中央 厨房（持ち場 2x2） --- */
     #kitchen-area {
@@ -1343,6 +1349,414 @@
       100% { -webkit-transform: translateY(-10px) rotate(3deg); }
     }
 
+    /* --- おやつ「かつおぶし」トレイ --- */
+    #treat-area {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 14px;
+      background: rgba(25, 17, 12, 0.88);
+      border-top: 1px solid rgba(255, 215, 160, 0.2);
+      border-bottom: 1px solid rgba(0,0,0,0.4);
+      z-index: 5;
+    }
+    .treat-label-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      flex-shrink: 1;
+    }
+    .treat-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: #ffe6a3;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .treat-hint {
+      font-size: 9.5px;
+      color: #c9b197;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .treat-items-wrap {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .treat-item {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #d35400 0%, #e67e22 100%);
+      border: 1.5px solid #f39c12;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      cursor: grab;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      transition: transform 0.15s, opacity 0.2s;
+      touch-action: none;
+    }
+    .treat-item:active {
+      cursor: grabbing;
+      transform: scale(1.15);
+    }
+    .treat-item.selected {
+      border-color: #ffd700;
+      box-shadow: 0 0 10px #ffd700;
+      transform: scale(1.12);
+      animation: pulse 0.8s infinite alternate;
+    }
+    .treat-item.used {
+      background: rgba(45, 30, 20, 0.35);
+      border: 1.5px dashed rgba(255, 215, 160, 0.3);
+      opacity: 0.35;
+      cursor: not-allowed;
+      box-shadow: none;
+      filter: none;
+    }
+
+    /* ドラッグ中のかつおぶしクローン */
+    .treat-drag-proxy {
+      position: fixed;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #e67e22 0%, #f39c12 100%);
+      border: 2px solid #ffd700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      pointer-events: none;
+      z-index: 1000;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+
+    /* かつおぶしやる気MAXオーラ */
+    .cat-avatar-wrap.treat-boosted {
+      box-shadow: 0 0 16px 4px #ffd700, inset 0 0 10px #fff;
+      animation: treatGlow 1s infinite alternate ease-in-out;
+    }
+    .cat-avatar-wrap.treat-boosted::after {
+      content: '✨';
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      font-size: 14px;
+      animation: spinSmall 2s infinite linear;
+    }
+    @keyframes treatGlow {
+      from { box-shadow: 0 0 12px 3px #f39c12; }
+      to { box-shadow: 0 0 20px 6px #ffd700; }
+    }
+    @keyframes spinSmall {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* ケンカ停止中の揺れ */
+    .cat-avatar-wrap.brawling {
+      animation: catBrawlShake 0.12s infinite alternate;
+      border-color: #ff3333 !important;
+    }
+    @keyframes catBrawlShake {
+      0% { transform: translate(-3px, 1px) rotate(-4deg); }
+      100% { transform: translate(3px, -1px) rotate(4deg); }
+    }
+
+    /* --- 相性バッジ (持ち場間の境界に浮かぶ) --- */
+    .synergy-badge {
+      position: absolute;
+      z-index: 12;
+      background: rgba(32, 20, 14, 0.94);
+      border: 1.5px solid #ffcc66;
+      border-radius: 14px;
+      padding: 3px 8px;
+      color: #fff9ea;
+      font-size: 10.5px;
+      font-weight: 800;
+      pointer-events: none;
+      white-space: nowrap;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.55);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transform: translate(-50%, -50%);
+      animation: popIn 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+    .synergy-badge.heart {
+      border-color: #ff6b81;
+    }
+    .synergy-badge.spark {
+      border-color: #ff4757;
+    }
+    .synergy-badge.sleep {
+      border-color: #70a1ff;
+    }
+
+    /* --- 特別注文カード --- */
+    /* VIP客: 金色・高貴 */
+    .order-card.vip {
+      background: linear-gradient(135deg, #fff8e1 0%, #ffe082 100%) !important;
+      border: 2px solid #ffa000 !important;
+      box-shadow: 0 3px 12px rgba(255, 160, 0, 0.45);
+    }
+    .vip-tag {
+      position: absolute;
+      top: -7px;
+      right: 2px;
+      background: linear-gradient(135deg, #f39c12 0%, #d35400 100%);
+      color: #fff;
+      font-size: 8px;
+      font-weight: 900;
+      padding: 1px 4px;
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      border: 1px solid #ffd700;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      z-index: 3;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    /* 猫舌客: 冷まし待ち */
+    .order-card.cat-tongue {
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%) !important;
+      border: 2px solid #38bdf8 !important;
+    }
+    .tongue-tag {
+      position: absolute;
+      top: -7px;
+      right: 2px;
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #fff;
+      font-size: 8px;
+      font-weight: 900;
+      padding: 1px 4px;
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      border: 1px solid #7dd3fc;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      z-index: 3;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .cooling-box {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(2, 132, 199, 0.12);
+      border: 1px dashed #0284c7;
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 9px;
+      color: #0369a1;
+      font-weight: bold;
+      margin-top: 3px;
+    }
+    .cooling-bar-wrap {
+      flex: 1;
+      height: 5px;
+      background: rgba(0,0,0,0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .cooling-bar-fill {
+      height: 100%;
+      background: #38bdf8;
+      width: 100%;
+      transition: width 0.1s linear;
+    }
+
+    /* --- まかない休憩 (中盤5秒演出) --- */
+    #meal-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(20, 14, 10, 0.88);
+      z-index: 85;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+      animation: fadeIn 0.3s ease;
+    }
+    .meal-box {
+      background: linear-gradient(135deg, #fff7eb 0%, #ffe8d1 100%);
+      border: 3px solid #b87333;
+      border-radius: 20px;
+      padding: 18px 22px;
+      max-width: 330px;
+      width: 100%;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+      animation: popIn 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+    .meal-title {
+      font-size: 19px;
+      font-weight: 900;
+      color: #d35400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .meal-sub {
+      font-size: 12px;
+      color: #7a4823;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    .meal-cats-row {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .meal-cat-eating {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 2px solid #e67e22;
+      object-fit: cover;
+      animation: mealCatBob 0.4s infinite alternate ease-in-out;
+    }
+    @keyframes mealCatBob {
+      0% { transform: translateY(0) scale(1); }
+      100% { transform: translateY(4px) scale(0.96); }
+    }
+    .meal-bowl-icon {
+      font-size: 32px;
+      margin: 4px 0 8px;
+      animation: pulse 0.7s infinite alternate;
+    }
+    .meal-timer-text {
+      font-size: 14px;
+      font-weight: 800;
+      color: #b25816;
+    }
+
+    /* --- リザルト画面: 今日のMVP猫 & やらかし猫 --- */
+    .result-cats-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 12px 0 14px;
+      text-align: left;
+    }
+    .result-cat-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-radius: 12px;
+      padding: 8px 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .result-cat-card.mvp {
+      background: linear-gradient(135deg, #fff9e6 0%, #ffecb3 100%);
+      border: 1.5px solid #ffa000;
+    }
+    .result-cat-card.blunder {
+      background: linear-gradient(135deg, #fff3f0 0%, #ffe0db 100%);
+      border: 1.5px solid #ff7675;
+    }
+    .result-cat-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid #d49a6a;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .result-cat-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .result-cat-badge-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+    .badge-mvp {
+      background: #f39c12;
+      color: #fff;
+      font-size: 9.5px;
+      font-weight: 900;
+      padding: 1px 6px;
+      border-radius: 6px;
+    }
+    .badge-blunder {
+      background: #e17055;
+      color: #fff;
+      font-size: 9.5px;
+      font-weight: 900;
+      padding: 1px 6px;
+      border-radius: 6px;
+    }
+    .result-cat-name {
+      font-size: 13px;
+      font-weight: 800;
+      color: #3e2718;
+    }
+    .result-cat-reason {
+      font-size: 11px;
+      color: #63422a;
+      line-height: 1.35;
+    }
+
+    /* --- 長押しカード: 相性メモ --- */
+    .profile-card-synergy-box {
+      margin-top: 8px;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px dashed #c09168;
+      border-radius: 10px;
+      padding: 7px 9px;
+      text-align: left;
+    }
+    .synergy-box-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: #7a4823;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .synergy-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .synergy-list-item {
+      font-size: 10.5px;
+      color: #3e2718;
+      line-height: 1.3;
+      display: flex;
+      align-items: flex-start;
+      gap: 4px;
+    }
+    .synergy-item-icon {
+      flex-shrink: 0;
+      font-size: 12px;
+    }
+
   </style>
 </head>
 <body>
@@ -1398,7 +1812,10 @@
 
     <!-- 中央 厨房（持ち場 2x2） -->
     <div id="kitchen-area" class="layer">
-      <div class="kitchen-grid" id="kitchen-grid">
+      <div class="kitchen-grid" id="kitchen-grid" style="position: relative;">
+        <!-- 相性バッジ表示オーバーレイ -->
+        <div id="synergy-badges-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></div>
+
         <!-- 4つの持ち場: 切る, 焼く, 盛る, 運ぶ -->
         <div class="station-slot" data-station="cut">
           <div class="station-header">
@@ -1471,6 +1888,19 @@
             <div class="station-status-text" id="ptext-serve">空き</div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- おやつ「かつおぶし」トレイ (1ステージ3個まで) -->
+    <div id="treat-area" class="layer">
+      <div class="treat-label-box">
+        <span class="treat-title">🐟 かつおぶし</span>
+        <span class="treat-hint">残り3個・猫へドラッグ</span>
+      </div>
+      <div class="treat-items-wrap" id="treat-items-wrap">
+        <div class="treat-item" data-treat-idx="0" title="ドラッグまたはタップで猫へ！">🐟</div>
+        <div class="treat-item" data-treat-idx="1" title="ドラッグまたはタップで猫へ！">🐟</div>
+        <div class="treat-item" data-treat-idx="2" title="ドラッグまたはタップで猫へ！">🐟</div>
       </div>
     </div>
 
@@ -1553,11 +1983,27 @@
           </div>
         </div>
 
-        <div class="mvp-container" id="clear-mvp">
-          <img src="assets/cat_tora.jpg" class="mvp-avatar" id="clear-mvp-img" alt="MVP">
-          <div class="mvp-texts">
-            <div class="mvp-name" id="clear-mvp-name">トラのひとこと</div>
-            <div class="mvp-quote" id="clear-mvp-quote">「今日は腕が鳴ったにゃ！」</div>
+        <!-- MVP猫 & やらかし猫 -->
+        <div class="result-cats-wrap" id="clear-result-cats">
+          <div class="result-cat-card mvp" id="clear-mvp">
+            <img src="assets/cat_tora.jpg" class="result-cat-avatar" id="clear-mvp-img" alt="MVP">
+            <div class="result-cat-info">
+              <div class="result-cat-badge-line">
+                <span class="badge-mvp">🏆 今日のMVP猫</span>
+                <span class="result-cat-name" id="clear-mvp-name">トラ</span>
+              </div>
+              <div class="result-cat-reason" id="clear-mvp-quote">「今日は腕が鳴ったにゃ！」</div>
+            </div>
+          </div>
+          <div class="result-cat-card blunder" id="clear-blunder">
+            <img src="assets/cat_shiro.jpg" class="result-cat-avatar" id="clear-blunder-img" alt="やらかし">
+            <div class="result-cat-info">
+              <div class="result-cat-badge-line">
+                <span class="badge-blunder">💥 今日のやらかし猫</span>
+                <span class="result-cat-name" id="clear-blunder-name">シロ</span>
+              </div>
+              <div class="result-cat-reason" id="clear-blunder-quote">「…すやすや…」</div>
+            </div>
           </div>
         </div>
 
@@ -1584,8 +2030,46 @@
             <div class="result-val" id="fail-target">¥0</div>
           </div>
         </div>
+
+        <!-- 失敗時のMVP猫 & やらかし猫 -->
+        <div class="result-cats-wrap" id="fail-result-cats">
+          <div class="result-cat-card mvp" id="fail-mvp">
+            <img src="assets/cat_tora.jpg" class="result-cat-avatar" id="fail-mvp-img" alt="MVP">
+            <div class="result-cat-info">
+              <div class="result-cat-badge-line">
+                <span class="badge-mvp">🏆 孤軍奮闘猫</span>
+                <span class="result-cat-name" id="fail-mvp-name">トラ</span>
+              </div>
+              <div class="result-cat-reason" id="fail-mvp-quote">「あと一歩だったにゃ…」</div>
+            </div>
+          </div>
+          <div class="result-cat-card blunder" id="fail-blunder">
+            <img src="assets/cat_shiro.jpg" class="result-cat-avatar" id="fail-blunder-img" alt="やらかし">
+            <div class="result-cat-info">
+              <div class="result-cat-badge-line">
+                <span class="badge-blunder">💥 本日のお騒がせ猫</span>
+                <span class="result-cat-name" id="fail-blunder-name">シロ</span>
+              </div>
+              <div class="result-cat-reason" id="fail-blunder-quote">「…すやすや…」</div>
+            </div>
+          </div>
+        </div>
+
         <button class="btn-main" id="btn-fail-retry">リベンジする！ 🐾</button>
         <button class="btn-secondary" id="btn-fail-stages">ステージ選択</button>
+      </div>
+    </div>
+
+    <!-- モーダル: まかない休憩タイム (中盤5秒演出) -->
+    <div id="meal-overlay" style="display: none;">
+      <div class="meal-box">
+        <div class="meal-title">🍚 まかないタイムだにゃー！ 🐟</div>
+        <div class="meal-sub">猫たちが集まってごはん！全員の疲れ＆サボりがリセット！</div>
+        <div class="meal-cats-row" id="meal-cats-row">
+          <!-- JSで出勤猫画像が動的挿入される -->
+        </div>
+        <div class="meal-bowl-icon">🍲 🐟 🍚</div>
+        <div class="meal-timer-text" id="meal-timer-text">もぐもぐ休憩中… (5s)</div>
       </div>
     </div>
 
@@ -1860,6 +2344,94 @@
             });
             break;
           }
+
+          case 'treat': {
+            // おやつ「かつおぶし」パワーアップ音 (キラキラ上行)
+            [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((freq, idx) => {
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+
+              gain.gain.setValueAtTime(0.24, now + idx * 0.05);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.25);
+
+              osc.connect(gain);
+              gain.connect(this.ctx.destination);
+              osc.start(now + idx * 0.05);
+              osc.stop(now + idx * 0.05 + 0.27);
+            });
+            break;
+          }
+
+          case 'synergy': {
+            // 相性発動音 (キュピーン！)
+            [880, 1174.66, 1760].forEach((freq, idx) => {
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'triangle';
+              osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+
+              gain.gain.setValueAtTime(0.2, now + idx * 0.04);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 0.2);
+
+              osc.connect(gain);
+              gain.connect(this.ctx.destination);
+              osc.start(now + idx * 0.04);
+              osc.stop(now + idx * 0.04 + 0.22);
+            });
+            break;
+          }
+
+          case 'brawl': {
+            // ケンカ音 (バチバチ)
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(320, now);
+            osc.frequency.linearRampToValueAtTime(150, now + 0.2);
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.23);
+            break;
+          }
+
+          case 'vip': {
+            // VIP客チャイム (ゴージャスな2和音)
+            [1046.50, 1318.51].forEach(freq => {
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(freq, now);
+              gain.gain.setValueAtTime(0.26, now);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+              osc.connect(gain);
+              gain.connect(this.ctx.destination);
+              osc.start(now);
+              osc.stop(now + 0.52);
+            });
+            break;
+          }
+
+          case 'meal': {
+            // まかないファンファーレ (明るいメロディ)
+            [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'triangle';
+              osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+              gain.gain.setValueAtTime(0.25, now + idx * 0.08);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.35);
+              osc.connect(gain);
+              gain.connect(this.ctx.destination);
+              osc.start(now + idx * 0.08);
+              osc.stop(now + idx * 0.08 + 0.38);
+            });
+            break;
+          }
         }
       }
     };
@@ -1994,6 +2566,71 @@
         mvp: '「ふん、まあまあの働きだにゃ。この緊張感を忘れるなよ！」'
       }
     };
+
+    /* 猫どうしの相性定義 (隣接持ち場で発動) */
+    const CHEMISTRY_DEFS = {
+      'mike_tora': {
+        id: 'mike_tora',
+        cats: ['tora', 'mike'],
+        name: 'はしゃぎコンビ',
+        icon: '💥',
+        quote: 'はしゃぎすぎ！',
+        badgeText: '💥 トラ×ミケ はしゃぎ！',
+        desc: '両方スピード1.3倍！ただし時々はしゃぎすぎてケンカで停止！',
+        speedMult: 1.3,
+        hasBrawl: true,
+        brawlInterval: [9, 14],
+        brawlDuration: 2.8
+      },
+      'hakase_shiro': {
+        id: 'hakase_shiro',
+        cats: ['hakase', 'shiro'],
+        name: '読み聞かせ',
+        icon: '💤',
+        quote: 'すやすや熟睡…',
+        badgeText: '💤 ハカセ×シロ 読み聞かせ',
+        desc: 'ハカセの朗読でシロが熟睡！寝ながら運搬効率が1.5倍に強化！',
+        sleepCarryBoost: 1.5
+      },
+      'kuro_tora': {
+        id: 'kuro_tora',
+        cats: ['kuro', 'tora'],
+        name: '好敵手ライバル',
+        icon: '🔥',
+        quote: '負けないにゃ！',
+        badgeText: '🔥 クロ×トラ ライバル！',
+        desc: 'ライバル心で両方速度1.35倍！トラのサボりタイマー半減！',
+        speedMult: 1.35,
+        boredDelayMult: 0.5
+      },
+      'hakase_kuro': {
+        id: 'hakase_kuro',
+        cats: ['hakase', 'kuro'],
+        name: '理論と情熱',
+        icon: '✨',
+        quote: '絶妙な火入れ！',
+        badgeText: '✨ ハカセ×クロ 理論＆情熱',
+        desc: 'ハカセの計算でクロの調理速度1.3倍＆チップ+20%！',
+        cookBonus: 1.3,
+        tipBonus: 0.2
+      },
+      'mike_shiro': {
+        id: 'mike_shiro',
+        cats: ['shiro', 'mike'],
+        name: 'じゃれあい',
+        icon: '❤️',
+        quote: '遊ぼうにゃ！',
+        badgeText: '❤️ ミケ×シロ じゃれあい',
+        desc: 'ミケがちょっかいを出して寝ているシロを揺り起こす！',
+        wakeChance: true
+      }
+    };
+
+    function getChemistryDef(catId1, catId2) {
+      if (!catId1 || !catId2 || catId1 === catId2) return null;
+      const key = [catId1, catId2].sort().join('_');
+      return CHEMISTRY_DEFS[key] || null;
+    }
 
     const STAGES = [
       {
@@ -2146,7 +2783,9 @@
           served: this.servedCount,
           angry: this.angryCount,
           rep: this.reputation,
-          combo: this.combo
+          combo: this.combo,
+          treatsLeft: this.treatsLeft !== undefined ? this.treatsLeft : 3,
+          isMealBreak: !!this.isMealBreak
         };
       }
 
@@ -2258,6 +2897,9 @@
         // 店長のひとことを初期化
         this.refreshManagerQuote();
 
+        // おやつ「かつおぶし」イベント初期化
+        this.initTreatEvents();
+
         // ドラッグイベントをグローバルに監視
         window.addEventListener('pointermove', (e) => this.handlePointerMove(e), { passive: false });
         window.addEventListener('pointerup', (e) => this.handlePointerUp(e), { passive: false });
@@ -2268,6 +2910,148 @@
 
         // ループ開始
         requestAnimationFrame((t) => this.gameLoop(t));
+      }
+
+      /* =========================================================
+         おやつ「かつおぶし」機能 (ドラッグ＆タップ対応)
+         ========================================================= */
+      renderTreats() {
+        const wrap = document.getElementById('treat-items-wrap');
+        if (!wrap) return;
+        const items = wrap.querySelectorAll('.treat-item');
+        items.forEach((item, idx) => {
+          const used = this.treatsUsed ? this.treatsUsed[idx] : false;
+          if (used) {
+            item.classList.add('used');
+            item.classList.remove('selected');
+            item.style.pointerEvents = 'none';
+            item.textContent = '';
+          } else {
+            item.classList.remove('used');
+            item.style.pointerEvents = 'auto';
+            item.textContent = '🐟';
+            if (this.selectedTreatIdx === idx) {
+              item.classList.add('selected');
+            } else {
+              item.classList.remove('selected');
+            }
+          }
+        });
+        const hint = document.querySelector('.treat-hint');
+        if (hint) {
+          hint.textContent = `残り${this.treatsLeft}個・猫へドラッグ`;
+        }
+      }
+
+      initTreatEvents() {
+        const wrap = document.getElementById('treat-items-wrap');
+        if (!wrap) return;
+
+        let dragProxy = null;
+        let activeIdx = null;
+        let startX = 0;
+        let startY = 0;
+        let hasMoved = false;
+
+        const onPointerDown = (e, idx) => {
+          if (this.state !== 'play' || (this.treatsUsed && this.treatsUsed[idx])) return;
+          e.preventDefault();
+          e.stopPropagation();
+          Sound.init();
+
+          activeIdx = idx;
+          startX = e.clientX;
+          startY = e.clientY;
+          hasMoved = false;
+
+          dragProxy = document.createElement('div');
+          dragProxy.className = 'treat-drag-proxy';
+          dragProxy.textContent = '🐟';
+          dragProxy.style.left = `${e.clientX}px`;
+          dragProxy.style.top = `${e.clientY}px`;
+          document.body.appendChild(dragProxy);
+
+          const onPointerMove = (ev) => {
+            if (!dragProxy) return;
+            ev.preventDefault();
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            if (Math.hypot(dx, dy) > 8) hasMoved = true;
+            dragProxy.style.left = `${ev.clientX}px`;
+            dragProxy.style.top = `${ev.clientY}px`;
+          };
+
+          const onPointerUp = (ev) => {
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('pointercancel', onPointerUp);
+            if (dragProxy) {
+              dragProxy.remove();
+              dragProxy = null;
+            }
+
+            if (hasMoved) {
+              const elem = document.elementFromPoint(ev.clientX, ev.clientY);
+              const catUnit = elem ? elem.closest('.cat-unit') : null;
+              if (catUnit) {
+                const catId = catUnit.id.replace('cat-', '');
+                const targetCat = this.cats.find(c => c.id === catId);
+                if (targetCat) {
+                  this.giveTreatToCat(targetCat, activeIdx);
+                  return;
+                }
+              }
+            } else {
+              // 移動が小さければタップ選択トグル
+              if (this.selectedTreatIdx === activeIdx) {
+                this.selectedTreatIdx = null;
+              } else {
+                this.selectedTreatIdx = activeIdx;
+              }
+              this.renderTreats();
+            }
+          };
+
+          window.addEventListener('pointermove', onPointerMove, { passive: false });
+          window.addEventListener('pointerup', onPointerUp);
+          window.addEventListener('pointercancel', onPointerUp);
+        };
+
+        wrap.querySelectorAll('.treat-item').forEach((el, idx) => {
+          el.addEventListener('pointerdown', (e) => onPointerDown(e, idx));
+        });
+      }
+
+      giveTreatToCat(cat, treatIdx) {
+        if (!cat || this.state !== 'play') return;
+        if (treatIdx === null || treatIdx === undefined || (this.treatsUsed && this.treatsUsed[treatIdx])) {
+          treatIdx = this.treatsUsed ? this.treatsUsed.findIndex(u => !u) : -1;
+          if (treatIdx === -1) return;
+        }
+
+        if (this.treatsUsed) this.treatsUsed[treatIdx] = true;
+        this.treatsLeft = Math.max(0, (this.treatsLeft || 1) - 1);
+        this.selectedTreatIdx = null;
+
+        // 猫のやる気MAX化: 10秒間ブースト (サボらない・寝ない・金色に光る)
+        cat.treatBoostTimer = 10.0;
+        cat.isBored = false;
+        cat.isSleeping = false;
+        cat.isFidgeting = false;
+        cat.wakeTaps = 0;
+        cat.brawlTimer = 0;
+        if (cat.stats) cat.stats.treatCount++;
+
+        cat.bubbleText = 'かつおぶしウニャーッ！✨';
+        cat.bubbleTimer = 2.5;
+
+        Sound.play('treat');
+        this.showToast(`🐟 ${cat.def.name}にかつおぶし！10秒間やる気MAX！`, 2000);
+
+        this.renderTreats();
+        this.renderKitchen();
+        this.renderRest();
+        this.updateGlobalState();
       }
 
       refreshManagerQuote() {
@@ -2283,6 +3067,25 @@
         if (!overlay) return;
         const def = cat.def;
 
+        // 相性メモの生成 (長押しカード追記)
+        const relatedSynergies = (typeof CHEMISTRY_DEFS !== 'undefined')
+          ? Object.values(CHEMISTRY_DEFS).filter(syn => syn.cats.includes(def.id))
+          : [];
+        let synergyHtml = '';
+        if (relatedSynergies.length > 0) {
+          const items = relatedSynergies.map(syn => {
+            const partnerId = syn.cats.find(id => id !== def.id);
+            const partner = CAT_DEFS[partnerId];
+            return `<li class="synergy-list-item"><span class="synergy-item-icon">${syn.icon}</span><div><strong>× ${partner ? partner.name : partnerId}</strong>: ${syn.desc}</div></li>`;
+          }).join('');
+          synergyHtml = `
+            <div class="profile-card-synergy-box">
+              <div class="synergy-box-title">🐾 【相性メモ】隣の持ち場に置くと…</div>
+              <ul class="synergy-list">${items}</ul>
+            </div>
+          `;
+        }
+
         overlay.innerHTML = `
           <div class="cat-profile-card">
             <div class="profile-card-header">
@@ -2296,6 +3099,7 @@
               <div><strong>【クセ・特徴】</strong></div>
               <div>${def.trait}</div>
               ${def.rewardTip ? `<div class="profile-card-reward">${def.rewardTip}</div>` : ''}
+              ${synergyHtml}
             </div>
             <div class="profile-card-close-tip">タップして閉じる ✕</div>
           </div>
@@ -2403,6 +3207,20 @@
           serve: null
         };
 
+        // おやつ「かつおぶし」 (1ステージ3個まで)
+        this.treatsUsed = [false, false, false];
+        this.treatsLeft = 3;
+        this.selectedTreatIdx = null;
+        this.renderTreats();
+
+        // まかない休憩 (ステージ中盤50%で発動)
+        this.mealBreakDone = false;
+        this.isMealBreak = false;
+        this.mealBreakTimer = 0;
+
+        // 相性バッジ保持
+        this.activeSynergies = {};
+
         // 猫の生成
         this.cats = this.stageConfig.cats.map((catId, idx) => {
           const def = CAT_DEFS[catId];
@@ -2419,7 +3237,19 @@
             jumpTimer: 12 + Math.random() * 6,  // ミケ用
             bubbleText: '',
             bubbleTimer: 0,
-            hasNeighbor: false
+            hasNeighbor: false,
+            // 新要素: おやつ・ケンカ・統計トラッキング
+            treatBoostTimer: 0,
+            brawlTimer: 0,
+            stats: {
+              servedDishes: 0,
+              boredCount: 0,
+              sleepCount: 0,
+              wakeCount: 0,
+              jumpCount: 0,
+              brawlCount: 0,
+              treatCount: 0
+            }
           };
         });
 
@@ -2431,6 +3261,8 @@
         document.getElementById('modal-stages').style.display = 'none';
         document.getElementById('modal-clear').style.display = 'none';
         document.getElementById('modal-fail').style.display = 'none';
+        const mealEl = document.getElementById('meal-overlay');
+        if (mealEl) mealEl.style.display = 'none';
 
         // 残存する飛行要素があれば確実に非表示・削除
         document.querySelectorAll('.flying-cat').forEach(el => {
@@ -2448,7 +3280,7 @@
       }
 
       /* =========================================================
-         注文の生成
+         注文の生成 (VIP客 & 猫舌客 変わり種注文対応)
          ========================================================= */
       spawnOrder() {
         if (this.orders.length >= 3) return;
@@ -2457,19 +3289,100 @@
         const recipeKey = availableRecipes[Math.floor(Math.random() * availableRecipes.length)];
         const recipe = RECIPES[recipeKey];
 
+        // 変わり種注文の判定
+        // 焼く(cook)と盛る(plate)を含む料理のみ「猫舌」になり得る
+        const hasCookAndPlate = recipe.steps.includes('cook') && recipe.steps.includes('plate');
+        const rand = Math.random();
+        const isVip = (rand < 0.20); // 20%でVIP客
+        const isCatTongue = (!isVip && hasCookAndPlate && rand < 0.42); // 22%で猫舌客
+
+        // VIP客: 待ち時間短め(18秒)、売上3倍
+        const maxPatience = isVip ? 18 : 28;
+
         const order = {
           id: 'ord_' + (++this.orderSeq),
           recipeKey: recipeKey,
           recipe: recipe,
           currentStepIdx: 0,
           stepProgress: 0,
-          patience: 28, // 約28秒
-          maxPatience: 28,
-          specialCut: false
+          patience: maxPatience,
+          maxPatience: maxPatience,
+          specialCut: false,
+          isVip: isVip,
+          isCatTongue: isCatTongue,
+          coolingTimer: 0,
+          maxCoolingTime: 3.2
         };
 
         this.orders.push(order);
+
+        if (isVip) {
+          Sound.play('vip');
+          this.showToast('👑 VIP客がご来店！待ち時間短めだが売上3倍！', 2200);
+        } else if (isCatTongue) {
+          this.showToast('🐱 猫舌のお客様がご来店！焼いた後は冷ましが必要にゃ！', 2200);
+        }
+
         this.renderOrders();
+      }
+
+      /* =========================================================
+         まかない休憩タイム (ステージ中盤50%で5秒演出)
+         ========================================================= */
+      startMealBreak() {
+        this.mealBreakDone = true;
+        this.isMealBreak = true;
+        this.mealBreakTimer = 5.0;
+
+        // 全員の疲れ・サボり・睡眠を完全リセット
+        this.cats.forEach(c => {
+          c.isBored = false;
+          c.isSleeping = false;
+          c.isFidgeting = false;
+          c.wakeTaps = 0;
+          c.brawlTimer = 0;
+          c.timeInStation = 0;
+          c.sleepTimer = 16 + Math.random() * 6;
+          c.bubbleText = 'もぐもぐ…うまいニャー！❤️';
+          c.bubbleTimer = 4.8;
+        });
+
+        // モーダル表示
+        const overlay = document.getElementById('meal-overlay');
+        const catsRow = document.getElementById('meal-cats-row');
+        if (catsRow) {
+          catsRow.innerHTML = this.cats.map(c => `
+            <img src="${c.def.img}" class="meal-cat-eating" alt="${c.def.name}" title="${c.def.name}">
+          `).join('');
+        }
+        if (overlay) overlay.style.display = 'flex';
+
+        Sound.play('meal');
+        this.showToast('🍚 まかないタイムだにゃ！全員の疲れ＆サボりが全回復！', 2500);
+
+        this.renderAll();
+      }
+
+      updateMealBreak(dt) {
+        this.mealBreakTimer -= dt;
+        const timerText = document.getElementById('meal-timer-text');
+        if (timerText) {
+          timerText.textContent = `もぐもぐ休憩中… (${Math.ceil(this.mealBreakTimer)}s)`;
+        }
+
+        if (this.mealBreakTimer <= 0) {
+          this.isMealBreak = false;
+          const overlay = document.getElementById('meal-overlay');
+          if (overlay) overlay.style.display = 'none';
+
+          this.cats.forEach(c => {
+            c.bubbleText = '元気百倍！後半戦いくにゃ！🔥';
+            c.bubbleTimer = 2.5;
+          });
+
+          this.showToast('ごちそうさまでした！後半戦スタート！🐾', 2000);
+          this.renderAll();
+        }
       }
 
       /* =========================================================
@@ -2477,6 +3390,17 @@
          ========================================================= */
       update(dt) {
         if (this.state !== 'play') return;
+
+        // まかない休憩の判定 (ステージ残り時間50%の瞬間)
+        if (!this.mealBreakDone && this.timeLeft <= this.stageConfig.time * 0.5) {
+          this.startMealBreak();
+        }
+
+        // まかない休憩中は調理・客・タイマー等の進行を一時ストップ
+        if (this.isMealBreak) {
+          this.updateMealBreak(dt);
+          return;
+        }
 
         // 制限時間カウントダウン
         this.timeLeft -= dt;
@@ -2594,6 +3518,124 @@
       }
 
       /* =========================================================
+         猫どうしの相性システム更新 (隣接持ち場で発動)
+         ========================================================= */
+      updateSynergies(dt) {
+        const ADJ_PAIRS = [
+          { s1: 'cut', s2: 'cook', key: 'cut_cook', top: '24%', left: '50%' },
+          { s1: 'cut', s2: 'plate', key: 'cut_plate', top: '50%', left: '23%' },
+          { s1: 'cook', s2: 'serve', key: 'cook_serve', top: '50%', left: '77%' },
+          { s1: 'plate', s2: 'serve', key: 'plate_serve', top: '76%', left: '50%' }
+        ];
+
+        const container = document.getElementById('synergy-badges-container');
+
+        // 一旦各猫の相性フラグを初期化
+        this.cats.forEach(c => {
+          c.synergySpeedMult = 1.0;
+          c.hasHakaseStory = false;
+          c.hasRivalDelay = false;
+          c.hasKuroHakaseBonus = false;
+        });
+
+        const currentActiveKeys = {};
+
+        ADJ_PAIRS.forEach(pair => {
+          const c1 = this.stations[pair.s1];
+          const c2 = this.stations[pair.s2];
+          if (!c1 || !c2) return;
+
+          const chem = (typeof getChemistryDef === 'function')
+            ? getChemistryDef(c1.defId, c2.defId)
+            : null;
+          if (!chem) return;
+
+          currentActiveKeys[pair.key] = { chem, pair, c1, c2 };
+
+          // 新規発動時の演出
+          if (!this.activeSynergies || !this.activeSynergies[pair.key] || this.activeSynergies[pair.key].chem.id !== chem.id) {
+            Sound.play('synergy');
+            this.showToast(`✨ 相性発動: ${chem.name}！(${chem.badgeText})`, 2200);
+            c1.bubbleText = chem.quote;
+            c1.bubbleTimer = 2.2;
+            c2.bubbleText = chem.quote;
+            c2.bubbleTimer = 2.2;
+          }
+
+          // 各相性効果
+          if (chem.id === 'mike_tora') {
+            c1.synergySpeedMult = Math.max(c1.synergySpeedMult || 1.0, 1.3);
+            c2.synergySpeedMult = Math.max(c2.synergySpeedMult || 1.0, 1.3);
+
+            // 時々はしゃぎすぎてケンカで停止
+            if (!c1.brawlCooldown) c1.brawlCooldown = 9 + Math.random() * 4;
+            c1.brawlCooldown -= dt;
+            if (c1.brawlCooldown <= 0 && c1.brawlTimer <= 0 && c2.brawlTimer <= 0 && c1.treatBoostTimer <= 0 && c2.treatBoostTimer <= 0) {
+              c1.brawlTimer = 2.8;
+              c2.brawlTimer = 2.8;
+              c1.brawlCooldown = 11 + Math.random() * 5;
+              c1.bubbleText = 'シャーッ！😾';
+              c2.bubbleText = 'ニャーッ！💥';
+              c1.bubbleTimer = 2.8;
+              c2.bubbleTimer = 2.8;
+              if (c1.stats) c1.stats.brawlCount++;
+              if (c2.stats) c2.stats.brawlCount++;
+              Sound.play('brawl');
+              this.showToast('💥 トラとミケがはしゃぎすぎてケンカ中！', 2000);
+              this.renderKitchen();
+            }
+          } else if (chem.id === 'hakase_shiro') {
+            const shiroCat = (c1.defId === 'shiro') ? c1 : c2;
+            shiroCat.hasHakaseStory = true;
+          } else if (chem.id === 'kuro_tora') {
+            c1.synergySpeedMult = Math.max(c1.synergySpeedMult || 1.0, 1.35);
+            c2.synergySpeedMult = Math.max(c2.synergySpeedMult || 1.0, 1.35);
+            const toraCat = (c1.defId === 'tora') ? c1 : c2;
+            toraCat.hasRivalDelay = true;
+          } else if (chem.id === 'hakase_kuro') {
+            const kuroCat = (c1.defId === 'kuro') ? c1 : c2;
+            kuroCat.synergySpeedMult = Math.max(kuroCat.synergySpeedMult || 1.0, 1.3);
+            kuroCat.hasKuroHakaseBonus = true;
+          } else if (chem.id === 'mike_shiro') {
+            const shiroCat = (c1.defId === 'shiro') ? c1 : c2;
+            const mikeCat = (c1.defId === 'mike') ? c1 : c2;
+            if (shiroCat.isSleeping) {
+              if (!mikeCat.pokeTimer) mikeCat.pokeTimer = 2.5;
+              mikeCat.pokeTimer -= dt;
+              if (mikeCat.pokeTimer <= 0) {
+                mikeCat.pokeTimer = 3.2;
+                shiroCat.wakeTaps = (shiroCat.wakeTaps || 0) + 1;
+                Sound.play('land');
+                if (shiroCat.wakeTaps >= 3) {
+                  shiroCat.isSleeping = false;
+                  shiroCat.wakeTaps = 0;
+                  shiroCat.bubbleText = 'ミケちゃん遊ぶにゃ！';
+                  shiroCat.bubbleTimer = 2.0;
+                  Sound.play('wake');
+                }
+                this.renderKitchen();
+              }
+            }
+          }
+        });
+
+        this.activeSynergies = currentActiveKeys;
+
+        // バッジHTML更新
+        if (container) {
+          let html = '';
+          Object.keys(currentActiveKeys).forEach(k => {
+            const item = currentActiveKeys[k];
+            const isBrawl = (item.c1.brawlTimer > 0 || item.c2.brawlTimer > 0);
+            const icon = isBrawl ? '💥' : item.chem.icon;
+            const text = isBrawl ? 'ケンカ中！' : item.chem.quote;
+            html += `<div class="synergy-badge" style="top: ${item.pair.top}; left: ${item.pair.left};">${icon} ${text}</div>`;
+          });
+          container.innerHTML = html;
+        }
+      }
+
+      /* =========================================================
          猫たちの状態更新
          ========================================================= */
       updateCats(dt) {
@@ -2605,6 +3647,9 @@
           serve: ['cook', 'plate']
         };
 
+        // 相性更新
+        this.updateSynergies(dt);
+
         this.cats.forEach(cat => {
           // 吹き出しタイマー
           if (cat.bubbleTimer > 0) {
@@ -2615,6 +3660,30 @@
             }
           }
 
+          // おやつ「かつおぶし」ブーストタイマー
+          if (cat.treatBoostTimer > 0) {
+            cat.treatBoostTimer -= dt;
+            cat.isBored = false;
+            cat.isSleeping = false;
+            cat.isFidgeting = false;
+            if (cat.treatBoostTimer <= 0) {
+              cat.treatBoostTimer = 0;
+              this.renderKitchen();
+              this.renderRest();
+            }
+          }
+
+          // ケンカタイマー
+          if (cat.brawlTimer > 0) {
+            cat.brawlTimer -= dt;
+            if (cat.brawlTimer <= 0) {
+              cat.brawlTimer = 0;
+              cat.bubbleText = '仲直りしたにゃ！';
+              cat.bubbleTimer = 1.8;
+              this.renderKitchen();
+            }
+          }
+
           if (cat.location === 'rest') {
             cat.timeInStation = 0;
             cat.isBored = false;
@@ -2622,7 +3691,8 @@
           }
 
           // 持ち場にいる場合
-          cat.timeInStation += dt;
+          const timeStep = cat.hasRivalDelay ? dt * 0.5 : dt;
+          cat.timeInStation += timeStep;
 
           // トラの速度ブーストタイマー (気分転換ご褒美)
           if (cat.speedBoostTimer > 0) {
@@ -2633,8 +3703,8 @@
             }
           }
 
-          // 1. トラ: 8秒滞在でサボり (6〜8秒の2秒前はそわそわ揺れて「…」)
-          if (cat.defId === 'tora') {
+          // 1. トラ: 8秒滞在でサボり (おやつ中はサボらない)
+          if (cat.defId === 'tora' && cat.treatBoostTimer <= 0) {
             if (cat.timeInStation >= 6.0 && cat.timeInStation < 8.0 && !cat.isBored) {
               if (!cat.isFidgeting) {
                 cat.isFidgeting = true;
@@ -2645,6 +3715,7 @@
             } else if (cat.timeInStation >= 8.0 && !cat.isBored) {
               cat.isFidgeting = false;
               cat.isBored = true;
+              if (cat.stats) cat.stats.boredCount++;
               cat.bubbleText = '飽きたにゃ…場所変えて';
               cat.bubbleTimer = 4.0;
               this.renderKitchen();
@@ -2654,8 +3725,8 @@
             }
           }
 
-          // 2. シロ: 居眠りタイマー (寝る2秒前はあくび「ふぁあ〜🥱」&そわそわ)
-          if (cat.defId === 'shiro') {
+          // 2. シロ: 居眠りタイマー (おやつ中は寝ない)
+          if (cat.defId === 'shiro' && cat.treatBoostTimer <= 0) {
             cat.sleepTimer -= dt;
             if (cat.sleepTimer <= 2.0 && cat.sleepTimer > 0 && !cat.isSleeping) {
               if (!cat.isFidgeting) {
@@ -2667,6 +3738,7 @@
             } else if (cat.sleepTimer <= 0 && !cat.isSleeping) {
               cat.isFidgeting = false;
               cat.isSleeping = true;
+              if (cat.stats) cat.stats.sleepCount++;
               cat.wakeTaps = 0;
               cat.sleepTimer = 12 + Math.random() * 8;
               cat.bubbleText = 'Zzz…';
@@ -2695,11 +3767,12 @@
             }
           }
 
-          // 4. ミケ: 気まぐれ移動
-          if (cat.defId === 'mike') {
+          // 4. ミケ: 気まぐれ移動 (ケンカ中やおやつ中は飛ばない)
+          if (cat.defId === 'mike' && cat.brawlTimer <= 0) {
             cat.jumpTimer -= dt;
             if (cat.jumpTimer <= 0) {
               cat.jumpTimer = 11 + Math.random() * 7;
+              if (cat.stats) cat.stats.jumpCount++;
               this.mikeRandomJump(cat);
             }
           }
@@ -2728,6 +3801,18 @@
          厨房の持ち場作業の進行
          ========================================================= */
       updateKitchenStations(dt) {
+        // 猫舌客の冷ましタイマー更新 (全体)
+        this.orders.forEach(ord => {
+          if (ord.coolingTimer > 0) {
+            ord.coolingTimer -= dt;
+            if (ord.coolingTimer <= 0) {
+              ord.coolingTimer = 0;
+              this.showToast('❄️ ちょうどいい温度に冷めたにゃ！盛り付けへ！', 1600);
+              this.renderOrders();
+            }
+          }
+        });
+
         const stationKeys = ['cut', 'cook', 'plate', 'serve'];
 
         stationKeys.forEach(stKey => {
@@ -2736,54 +3821,71 @@
           const targetOrder = this.orders.find(ord => {
             if (ord.isAngryLeaving) return false;
             const currentStep = ord.recipe.steps[ord.currentStepIdx];
-            return currentStep === stKey;
+            if (currentStep !== stKey) return false;
+            // 猫舌客が冷まし中の場合、「盛る」工程は冷めるまで進めない！
+            if (stKey === 'plate' && ord.coolingTimer > 0) return false;
+            return true;
           });
 
           if (!targetOrder) {
-            // この持ち場の作業なし
             return;
           }
 
           if (!cat) {
-            // 猫がいないので作業進まない
             return;
           }
 
           // 作業速度の計算
           let speed = cat.def.baseSpeed;
 
-          // トラ: 飽きサボり & 気分転換ブースト
-          if (cat.defId === 'tora') {
-            if (cat.isBored) {
-              speed *= 0.12; // ほとんど進まない
-            } else if (cat.speedBoostTimer > 0) {
-              speed *= 1.5; // 気分転換で猛スピード！
+          // おやつブースト: 10秒間やる気MAX！(1.5倍、サボり・居眠り・ケンカ完全無効)
+          if (cat.treatBoostTimer > 0) {
+            speed *= 1.5;
+          } else {
+            // ケンカ中: 速度0
+            if (cat.brawlTimer > 0) {
+              speed = 0;
             }
-          }
 
-          // ハカセ: 切るが得意
-          if (cat.defId === 'hakase' && stKey === 'cut') {
-            speed *= 1.45;
-          }
-
-          // シロ: 眠り猫（寝ていても「運ぶ」なら少し運ぶ）
-          if (cat.defId === 'shiro') {
-            if (cat.isSleeping) {
-              if (stKey === 'serve') {
-                speed = 0.42; // 寝ながらズルズル運ぶ
-              } else {
-                speed = 0; // 他の持ち場では完全に停止
+            // トラ: 飽きサボり & 気分転換ブースト
+            if (cat.defId === 'tora') {
+              if (cat.isBored) {
+                speed *= 0.12;
+              } else if (cat.speedBoostTimer > 0) {
+                speed *= 1.5;
               }
             }
-          }
 
-          // クロ: 「焼く」名人 & 隣接関係
-          if (cat.defId === 'kuro') {
-            if (stKey === 'cook') speed *= 1.3;
-            if (cat.hasNeighbor) {
-              speed *= 1.35; // やる気MAX
-            } else {
-              speed *= 0.58; // 誰もいないと低調
+            // ハカセ: 切るが得意
+            if (cat.defId === 'hakase' && stKey === 'cut') {
+              speed *= 1.45;
+            }
+
+            // シロ: 眠り猫（寝ていても「運ぶ」なら運ぶ。ハカセの読み聞かせで1.5倍に強化！）
+            if (cat.defId === 'shiro') {
+              if (cat.isSleeping) {
+                if (stKey === 'serve') {
+                  speed = 0.42;
+                  if (cat.hasHakaseStory) speed *= 1.5; // 熟睡の極意！
+                } else {
+                  speed = 0;
+                }
+              }
+            }
+
+            // クロ: 「焼く」名人 & 隣接関係
+            if (cat.defId === 'kuro') {
+              if (stKey === 'cook') speed *= 1.3;
+              if (cat.hasNeighbor) {
+                speed *= 1.35;
+              } else {
+                speed *= 0.58;
+              }
+            }
+
+            // 相性による速度補正
+            if (cat.synergySpeedMult) {
+              speed *= cat.synergySpeedMult;
             }
           }
 
@@ -2799,9 +3901,25 @@
 
       /* 工程完了処理 */
       completeStep(stationKey, cat, order) {
+        if (cat && cat.stats) {
+          cat.stats.servedDishes++;
+        }
+
         // ハカセが切った場合、特製チップ2倍フラグを付与
         if (cat.defId === 'hakase' && stationKey === 'cut') {
           order.specialCut = true;
+        }
+
+        // ハカセ×クロ相性でクロが焼いた場合
+        if (cat.defId === 'kuro' && stationKey === 'cook' && cat.hasKuroHakaseBonus) {
+          order.kuroHakaseBonus = true;
+        }
+
+        // 猫舌の客: 焼く(cook)が完了した直後に冷まし待ちタイマーをセット！
+        if (order.isCatTongue && stationKey === 'cook') {
+          order.coolingTimer = 3.2;
+          order.maxCoolingTime = 3.2;
+          this.showToast('🐱 猫舌客「あつあつ！冷ましてから盛ってにゃ❄️」', 2200);
         }
 
         order.stepProgress = 0;
@@ -2862,20 +3980,24 @@
           }
         }
 
-        // 売上 & チップ計算
-        const basePrice = order.recipe.price;
+        // 売上 & チップ計算 (VIP客は売上3倍！)
+        const vipMult = order.isVip ? 3 : 1;
+        const basePrice = order.recipe.price * vipMult;
         const patienceRatio = Math.max(0, order.patience / order.maxPatience);
         let tip = Math.floor(basePrice * 0.35 * patienceRatio * comboMult);
 
         if (order.specialCut) {
           tip *= 2;
         }
+        if (order.kuroHakaseBonus) {
+          tip = Math.floor(tip * 1.2);
+        }
 
         const totalEarned = basePrice + tip;
         this.sales += totalEarned;
         this.servedCount++;
 
-        // 金額ポップアップ演出 (持ち場中央付近から上に少し浮いて消える)
+        // 金額ポップアップ演出
         const servePos = this.getSlotCenter('serve');
         this.showMoneyPop(servePos.x, servePos.y + 6, `+¥${totalEarned.toLocaleString()}`);
 
@@ -2886,7 +4008,9 @@
         }
 
         let toastMsg = `${order.recipe.name} 提供！ +¥${totalEarned.toLocaleString()}`;
-        if (this.combo >= 2) {
+        if (order.isVip) {
+          toastMsg += ` (👑 VIP売上3倍!)`;
+        } else if (this.combo >= 2) {
           toastMsg += ` (${this.combo}連続コンボ!)`;
         } else if (order.specialCut) {
           toastMsg += ` (ハカセ特製チップx2!)`;
@@ -2896,7 +4020,7 @@
         this.renderOrders();
         this.renderHUD();
 
-        // 目標売上を超えたら即演出（まだ時間は続くが励みになる）
+        // 目標売上を超えたら即演出
         if (this.sales >= this.targetSales && !this._goalCheer) {
           this._goalCheer = true;
           this.showToast('🎉 目標売上達成！さらなる売上を目指そう！', 2500);
@@ -2973,6 +4097,83 @@
         }
       }
 
+      /* =========================================================
+         本日のMVP猫 & やらかし猫の選出
+         ========================================================= */
+      evaluateStageCats() {
+        if (!this.cats || this.cats.length === 0) {
+          const fallback = CAT_DEFS.tora;
+          return {
+            mvp: { cat: { def: fallback }, reason: '「元気に厨房を駆け回ったにゃ！」' },
+            blunder: { cat: { def: CAT_DEFS.shiro }, reason: '「…すやすや…」' }
+          };
+        }
+
+        // 各猫の貢献スコアとやらかしスコアを計算
+        const catScores = this.cats.map(c => {
+          const st = c.stats || {};
+          const served = st.servedDishes || 0;
+          const bored = st.boredCount || 0;
+          const sleep = st.sleepCount || 0;
+          const jump = st.jumpCount || 0;
+          const brawl = st.brawlCount || 0;
+          const treats = st.treatCount || 0;
+
+          const mvpScore = (served * 10) + (treats * 4) - (bored * 2) - (sleep * 2) + Math.random() * 2;
+          const blunderScore = (bored * 6) + (sleep * 6) + (jump * 5) + (brawl * 7) - (served * 3) + Math.random() * 3;
+
+          return { cat: c, mvpScore, blunderScore, served, bored, sleep, jump, brawl, treats };
+        });
+
+        // MVP猫: 最もmvpScoreが高い猫
+        catScores.sort((a, b) => b.mvpScore - a.mvpScore);
+        const topMvp = catScores[0];
+
+        // やらかし猫: MVP以外の猫の中でblunderScoreが最も高い猫（1匹のみの場合は次点）
+        const remaining = catScores.length > 1 ? catScores.slice(1) : catScores;
+        remaining.sort((a, b) => b.blunderScore - a.blunderScore);
+        const topBlunder = remaining[0];
+
+        // ユーモアある理由コメントの生成
+        const genMvpReason = (item) => {
+          const id = item.cat.defId;
+          const n = item.served;
+          if (id === 'shiro') {
+            return n > 0 ? `「寝ながら${n}皿運んだ伝説の省エネ配達人」` : `「熟睡しながらもマイペースに厨房を癒やしたにゃ」`;
+          } else if (id === 'tora') {
+            return `「飽きる前に爆速で${Math.max(1, n)}工程を完遂！韋駄天の鑑にゃ」`;
+          } else if (id === 'hakase') {
+            return `「理論通りの精密カットで特製チップをがっぽり量産したにゃ」`;
+          } else if (id === 'kuro') {
+            return `「隣の猫を睨みつけながら驚異の焼きスピードを記録した職人」`;
+          } else if (id === 'mike') {
+            return `「厨房中を飛び回りながら奇跡的にピンチを救ったルーキー」`;
+          }
+          return `「${n}皿の調理に貢献して店の売上を支えたにゃ！」`;
+        };
+
+        const genBlunderReason = (item) => {
+          const id = item.cat.defId;
+          if (id === 'shiro') {
+            return `「営業中に${Math.max(1, item.sleep)}回熟睡。起こされても1秒で二度寝したにゃ」`;
+          } else if (id === 'tora') {
+            return `「『飽きたにゃ…』と${Math.max(1, item.bored)}回サボって持ち場を完全停止させたにゃ」`;
+          } else if (id === 'mike') {
+            return `「突然別の持ち場へ勝手に飛び移って全員を大パニックにしたにゃ」`;
+          } else if (id === 'kuro') {
+            return `「隣の猫と火花を散らしてケンカし厨房を一時営業停止にしたにゃ」`;
+          } else if (id === 'hakase') {
+            return `「包丁を握りながらウンチクを語りすぎて客をじらしたにゃ」`;
+          }
+          return `「気まぐれを起こして厨房の足を引っ張ってしまったにゃ」`;
+        };
+
+        return {
+          mvp: { cat: topMvp.cat, reason: genMvpReason(topMvp) },
+          blunder: { cat: topBlunder.cat, reason: genBlunderReason(topBlunder) }
+        };
+      }
+
       /* ステージクリア */
       stageClear() {
         this.state = 'clear';
@@ -3001,12 +4202,24 @@
         document.getElementById('clear-served').textContent = `${this.servedCount}皿`;
         document.getElementById('clear-rep').textContent = `★${this.reputation}`;
 
-        // MVP猫の決定（出勤した猫からランダムまたは貢献度の高い猫）
-        const mvpCat = this.cats[Math.floor(Math.random() * this.cats.length)];
-        if (mvpCat) {
-          document.getElementById('clear-mvp-img').src = mvpCat.def.img;
-          document.getElementById('clear-mvp-name').textContent = `${mvpCat.def.name} のひとこと`;
-          document.getElementById('clear-mvp-quote').textContent = mvpCat.def.mvp;
+        // 今日のMVP猫 & 今日のやらかし猫を絵入り・理由つきで発表
+        const resultCats = this.evaluateStageCats();
+        const mvpImg = document.getElementById('clear-mvp-img');
+        const mvpName = document.getElementById('clear-mvp-name');
+        const mvpQuote = document.getElementById('clear-mvp-quote');
+        if (mvpImg && resultCats.mvp) {
+          mvpImg.src = resultCats.mvp.cat.def.img;
+          if (mvpName) mvpName.textContent = resultCats.mvp.cat.def.name;
+          if (mvpQuote) mvpQuote.textContent = resultCats.mvp.reason;
+        }
+
+        const blunderImg = document.getElementById('clear-blunder-img');
+        const blunderName = document.getElementById('clear-blunder-name');
+        const blunderQuote = document.getElementById('clear-blunder-quote');
+        if (blunderImg && resultCats.blunder) {
+          blunderImg.src = resultCats.blunder.cat.def.img;
+          if (blunderName) blunderName.textContent = resultCats.blunder.cat.def.name;
+          if (blunderQuote) blunderQuote.textContent = resultCats.blunder.reason;
         }
 
         // 次のステージボタン制御（Stage 5クリア時は非表示または再挑戦）
@@ -3034,6 +4247,26 @@
         document.getElementById('fail-reason').textContent = reason;
         document.getElementById('fail-sales').textContent = `¥${this.sales.toLocaleString()}`;
         document.getElementById('fail-target').textContent = `¥${this.targetSales.toLocaleString()}`;
+
+        // 失敗時もMVP猫 & やらかし猫を発表
+        const resultCats = this.evaluateStageCats();
+        const mvpImg = document.getElementById('fail-mvp-img');
+        const mvpName = document.getElementById('fail-mvp-name');
+        const mvpQuote = document.getElementById('fail-mvp-quote');
+        if (mvpImg && resultCats.mvp) {
+          mvpImg.src = resultCats.mvp.cat.def.img;
+          if (mvpName) mvpName.textContent = resultCats.mvp.cat.def.name;
+          if (mvpQuote) mvpQuote.textContent = resultCats.mvp.reason;
+        }
+
+        const blunderImg = document.getElementById('fail-blunder-img');
+        const blunderName = document.getElementById('fail-blunder-name');
+        const blunderQuote = document.getElementById('fail-blunder-quote');
+        if (blunderImg && resultCats.blunder) {
+          blunderImg.src = resultCats.blunder.cat.def.img;
+          if (blunderName) blunderName.textContent = resultCats.blunder.cat.def.name;
+          if (blunderQuote) blunderQuote.textContent = resultCats.blunder.reason;
+        }
 
         document.getElementById('modal-fail').style.display = 'flex';
         this.updateGlobalState();
@@ -3079,31 +4312,52 @@
           const card = document.createElement('div');
           card.className = 'order-card';
           card.id = `card-${ord.id}`;
+          if (ord.isVip) card.classList.add('vip');
+          if (ord.isCatTongue) card.classList.add('cat-tongue');
 
-          // 特製リボン
-          const ribbon = ord.specialCut ? `<div class="special-tag">特製2x</div>` : '';
+          // 特別注文タグ
+          let tagsHtml = '';
+          if (ord.isVip) {
+            tagsHtml += `<div class="vip-tag">👑 VIP (売上3x)</div>`;
+          } else if (ord.isCatTongue) {
+            tagsHtml += `<div class="tongue-tag">🐱 猫舌</div>`;
+          }
+          if (ord.specialCut) {
+            tagsHtml += `<div class="special-tag">特製2x</div>`;
+          }
 
           // 工程ピップ生成
           const pipsHtml = ord.recipe.steps.map((stKey, idx) => {
             const isDone = idx < ord.currentStepIdx;
             const isActive = idx === ord.currentStepIdx;
             const cls = isDone ? 'step-pip done' : (isActive ? 'step-pip active' : 'step-pip');
-            const lbl = STEP_LABELS[stKey] ? STEP_LABELS[stKey].name : stKey;
+            let lbl = STEP_LABELS[stKey] ? STEP_LABELS[stKey].name : stKey;
+            if (ord.isCatTongue && stKey === 'plate' && ord.coolingTimer > 0) {
+              lbl = '❄️待機';
+            }
             return `<div class="${cls}">${lbl}</div>`;
           }).join('');
 
+          const displayPrice = ord.isVip ? ord.recipe.price * 3 : ord.recipe.price;
+
           card.innerHTML = `
-            ${ribbon}
+            ${tagsHtml}
             <div class="order-head">
-              <span class="order-customer-face" id="cface-${ord.id}">😊</span>
+              <span class="order-customer-face" id="cface-${ord.id}">${ord.isVip ? '👑' : '😊'}</span>
               <img src="${ord.recipe.img}" class="order-img" alt="${ord.recipe.name}">
               <div class="order-info">
                 <div class="order-name">${ord.recipe.name}</div>
-                <div class="order-price">¥${ord.recipe.price}</div>
+                <div class="order-price">¥${displayPrice.toLocaleString()}</div>
               </div>
             </div>
             <div class="order-patience-bar">
               <div class="order-patience-fill" id="pfill-${ord.id}"></div>
+            </div>
+            <div class="cooling-box" id="cooling-${ord.id}" style="${ord.coolingTimer > 0 ? '' : 'display:none;'}">
+              <span>❄️ 冷まし中…</span>
+              <div class="cooling-bar-wrap">
+                <div class="cooling-bar-fill" id="cfill-${ord.id}"></div>
+              </div>
             </div>
             <div class="order-steps" id="steps-${ord.id}">
               ${pipsHtml}
@@ -3121,19 +4375,32 @@
           const card = document.getElementById(`card-${ord.id}`);
           const fill = document.getElementById(`pfill-${ord.id}`);
           const face = document.getElementById(`cface-${ord.id}`);
+          const coolingBox = document.getElementById(`cooling-${ord.id}`);
+          const cfill = document.getElementById(`cfill-${ord.id}`);
           if (!card || !fill) return;
 
           const ratio = Math.max(0, ord.patience / ord.maxPatience);
           fill.style.width = `${ratio * 100}%`;
 
-          // 客の表情更新: 😊 → 😐 → 😠
+          // 冷ましバー更新
+          if (coolingBox && cfill) {
+            if (ord.coolingTimer > 0) {
+              coolingBox.style.display = 'flex';
+              const cRatio = ord.coolingTimer / (ord.maxCoolingTime || 3.2);
+              cfill.style.width = `${cRatio * 100}%`;
+            } else {
+              coolingBox.style.display = 'none';
+            }
+          }
+
+          // 客の表情更新: 😊 → 😐 → 😠 (VIP客は王冠アイコン付き)
           if (face) {
             if (ratio < 0.25) {
-              face.textContent = '😠';
+              face.textContent = ord.isVip ? '👑😠' : '😠';
             } else if (ratio < 0.6) {
-              face.textContent = '😐';
+              face.textContent = ord.isVip ? '👑😐' : '😐';
             } else {
-              face.textContent = '😊';
+              face.textContent = ord.isVip ? '👑😊' : '😊';
             }
           }
 
@@ -3252,10 +4519,18 @@
         wrap.className = 'cat-unit';
         wrap.id = `cat-${cat.id}`;
 
-        // 状態バッジ (💤, 🔥, 💨, ⚡ など)
+        // 状態バッジ (💤, 🔥, 💨, ⚡, ✨, 💥 など)
         let badgeHtml = '';
         let auraHtml = '';
-        if (cat.isSleeping) {
+        let avatarExtraClass = '';
+
+        if (cat.treatBoostTimer > 0) {
+          badgeHtml = `<div class="cat-state-badge" style="background:#ffd700;color:#332314;">✨</div>`;
+          avatarExtraClass += ' treat-boosted';
+        } else if (cat.brawlTimer > 0) {
+          badgeHtml = `<div class="cat-state-badge" style="background:#ff3333;color:#fff;">💥</div>`;
+          avatarExtraClass += ' brawling';
+        } else if (cat.isSleeping) {
           badgeHtml = `<div class="cat-state-badge">💤</div>`;
         } else if (cat.isBored) {
           badgeHtml = `<div class="cat-state-badge">🥱</div>`;
@@ -3285,7 +4560,7 @@
           ${bubbleHtml}
           ${tapGuideHtml}
           ${badgeHtml}
-          <div class="cat-avatar-wrap">
+          <div class="cat-avatar-wrap${avatarExtraClass}">
             <img src="${cat.def.img}" class="cat-avatar-img" alt="${cat.def.name}">
           </div>
           <div class="cat-name-tag">${cat.def.name}</div>
@@ -3317,6 +4592,12 @@
         e.stopPropagation();
 
         Sound.init();
+
+        // おやつ「かつおぶし」選択中の場合はおやつを与える
+        if (this.selectedTreatIdx !== null) {
+          this.giveTreatToCat(cat, this.selectedTreatIdx);
+          return;
+        }
 
         // 眠り猫（シロ）をタップ連打で起こす
         if (cat.isSleeping) {
@@ -3897,7 +5178,28 @@
         }
 
         if (this.state === 'play') {
+          // まかないタイム中は操作を控える
+          if (this.isMealBreak) return;
+
           this.botActionCooldown = 0.55; // 0.55秒間隔の落ち着いた操作
+
+          // 0. おやつ「かつおぶし」の自動活用 (VIP客やピンチ時にブースト)
+          if (this.treatsLeft > 0) {
+            const urgentOrVipOrder = this.orders.find(o => o.isVip || o.patience <= 10);
+            if (urgentOrVipOrder) {
+              const currentSt = urgentOrVipOrder.recipe.steps[urgentOrVipOrder.currentStepIdx];
+              const workingCat = this.stations[currentSt];
+              if (workingCat && workingCat.treatBoostTimer <= 0) {
+                this.giveTreatToCat(workingCat);
+                return;
+              }
+            }
+            const sleepingShiro = this.cats.find(c => c.defId === 'shiro' && c.isSleeping);
+            if (sleepingShiro && this.orders.length >= 2 && sleepingShiro.treatBoostTimer <= 0) {
+              this.giveTreatToCat(sleepingShiro);
+              return;
+            }
+          }
 
           // 1. シロが寝ていたら連打タップして起こす (料理長接近時は最優先)
           const sleepingShiro = this.cats.find(c => c.defId === 'shiro' && c.isSleeping);
@@ -3927,10 +5229,18 @@
 
           // 3. 最も急ぎの注文が必要としている持ち場を特定し、適材適所に猫をフリック移動
           if (this.orders.length > 0) {
-            // 待ち時間が少ない順
-            const sortedOrders = [...this.orders].sort((a, b) => a.patience - b.patience);
+            // VIP客優先、猫舌冷まし待ちは除外してソート
+            const sortedOrders = [...this.orders].sort((a, b) => {
+              const scoreA = a.patience - (a.isVip ? 8 : 0);
+              const scoreB = b.patience - (b.isVip ? 8 : 0);
+              return scoreA - scoreB;
+            });
+
             for (const ord of sortedOrders) {
               const neededStation = ord.recipe.steps[ord.currentStepIdx];
+              // 猫舌客が冷まし中の場合、盛る(plate)は後回し
+              if (neededStation === 'plate' && ord.coolingTimer > 0) continue;
+
               if (!this.stations[neededStation]) {
                 // その持ち場が空いている！猫を配置する
                 let candidateCat = null;
