@@ -2362,6 +2362,476 @@
       border: 1px solid #ebd9c2;
     }
 
+    /* =========================================================
+       第4回新要素: 実績トースト (HUDに重ならない中央上寄り配置)
+       ========================================================= */
+    #achievement-toast {
+      position: absolute;
+      top: 108px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px) scale(0.95);
+      z-index: 105;
+      background: linear-gradient(135deg, #fff7d6 0%, #ffe082 100%);
+      border: 2px solid #f59e0b;
+      box-shadow: 0 8px 24px rgba(217, 119, 6, 0.35), 0 2px 6px rgba(0,0,0,0.15);
+      border-radius: 24px;
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28),
+                  transform 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      max-width: 90%;
+      box-sizing: border-box;
+    }
+    #achievement-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0) scale(1);
+    }
+    .ach-toast-icon {
+      font-size: 24px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+      animation: achIconBounce 0.6s ease infinite alternate;
+    }
+    @keyframes achIconBounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-3px) scale(1.1); }
+    }
+    .ach-toast-content {
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+    }
+    .ach-toast-header {
+      font-size: 10px;
+      font-weight: 800;
+      color: #b45309;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .ach-toast-name {
+      font-size: 13px;
+      font-weight: 900;
+      color: #451a03;
+    }
+
+    /* タイトルの称号バッジ */
+    .title-user-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #fef3c7;
+      border: 1px solid #f59e0b;
+      color: #92400e;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 12px;
+      margin: 4px auto 8px;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    /* メニューボタングリッド */
+    .menu-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 12px 0;
+      width: 100%;
+    }
+    .menu-card-btn {
+      background: #fff9f2;
+      border: 2px solid #ecd5b8;
+      border-radius: 14px;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      color: #432818;
+      box-shadow: 0 3px 0 #deb887;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, border-color 0.15s;
+    }
+    .menu-card-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #deb887;
+    }
+    .menu-card-btn.locked {
+      opacity: 0.55;
+      background: #f0ece6;
+      border-color: #d1c7bd;
+      box-shadow: 0 3px 0 #baa99c;
+    }
+    .menu-card-icon {
+      font-size: 26px;
+    }
+    .menu-card-title {
+      font-size: 13px;
+      font-weight: 900;
+      color: #3b2010;
+    }
+    .menu-card-desc {
+      font-size: 10px;
+      color: #7c5c43;
+      text-align: center;
+      line-height: 1.25;
+    }
+
+    /* 設定モーダルのスタイル */
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: #fffaf4;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      border: 1px solid #ebd9c2;
+    }
+    .setting-info {
+      text-align: left;
+    }
+    .setting-label {
+      font-size: 13px;
+      font-weight: 800;
+      color: #432818;
+    }
+    .setting-desc {
+      font-size: 10px;
+      color: #8c6b4f;
+      margin-top: 2px;
+    }
+    .setting-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .setting-slider {
+      width: 90px;
+      accent-color: #f59e0b;
+      cursor: pointer;
+    }
+    .toggle-btn {
+      background: #e2d7cb;
+      border: none;
+      border-radius: 14px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #555;
+      cursor: pointer;
+      min-width: 50px;
+      transition: all 0.15s;
+    }
+    .toggle-btn.on {
+      background: #10b981;
+      color: #fff;
+      box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+    }
+
+    /* 実績一覧・タブ */
+    .ach-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      width: 100%;
+    }
+    .ach-tab-btn {
+      flex: 1;
+      padding: 6px 4px;
+      font-size: 11px;
+      font-weight: 800;
+      background: #f0e6da;
+      border: 1px solid #d8c3b0;
+      border-radius: 8px;
+      color: #63432a;
+      cursor: pointer;
+    }
+    .ach-tab-btn.active {
+      background: #f59e0b;
+      color: #fff;
+      border-color: #d97706;
+      box-shadow: 0 2px 4px rgba(217, 119, 6, 0.25);
+    }
+    .ach-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 320px;
+      overflow-y: auto;
+      padding-right: 4px;
+      margin-bottom: 12px;
+    }
+    .ach-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      background: #fffaf4;
+      border: 1.5px solid #ebd9c2;
+      border-radius: 12px;
+      text-align: left;
+      position: relative;
+    }
+    .ach-item.unlocked {
+      background: #fffbeb;
+      border-color: #f59e0b;
+    }
+    .ach-item.locked {
+      opacity: 0.6;
+      filter: grayscale(0.5);
+    }
+    .ach-icon-box {
+      font-size: 24px;
+      min-width: 34px;
+      text-align: center;
+    }
+    .ach-details {
+      flex: 1;
+    }
+    .ach-title-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ach-name {
+      font-size: 12px;
+      font-weight: 800;
+      color: #451a03;
+    }
+    .ach-badge-done {
+      font-size: 9px;
+      background: #10b981;
+      color: #fff;
+      padding: 1px 6px;
+      border-radius: 8px;
+      font-weight: 800;
+    }
+    .ach-desc {
+      font-size: 10px;
+      color: #78350f;
+      line-height: 1.3;
+      margin-top: 1px;
+    }
+    .ach-title-reward {
+      font-size: 9px;
+      color: #d97706;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    /* 称号選択リスト */
+    .title-chip-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      max-height: 280px;
+      overflow-y: auto;
+      padding: 4px;
+      margin-bottom: 12px;
+    }
+    .title-chip {
+      background: #fdf6ec;
+      border: 1.5px solid #d4bda8;
+      color: #63432a;
+      padding: 5px 10px;
+      border-radius: 16px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .title-chip.selected {
+      background: #f59e0b;
+      color: #fff;
+      border-color: #b45309;
+      box-shadow: 0 2px 4px rgba(217, 119, 6, 0.3);
+    }
+    .title-chip.locked {
+      opacity: 0.45;
+      background: #eee8e0;
+      border-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    /* 遊び方・図鑑モーダル */
+    .guide-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 10px;
+      width: 100%;
+    }
+    .guide-tab-btn {
+      flex: 1;
+      padding: 6px 2px;
+      font-size: 11px;
+      font-weight: 800;
+      background: #f0e6da;
+      border: 1px solid #d8c3b0;
+      border-radius: 8px;
+      color: #63432a;
+      cursor: pointer;
+    }
+    .guide-tab-btn.active {
+      background: #b45309;
+      color: #fff;
+      border-color: #78350f;
+    }
+    .guide-content {
+      max-height: 360px;
+      overflow-y: auto;
+      padding-right: 4px;
+      margin-bottom: 12px;
+      text-align: left;
+    }
+    .guide-cat-card {
+      display: flex;
+      gap: 10px;
+      background: #fffaf4;
+      border: 1.5px solid #ebd9c2;
+      border-radius: 12px;
+      padding: 8px;
+      margin-bottom: 8px;
+    }
+    .guide-cat-img {
+      width: 52px;
+      height: 52px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 2px solid #ecd5b8;
+      flex-shrink: 0;
+    }
+    .guide-cat-info {
+      flex: 1;
+    }
+    .guide-cat-name {
+      font-size: 13px;
+      font-weight: 900;
+      color: #3b2010;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .guide-cat-fav {
+      font-size: 10px;
+      background: #ffedd5;
+      color: #c2410c;
+      padding: 1px 6px;
+      border-radius: 6px;
+      font-weight: 800;
+    }
+    .guide-cat-desc {
+      font-size: 10px;
+      color: #63432a;
+      margin-top: 3px;
+      line-height: 1.35;
+    }
+    .guide-cat-synergy {
+      font-size: 10px;
+      color: #b45309;
+      margin-top: 3px;
+      font-weight: 700;
+    }
+    .guide-recipe-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #fffaf4;
+      border: 1.5px solid #ebd9c2;
+      border-radius: 12px;
+      padding: 8px;
+      margin-bottom: 8px;
+    }
+    .guide-recipe-img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 1.5px solid #ecd5b8;
+      flex-shrink: 0;
+    }
+    .guide-recipe-flow {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+    .guide-step-chip {
+      background: #fef3c7;
+      border: 1px solid #fde68a;
+      color: #92400e;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 2px 5px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .guide-flow-arrow {
+      font-size: 9px;
+      color: #b45309;
+    }
+
+    /* デイリーチャレンジ・カード */
+    .daily-banner-box {
+      background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+      border: 2px solid #f97316;
+      border-radius: 14px;
+      padding: 10px 14px;
+      margin: 8px 0 12px;
+      text-align: left;
+    }
+    .daily-date-badge {
+      font-size: 10px;
+      font-weight: 800;
+      color: #c2410c;
+      letter-spacing: 0.5px;
+    }
+    .daily-title {
+      font-size: 16px;
+      font-weight: 900;
+      color: #7c2d12;
+      margin: 2px 0 4px;
+    }
+    .daily-rule-box {
+      background: rgba(255,255,255,0.7);
+      border-radius: 8px;
+      padding: 6px 8px;
+      margin: 6px 0;
+      font-size: 11px;
+      color: #431407;
+      line-height: 1.35;
+    }
+    .daily-stats-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 800;
+      color: #9a3412;
+      margin-top: 6px;
+    }
+    .endless-level-badge {
+      background: #ef4444;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 900;
+      padding: 2px 8px;
+      border-radius: 10px;
+      display: inline-block;
+      margin-left: 6px;
+      animation: pulse 1s infinite;
+    }
+
+
   </style>
 </head>
 <body>
@@ -2374,6 +2844,15 @@
 
     <!-- トースト -->
     <div id="toast"></div>
+
+    <!-- 実績解除トースト (HUDに被らない中央上寄り配置) -->
+    <div id="achievement-toast">
+      <span class="ach-toast-icon" id="ach-toast-icon">🏆</span>
+      <div class="ach-toast-content">
+        <div class="ach-toast-header">🐾 実績解除！</div>
+        <div class="ach-toast-name" id="ach-toast-name">実績名</div>
+      </div>
+    </div>
 
     <!-- 料理長見回り警告 (Stage 5) -->
     <div id="boss-alert">
@@ -2396,6 +2875,7 @@
         <div class="stage-badge" id="hud-stage-name">🐾 1 朝の定食屋</div>
         <div class="time-badge" id="hud-timer">⏰ 90s</div>
         <div class="hud-controls">
+          <button class="icon-btn" id="btn-pause" title="一時停止・設定" style="display: none;">⏸️</button>
           <button class="icon-btn" id="btn-sound" title="音量切替">🔊</button>
         </div>
       </div>
@@ -2547,6 +3027,9 @@
           <div class="title-sub">人手不足の食堂パニック</div>
           <div class="title-main">猫の手も借りたい</div>
         </div>
+        <div id="title-user-title" class="title-user-title" title="タップして称号を変更">
+          <span>🎖️</span><span id="title-user-title-text">称号: 見習い店員</span>
+        </div>
         <div class="cats-showcase">
           <img src="assets/cat_tora.jpg" class="showcase-cat hopping" style="animation-delay: 0s;" data-cat="tora" alt="トラ" title="タップで鳴く！">
           <img src="assets/cat_hakase.jpg" class="showcase-cat hopping" style="animation-delay: 0.15s;" data-cat="hakase" alt="ハカセ" title="タップで鳴く！">
@@ -2566,9 +3049,17 @@
         <button class="btn-main" id="btn-start-game">
           <span>営業開始！</span>🐾
         </button>
-        <button class="btn-secondary" id="btn-select-stage-from-title">
-          ステージ選択
+        <button class="btn-secondary" id="btn-daily-challenge" style="background: #fff7ed; border-color: #f97316; color: #9a3412; font-weight: 800;">
+          📅 本日のおすすめ (Daily)
         </button>
+        <div style="display: flex; gap: 8px; width: 100%;">
+          <button class="btn-secondary" id="btn-select-stage-from-title" style="flex: 1; margin-top: 0;">
+            ステージ選択
+          </button>
+          <button class="btn-secondary" id="btn-open-menu" style="flex: 1; margin-top: 0;">
+            📋 メニュー
+          </button>
+        </div>
       </div>
     </div>
 
@@ -2776,6 +3267,257 @@
       </div>
     </div>
 
+    <!-- モーダル: サブ機能メニュー -->
+    <div id="modal-menu" class="modal-overlay" style="display: none;">
+      <div class="modal-box">
+        <div class="title-main" style="font-size: 22px;">📋 食堂メニュー</div>
+        <p style="font-size: 11px; color: #7c5c43; margin: 4px 0 10px;">遊び方や記録、各種設定はこちらから！</p>
+        <div class="menu-grid">
+          <button class="menu-card-btn" id="menu-btn-guide">
+            <span class="menu-card-icon">📖</span>
+            <span class="menu-card-title">遊び方・図鑑</span>
+            <span class="menu-card-desc">猫のクセ・相性・お品書き</span>
+          </button>
+          <button class="menu-card-btn" id="menu-btn-achievements">
+            <span class="menu-card-icon">🏆</span>
+            <span class="menu-card-title">実績と称号</span>
+            <span class="menu-card-desc">挑戦課題と獲得した称号</span>
+          </button>
+          <button class="menu-card-btn" id="menu-btn-endless">
+            <span class="menu-card-icon" id="menu-endless-icon">♾️</span>
+            <span class="menu-card-title" id="menu-endless-title">エンドレス営業</span>
+            <span class="menu-card-desc" id="menu-endless-desc">評判0まで続く限界挑戦！</span>
+          </button>
+          <button class="menu-card-btn" id="menu-btn-settings">
+            <span class="menu-card-icon">⚙️</span>
+            <span class="menu-card-title">各種設定</span>
+            <span class="menu-card-desc">音量・振動・ゆっくりモード</span>
+          </button>
+        </div>
+        <button class="btn-secondary" id="btn-close-menu">戻る</button>
+      </div>
+    </div>
+
+    <!-- モーダル: 設定・一時停止 -->
+    <div id="modal-settings" class="modal-overlay" style="display: none;">
+      <div class="modal-box">
+        <div class="title-sub" id="settings-title-sub" style="color: var(--accent-orange);">PAUSE & SETTINGS</div>
+        <div class="title-main" id="settings-title-main" style="font-size: 22px;">一時停止 / 設定</div>
+        <div style="margin: 12px 0 16px;">
+          <!-- 音量設定 -->
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-label">🔊 効果音音量</div>
+              <div class="setting-desc">ゲーム内のSE音量を調整します</div>
+            </div>
+            <div class="setting-control">
+              <input type="range" min="0" max="100" value="70" class="setting-slider" id="setting-se-vol">
+              <span id="setting-vol-text" style="font-size: 11px; font-weight: 800; min-width: 28px; text-align: right;">70%</span>
+            </div>
+          </div>
+          <!-- 振動設定 -->
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-label">📳 振動 (バイブレーション)</div>
+              <div class="setting-desc">タップやナイス投げ時の振動</div>
+            </div>
+            <div class="setting-control">
+              <button class="toggle-btn on" id="setting-vibrate-btn">ON</button>
+            </div>
+          </div>
+          <!-- ゆっくりモード -->
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-label">🐢 ゆっくりモード</div>
+              <div class="setting-desc">注文の待ち時間が1.5倍に延長</div>
+            </div>
+            <div class="setting-control">
+              <button class="toggle-btn" id="setting-slowmode-btn">OFF</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="settings-ingame-actions">
+          <button class="btn-main" id="btn-resume-game">営業を再開する 🐾</button>
+          <div style="display: flex; gap: 8px; width: 100%; margin-top: 8px;">
+            <button class="btn-secondary" id="btn-pause-retry" style="flex: 1; margin-top: 0;">もう一度</button>
+            <button class="btn-secondary" id="btn-pause-title" style="flex: 1; margin-top: 0;">タイトルへ</button>
+          </div>
+        </div>
+        <button class="btn-secondary" id="btn-close-settings" style="display: none; margin-top: 8px;">閉じる</button>
+      </div>
+    </div>
+
+    <!-- モーダル: 遊び方・猫図鑑・お品書き -->
+    <div id="modal-guide" class="modal-overlay" style="display: none;">
+      <div class="modal-box">
+        <div class="title-main" style="font-size: 20px;">📖 猫の手食堂の遊び方</div>
+        <div class="guide-tabs" style="margin-top: 8px;">
+          <button class="guide-tab-btn active" data-tab="guide-cats">🐱 猫図鑑</button>
+          <button class="guide-tab-btn" data-tab="guide-recipes">🍱 お品書き</button>
+          <button class="guide-tab-btn" data-tab="guide-tips">💡 営業のコツ</button>
+        </div>
+
+        <!-- タブ1: 猫図鑑 -->
+        <div id="tab-guide-cats" class="guide-content">
+          <!-- JSでCAT_DEFSと相性をレンダリング -->
+        </div>
+
+        <!-- タブ2: お品書き -->
+        <div id="tab-guide-recipes" class="guide-content" style="display: none;">
+          <!-- JSでRECIPESと工程をレンダリング -->
+        </div>
+
+        <!-- タブ3: 営業のコツ -->
+        <div id="tab-guide-tips" class="guide-content" style="display: none;">
+          <div style="background: #fffaf4; border: 1px solid #ebd9c2; border-radius: 10px; padding: 10px; margin-bottom: 8px; font-size: 11px; line-height: 1.45; color: #432818;">
+            <strong style="color: #b45309;">🐾 スワイプでフリック配置！</strong><br>
+            待機中の猫を指やマウスでシュッと持ち場へフリック（放り投げ）すると、綺麗な放物線を描いて厨房へ着地！強く投げると<strong>「ナイス投げ！」</strong>で移動時間を大幅短縮できます！
+          </div>
+          <div style="background: #fffaf4; border: 1px solid #ebd9c2; border-radius: 10px; padding: 10px; margin-bottom: 8px; font-size: 11px; line-height: 1.45; color: #432818;">
+            <strong style="color: #b45309;">🐟 かつおぶしの秘めた力！</strong><br>
+            1営業に3個まで使える「かつおぶし」を猫へドラッグすると、疲れやサボりが一瞬で全回復し、8秒間猛烈ブースト！注文が間に合わないピンチやVIP客の時に大活躍します。
+          </div>
+          <div style="background: #fffaf4; border: 1px solid #ebd9c2; border-radius: 10px; padding: 10px; margin-bottom: 8px; font-size: 11px; line-height: 1.45; color: #432818;">
+            <strong style="color: #b45309;">💥 猫どうしの相性シナジー！</strong><br>
+            隣り合う持ち場（切る×焼く、切る×盛るなど）に相性の良い猫を並べると、特別なバフが発動！「トラ×クロ」「ハカセ×シロ」など、ベストな配置を見つけ出そう！
+          </div>
+          <div style="background: #fffaf4; border: 1px solid #ebd9c2; border-radius: 10px; padding: 10px; margin-bottom: 8px; font-size: 11px; line-height: 1.45; color: #432818;">
+            <strong style="color: #b45309;">🔥 コンボを繋いで高得点！</strong><br>
+            料理を素早く連続で提供するとコンボが発生！チップ報酬がどんどん増えて目標売上を一気に達成できます！
+          </div>
+        </div>
+
+        <button class="btn-secondary" id="btn-close-guide">閉じる</button>
+      </div>
+    </div>
+
+    <!-- モーダル: 実績と称号 -->
+    <div id="modal-achievements" class="modal-overlay" style="display: none;">
+      <div class="modal-box">
+        <div class="title-main" style="font-size: 20px;">🏆 実績と称号</div>
+        <p style="font-size: 11px; color: #7c5c43; margin: 4px 0 8px;" id="ach-stats-text">達成数: 0 / 15</p>
+
+        <div class="ach-tabs">
+          <button class="ach-tab-btn active" data-ach-tab="ach-list">🐾 実績一覧</button>
+          <button class="ach-tab-btn" data-ach-tab="ach-titles">🎖️ 称号選択</button>
+        </div>
+
+        <!-- 実績リストタブ -->
+        <div id="tab-ach-list" class="ach-list">
+          <!-- JSで動的生成 -->
+        </div>
+
+        <!-- 称号選択タブ -->
+        <div id="tab-ach-titles" style="display: none;">
+          <p style="font-size: 11px; color: #8c6b4f; margin-bottom: 8px;">獲得した称号をタップして看板に掲げよう！</p>
+          <div class="title-chip-grid" id="title-chips-container">
+            <!-- JSで動的生成 -->
+          </div>
+        </div>
+
+        <button class="btn-secondary" id="btn-close-achievements">閉じる</button>
+      </div>
+    </div>
+
+    <!-- モーダル: 本日のおすすめ (デイリーチャレンジ説明) -->
+    <div id="modal-daily" class="modal-overlay" style="display: none;">
+      <div class="modal-box">
+        <div class="title-sub" style="color: #ea580c;">DAILY CHALLENGE</div>
+        <div class="title-main" style="font-size: 20px;">📅 本日のおすすめ営業</div>
+
+        <div class="daily-banner-box">
+          <div class="daily-date-badge" id="daily-date-label">2026年10月25日 (日) の仕入れ</div>
+          <div class="daily-title" id="daily-rule-title">特売！トラだらけの日</div>
+          <div class="daily-rule-box" id="daily-rule-desc">
+            本日の厨房は韋駄天トラばかり！超高速だが飽きるのも早い大忙し営業！
+          </div>
+          <div style="font-size: 11px; color: #7c2d12; margin-top: 4px;">
+            出勤猫: <span id="daily-cats-label" style="font-weight: 800;">トラ・シロ</span><br>
+            提供料理: <span id="daily-recipes-label" style="font-weight: 800;">焼き魚・寿司</span><br>
+            営業時間: <strong>60秒間一本勝負！</strong>
+          </div>
+          <div class="daily-stats-row">
+            <span>🔥 連続挑戦: <strong id="daily-streak-val">0日</strong></span>
+            <span>👑 本日のベスト: <strong id="daily-best-val">¥0</strong></span>
+          </div>
+        </div>
+
+        <button class="btn-main" id="btn-start-daily">本日のおすすめ営業開始！ 🐾</button>
+        <button class="btn-secondary" id="btn-close-daily">戻る</button>
+      </div>
+    </div>
+
+    <!-- モーダル: デイリー結果画面 -->
+    <div id="modal-daily-result" class="modal-overlay" style="display: none;">
+      <div class="modal-box">
+        <div class="title-sub" style="color: #ea580c;">DAILY RESULT</div>
+        <div class="title-main" style="font-size: 20px;">本日のおすすめ終了！</div>
+
+        <div style="margin: 12px 0 16px;">
+          <div class="result-grid">
+            <div>
+              <div class="result-label">本日の売上</div>
+              <div class="result-val" id="daily-res-sales" style="color: #ea580c;">¥0</div>
+            </div>
+            <div>
+              <div class="result-label">最高ベスト売上</div>
+              <div class="result-val" id="daily-res-best">¥0</div>
+            </div>
+            <div>
+              <div class="result-label">提供数</div>
+              <div class="result-val" id="daily-res-served">0皿</div>
+            </div>
+            <div>
+              <div class="result-label">連続挑戦</div>
+              <div class="result-val" id="daily-res-streak" style="color: #10b981;">1日目！</div>
+            </div>
+          </div>
+          <div id="daily-new-record-badge" style="display: none; background: #fef08a; border: 1.5px solid #eab308; color: #854d0e; font-weight: 900; font-size: 12px; padding: 4px; border-radius: 8px; margin-top: 8px;">
+            🎉 本日の最高記録更新！！ 🎉
+          </div>
+        </div>
+
+        <button class="btn-main" id="btn-daily-retry">もう一度挑戦 🐾</button>
+        <button class="btn-secondary" id="btn-daily-title">タイトルへ戻る</button>
+      </div>
+    </div>
+
+    <!-- モーダル: エンドレス結果画面 -->
+    <div id="modal-endless-result" class="modal-overlay" style="display: none;">
+      <div class="modal-box">
+        <div class="title-sub" style="color: #ef4444;">ENDLESS RESULT</div>
+        <div class="title-main" style="font-size: 20px;">営業終了！お疲れ様でした！</div>
+
+        <div style="margin: 12px 0 16px;">
+          <div class="result-grid">
+            <div>
+              <div class="result-label">最終売上</div>
+              <div class="result-val" id="endless-res-sales" style="color: #ef4444;">¥0</div>
+            </div>
+            <div>
+              <div class="result-label">ベスト売上</div>
+              <div class="result-val" id="endless-res-best">¥0</div>
+            </div>
+            <div>
+              <div class="result-label">生存時間</div>
+              <div class="result-val" id="endless-res-time">00:00</div>
+            </div>
+            <div>
+              <div class="result-label">提供皿数</div>
+              <div class="result-val" id="endless-res-served">0皿</div>
+            </div>
+          </div>
+          <div id="endless-new-record-badge" style="display: none; background: #fee2e2; border: 1.5px solid #ef4444; color: #991b1b; font-weight: 900; font-size: 12px; padding: 4px; border-radius: 8px; margin-top: 8px;">
+            🔥 エンドレス最高記録更新！！ 🔥
+          </div>
+        </div>
+
+        <button class="btn-main" id="btn-endless-retry">もう一度限界に挑戦！ 🐾</button>
+        <button class="btn-secondary" id="btn-endless-title">タイトルへ戻る</button>
+      </div>
+    </div>
+
     <!-- モーダル: 猫のクセ解説カード（長押し） -->
     <div id="cat-profile-overlay" style="display: none;">
       <!-- JSで動的挿入 -->
@@ -2788,9 +3530,28 @@
        ========================================================= */
     const Sound = {
       ctx: null,
+      masterGain: null,
       muted: false,
+      volume: 0.7,
+      vibrationEnabled: true,
+      userInteracted: false,
+
+      get dest() {
+        if (!this.ctx) return null;
+        if (!this.masterGain) {
+          try {
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
+            this.masterGain.connect(this.ctx.destination);
+          } catch (e) {
+            return this.ctx.destination;
+          }
+        }
+        return this.masterGain;
+      },
 
       init() {
+        this.userInteracted = true;
         if (!this.ctx) {
           const AudioContextClass = window.AudioContext || window.webkitAudioContext;
           if (AudioContextClass) {
@@ -2800,11 +3561,48 @@
         if (this.ctx && this.ctx.state === 'suspended') {
           this.ctx.resume();
         }
-        const saved = localStorage.getItem('nekoNoTeMuted');
-        if (saved !== null) {
-          this.muted = (saved === 'true');
+        const savedMuted = localStorage.getItem('nekoNoTeMuted');
+        if (savedMuted !== null) {
+          this.muted = (savedMuted === 'true');
+        }
+        const savedVol = localStorage.getItem('nekoNoTeVolume');
+        if (savedVol !== null) {
+          this.volume = Math.max(0, Math.min(1, parseFloat(savedVol)));
+        }
+        const savedVib = localStorage.getItem('nekoNoTeVibration');
+        if (savedVib !== null) {
+          this.vibrationEnabled = (savedVib === 'true');
+        }
+        if (this.masterGain && this.ctx) {
+          this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
         }
         this.updateBtnUI();
+      },
+
+      setVolume(valPercent) {
+        this.volume = Math.max(0, Math.min(1, valPercent / 100));
+        localStorage.setItem('nekoNoTeVolume', this.volume);
+        if (this.masterGain && this.ctx) {
+          this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
+        }
+      },
+
+      setVibration(enable) {
+        this.vibrationEnabled = !!enable;
+        localStorage.setItem('nekoNoTeVibration', this.vibrationEnabled);
+      },
+
+      vibrate(pattern = 30) {
+        if (!this.vibrationEnabled) return;
+        if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('bot') === '1') return;
+        if (!this.userInteracted) return;
+        if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+          try {
+            navigator.vibrate(pattern);
+          } catch (e) {
+            // 安全に無視
+          }
+        }
       },
 
       toggleMute() {
@@ -2855,7 +3653,7 @@
 
             noise.connect(filter);
             filter.connect(gain);
-            gain.connect(this.ctx.destination);
+            gain.connect(this.dest);
             noise.start(now);
             break;
           }
@@ -2872,7 +3670,7 @@
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
 
             osc.connect(gain);
-            gain.connect(this.ctx.destination);
+            gain.connect(this.dest);
             osc.start(now);
             osc.stop(now + 0.16);
             break;
@@ -2890,7 +3688,7 @@
               gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.14);
 
               osc.connect(gain);
-              gain.connect(this.ctx.destination);
+              gain.connect(this.dest);
               osc.start(now + idx * 0.08);
               osc.stop(now + idx * 0.08 + 0.15);
             });
@@ -2909,7 +3707,7 @@
               gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.28);
 
               osc.connect(gain);
-              gain.connect(this.ctx.destination);
+              gain.connect(this.dest);
               osc.start(now + idx * 0.07);
               osc.stop(now + idx * 0.07 + 0.3);
             });
@@ -2928,7 +3726,7 @@
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
 
             osc.connect(gain);
-            gain.connect(this.ctx.destination);
+            gain.connect(this.dest);
             osc.start(now);
             osc.stop(now + 0.2);
             break;
@@ -2946,7 +3744,7 @@
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
 
             osc.connect(gain);
-            gain.connect(this.ctx.destination);
+            gain.connect(this.dest);
             osc.start(now);
             osc.stop(now + 0.3);
             break;
@@ -2964,7 +3762,7 @@
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
 
             osc.connect(gain);
-            gain.connect(this.ctx.destination);
+            gain.connect(this.dest);
             osc.start(now);
             osc.stop(now + 0.46);
             break;
@@ -2983,7 +3781,7 @@
               gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.35);
 
               osc.connect(gain);
-              gain.connect(this.ctx.destination);
+              gain.connect(this.dest);
               osc.start(now + idx * 0.12);
               osc.stop(now + idx * 0.12 + 0.38);
             });
@@ -3004,7 +3802,7 @@
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
 
             osc.connect(gain);
-            gain.connect(this.ctx.destination);
+            gain.connect(this.dest);
             osc.start(now);
             osc.stop(now + 0.26);
             break;
@@ -3022,7 +3820,7 @@
               gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.22);
 
               osc.connect(gain);
-              gain.connect(this.ctx.destination);
+              gain.connect(this.dest);
               osc.start(now + idx * 0.06);
               osc.stop(now + idx * 0.06 + 0.24);
             });
@@ -3041,7 +3839,7 @@
               gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.2);
 
               osc.connect(gain);
-              gain.connect(this.ctx.destination);
+              gain.connect(this.dest);
               osc.start(now + idx * 0.05);
               osc.stop(now + idx * 0.05 + 0.22);
             });
@@ -3060,7 +3858,7 @@
               gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.25);
 
               osc.connect(gain);
-              gain.connect(this.ctx.destination);
+              gain.connect(this.dest);
               osc.start(now + idx * 0.05);
               osc.stop(now + idx * 0.05 + 0.27);
             });
@@ -3079,7 +3877,7 @@
               gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 0.2);
 
               osc.connect(gain);
-              gain.connect(this.ctx.destination);
+              gain.connect(this.dest);
               osc.start(now + idx * 0.04);
               osc.stop(now + idx * 0.04 + 0.22);
             });
@@ -3096,7 +3894,7 @@
             gain.gain.setValueAtTime(0.25, now);
             gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
             osc.connect(gain);
-            gain.connect(this.ctx.destination);
+            gain.connect(this.dest);
             osc.start(now);
             osc.stop(now + 0.23);
             break;
@@ -3112,7 +3910,7 @@
               gain.gain.setValueAtTime(0.26, now);
               gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
               osc.connect(gain);
-              gain.connect(this.ctx.destination);
+              gain.connect(this.dest);
               osc.start(now);
               osc.stop(now + 0.52);
             });
@@ -3129,7 +3927,7 @@
               gain.gain.setValueAtTime(0.25, now + idx * 0.08);
               gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.35);
               osc.connect(gain);
-              gain.connect(this.ctx.destination);
+              gain.connect(this.dest);
               osc.start(now + idx * 0.08);
               osc.stop(now + idx * 0.08 + 0.38);
             });
@@ -3146,7 +3944,7 @@
             gain.gain.setValueAtTime(0.3, now);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
             osc.connect(gain);
-            gain.connect(this.ctx.destination);
+            gain.connect(this.dest);
             osc.start(now);
             osc.stop(now + 0.4);
             break;
@@ -3162,7 +3960,7 @@
               gain.gain.setValueAtTime(0.22, now + idx * 0.06);
               gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.22);
               osc.connect(gain);
-              gain.connect(this.ctx.destination);
+              gain.connect(this.dest);
               osc.start(now + idx * 0.06);
               osc.stop(now + idx * 0.06 + 0.24);
             });
@@ -3171,6 +3969,12 @@
         }
       }
     };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pointerdown', () => {
+        Sound.userInteracted = true;
+      }, { capture: true, passive: true });
+    }
 
     /* =========================================================
        2. ゲームマスタデータ (料理・猫・ステージ)
@@ -3457,6 +4261,213 @@
     ];
 
     /* =========================================================
+       第4回新要素: 実績マスタデータ (16種) & 称号
+       ========================================================= */
+    const ACHIEVEMENTS = [
+      {
+        id: 'first_clear',
+        name: '開店準備完了',
+        icon: '🚪',
+        desc: 'いずれかのステージを初めてクリアした。',
+        title: '見習い店員'
+      },
+      {
+        id: 'shiro_sleep_carry',
+        name: '寝る子は運ぶ',
+        icon: '💤',
+        desc: 'シロが熟睡しながら通算20皿を運搬した。',
+        title: '熟睡の配達猫'
+      },
+      {
+        id: 'no_treats',
+        name: '自然派厨房',
+        icon: '🐟',
+        desc: 'かつおぶしを1つも使わずにステージをクリアした。',
+        title: 'ストイックシェフ'
+      },
+      {
+        id: 'all_vips',
+        name: 'VIP全員満足',
+        icon: '👑',
+        desc: '来店したすべてのVIP客を怒らせずに提供してクリアした。',
+        title: '至高のおもてなし'
+      },
+      {
+        id: 'speed_tora',
+        name: '韋駄天シェフ',
+        icon: '⚡',
+        desc: '1回の営業でトラが10工程以上の調理を完遂した。',
+        title: '韋駄天看板猫'
+      },
+      {
+        id: 'hakase_chips',
+        name: '理論派の真髄',
+        icon: '📐',
+        desc: 'ハカセの精密カットで累計¥2,000の特製チップを獲得した。',
+        title: '精密の求道者'
+      },
+      {
+        id: 'synergy_expert',
+        name: '仲良し猫たち',
+        icon: '🤝',
+        desc: '猫どうしの相性シナジーを累計10回発動させた。',
+        title: '厨房の指揮者'
+      },
+      {
+        id: 'combo_fever',
+        name: '怒涛のラッシュ',
+        icon: '🔥',
+        desc: '営業中に5連続コンボを達成した。',
+        title: 'コンボマスター'
+      },
+      {
+        id: 'three_stars',
+        name: '三ツ星の栄誉',
+        icon: '⭐',
+        desc: 'いずれかのステージで最高評価の★3を獲得した。',
+        title: '三ツ星シェフ'
+      },
+      {
+        id: 'daily_first',
+        name: '本日のおすすめ',
+        icon: '📅',
+        desc: '「本日のおすすめ」デイリーチャレンジを営業完遂した。',
+        title: '毎日の常連'
+      },
+      {
+        id: 'daily_streak3',
+        name: '三日坊主知らず',
+        icon: '🏅',
+        desc: 'デイリーチャレンジを3日連続で挑戦した。',
+        title: '皆勤賞猫'
+      },
+      {
+        id: 'endless_survivor',
+        name: '不夜城食堂',
+        icon: '⏳',
+        desc: 'エンドレス営業で90秒以上生存した。',
+        title: '限界突破猫'
+      },
+      {
+        id: 'endless_rich',
+        name: '千客万来',
+        icon: '💰',
+        desc: 'エンドレス営業で売上¥15,000以上を記録した。',
+        title: '億万長者猫'
+      },
+      {
+        id: 'all_stages_clear',
+        name: '伝説の食堂',
+        icon: '🏆',
+        desc: 'Stage 1〜5の全ステージを制覇した。',
+        title: '伝説の料理番長'
+      },
+      {
+        id: 'all_cats_kitchen',
+        name: '猫の手総動員',
+        icon: '🐾',
+        desc: '厨房の全4ポジションに猫を同時に配置した。',
+        title: '大繁盛の立役者'
+      },
+      {
+        id: 'flick_sniper',
+        name: '空中スナイパー',
+        icon: '🎯',
+        desc: 'スワイプのフリックで猫を直接持ち場へ着地させた。',
+        title: 'フライイングキャット'
+      }
+    ];
+
+    /* デイリーチャレンジ特殊ルール定義 (日替わりモディファイア) */
+    const DAILY_MODIFIERS = [
+      {
+        id: 'sleepy_day',
+        title: '全員眠い日 💤',
+        desc: '厨房全体にあくびが蔓延！全員の眠気確率が上昇。シロの寝ながら運搬が生命線にゃ！',
+        cats: ['shiro', 'hakase', 'tora'],
+        recipes: ['fish', 'omurice'],
+        special: 'sleepy'
+      },
+      {
+        id: 'tora_frenzy',
+        title: '韋駄天トラの日 ⚡',
+        desc: 'トラが2匹出勤！圧倒的な爆速調理だが、飽きっぽさも2倍！こまめに配置換えせよ！',
+        cats: ['tora', 'tora_clone', 'shiro'],
+        recipes: ['sushi', 'fish', 'pancake'],
+        special: 'tora_duo'
+      },
+      {
+        id: 'big_eater',
+        title: '大食い祭り 🍖',
+        desc: '客の待ち時間は短いが、満足させたときの売上チップがなんと2倍！大儲けのチャンス！',
+        cats: ['tora', 'kuro', 'mike'],
+        recipes: ['ramen', 'omurice', 'sushi'],
+        special: 'big_tip'
+      },
+      {
+        id: 'treat_party',
+        title: 'かつおぶし特売日 🐟',
+        desc: 'かつおぶしが初期5個！しかも効果時間が12秒に延長！おやつで猫たちを酷使せよ！',
+        cats: ['kuro', 'hakase', 'shiro'],
+        recipes: ['fish', 'ramen'],
+        special: 'treats_five'
+      },
+      {
+        id: 'artisan_day',
+        title: 'こだわり職人の日 ✨',
+        desc: 'ハカセとクロが意気投合！切ると焼くの工程で極上のチップボーナスが発生！',
+        cats: ['hakase', 'kuro', 'mike'],
+        recipes: ['fish', 'ramen', 'omurice'],
+        special: 'artisan'
+      },
+      {
+        id: 'harmony_day',
+        title: '雨宿り猫たち 🤝',
+        desc: '相性の良い猫たちが揃った日！持ち場シナジーの加速ボーナスが通常の2倍！',
+        cats: ['tora', 'kuro', 'hakase'],
+        recipes: ['sushi', 'fish', 'pancake'],
+        special: 'synergy_double'
+      },
+      {
+        id: 'flash_rush',
+        title: '怒涛のスピード営業 🔥',
+        desc: '60秒間、最初から最後まで注文が途切れず殺到！厨房の手腕が試される！',
+        cats: ['tora', 'mike', 'shiro'],
+        recipes: ['fish', 'sushi', 'ramen'],
+        special: 'constant_rush'
+      }
+    ];
+
+    /* 日付シードに基づくデイリーチャレンジ設定生成 */
+    function getDailyConfig(targetDate = new Date()) {
+      const y = targetDate.getFullYear();
+      const m = targetDate.getMonth() + 1;
+      const d = targetDate.getDate();
+      const dateStr = `${y}年${m}月${d}日`;
+      const seed = y * 10000 + m * 100 + d;
+
+      // 決定論的擬似乱数 (LCG)
+      let s = seed;
+      const rand = () => {
+        s = (s * 9301 + 49297) % 233280;
+        return s / 233280;
+      };
+
+      const modIdx = Math.floor(rand() * DAILY_MODIFIERS.length);
+      const mod = DAILY_MODIFIERS[modIdx];
+
+      return {
+        dateStr,
+        seed,
+        modifier: mod,
+        cats: mod.cats,
+        recipes: mod.recipes,
+        targetSales: 7500,
+        time: 60
+      };
+    }
+
+    /* =========================================================
        3. ゲーム管理クラス & ロジック
        ========================================================= */
     class Game {
@@ -3510,12 +4521,101 @@
         // 進行度保存 (クリア状況)
         this.progress = this.loadProgress();
 
+        // 第4回新要素: 各種モード・実績・設定・称号
+        this.gameMode = 'stage'; // 'stage', 'daily', 'endless'
+        this.isPaused = false;
+        this.slowMode = localStorage.getItem('nekoNoTeSlowMode') === 'true';
+        this.achievements = this.loadAchievements();
+        this.selectedTitle = localStorage.getItem('nekoNoTeSelectedTitle') || '見習い店員';
+        this.stats = this.loadStats();
+        this.dailyStreak = 0;
+        this.dailyBest = 0;
+        this.lastDailyDate = '';
+        this.loadDailyStats();
+        this.endlessBestSales = 0;
+        this.endlessBestTime = 0;
+        this.endlessBestDishes = 0;
+        this.loadEndlessStats();
+        this.endlessTime = 0;
+        this.endlessLevel = 1;
+        this.endlessNextSpeedup = 30;
+
+        // ステージ毎の挑戦実績トラッキング
+        this.treatsUsedThisStage = 0;
+        this.vipOrdersThisStage = 0;
+        this.vipSatisfiedThisStage = 0;
+        this.toraActionsThisStage = 0;
+
         // テスト用
         this.isBotMode = new URLSearchParams(window.location.search).get('bot') === '1';
         this.botActionCooldown = 0;
 
         this.initUI();
+        this.initSettingsUI();
+        this.initNewFeaturesUI();
         this.updateGlobalState();
+      }
+
+      loadAchievements() {
+        try {
+          const raw = localStorage.getItem('nekoNoTeAchievements');
+          return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+          return {};
+        }
+      }
+
+      saveAchievements() {
+        try {
+          localStorage.setItem('nekoNoTeAchievements', JSON.stringify(this.achievements));
+        } catch (e) {}
+      }
+
+      loadStats() {
+        let s = { totalShiroSleepCarry: 0, totalHakaseChips: 0, totalSynergies: 0 };
+        try {
+          const raw = localStorage.getItem('nekoNoTeStats');
+          if (raw) Object.assign(s, JSON.parse(raw));
+        } catch (e) {}
+        return s;
+      }
+
+      saveStats() {
+        try {
+          localStorage.setItem('nekoNoTeStats', JSON.stringify(this.stats));
+        } catch (e) {}
+      }
+
+      loadDailyStats() {
+        try {
+          this.dailyBest = parseInt(localStorage.getItem('neko_daily_best') || '0', 10);
+          this.dailyStreak = parseInt(localStorage.getItem('neko_daily_streak') || '0', 10);
+          this.lastDailyDate = localStorage.getItem('neko_daily_last_date') || '';
+        } catch (e) {}
+      }
+
+      saveDailyStats() {
+        try {
+          localStorage.setItem('neko_daily_best', this.dailyBest);
+          localStorage.setItem('neko_daily_streak', this.dailyStreak);
+          localStorage.setItem('neko_daily_last_date', this.lastDailyDate);
+        } catch (e) {}
+      }
+
+      loadEndlessStats() {
+        try {
+          this.endlessBestSales = parseInt(localStorage.getItem('neko_endless_best_sales') || '0', 10);
+          this.endlessBestTime = parseFloat(localStorage.getItem('neko_endless_best_time') || '0');
+          this.endlessBestDishes = parseInt(localStorage.getItem('neko_endless_best_dishes') || '0', 10);
+        } catch (e) {}
+      }
+
+      saveEndlessStats() {
+        try {
+          localStorage.setItem('neko_endless_best_sales', this.endlessBestSales);
+          localStorage.setItem('neko_endless_best_time', this.endlessBestTime);
+          localStorage.setItem('neko_endless_best_dishes', this.endlessBestDishes);
+        } catch (e) {}
       }
 
       loadProgress() {
@@ -3554,6 +4654,11 @@
       }
 
       updateGlobalState() {
+        const pauseBtn = document.getElementById('btn-pause');
+        if (pauseBtn) {
+          pauseBtn.style.display = (this.state === 'play') ? 'flex' : 'none';
+        }
+
         window.__game = {
           state: this.state,
           stage: this.currentStageNum,
@@ -3573,7 +4678,18 @@
           bossPhase: this.bossPhase || 1,
           bossOccupiedStation: this.bossOccupiedStation || null,
           bossTastingPassed: !!this.bossTastingPassed,
-          totalStars: this.getTotalStars()
+          totalStars: this.getTotalStars(),
+          // 第4回新要素
+          gameMode: this.gameMode || 'stage',
+          isPaused: !!this.isPaused,
+          slowMode: !!this.slowMode,
+          dailyStreak: this.dailyStreak || 0,
+          dailyBest: this.dailyBest || 0,
+          endlessLevel: this.endlessLevel || 1,
+          endlessTime: this.endlessTime || 0,
+          endlessBestSales: this.endlessBestSales || 0,
+          achievementsCount: Object.keys(this.achievements || {}).length,
+          currentTitle: this.selectedTitle || '見習い店員'
         };
       }
 
@@ -3674,8 +4790,10 @@
           endingTitleBtn.addEventListener('pointerdown', () => {
             Sound.init();
             document.getElementById('modal-ending').style.display = 'none';
+            this.state = 'title';
             document.getElementById('modal-title').style.display = 'flex';
             this.refreshManagerQuote();
+            this.updateGlobalState();
           });
         }
         const endingStagesBtn = document.getElementById('btn-ending-stages');
@@ -3726,6 +4844,857 @@
 
         // ループ開始
         requestAnimationFrame((t) => this.gameLoop(t));
+      }
+
+      /* =========================================================
+         第4回新要素: 設定 & 一時停止システム
+         ========================================================= */
+      initSettingsUI() {
+        // HUDの一時停止ボタン
+        const pauseBtn = document.getElementById('btn-pause');
+        if (pauseBtn) {
+          pauseBtn.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            Sound.init();
+            this.togglePause();
+          });
+        }
+
+        // 音量スライダー
+        const volSlider = document.getElementById('setting-se-vol');
+        const volText = document.getElementById('setting-vol-text');
+        if (volSlider && volText) {
+          volSlider.value = Math.round(Sound.volume * 100);
+          volText.textContent = `${volSlider.value}%`;
+          volSlider.addEventListener('input', (e) => {
+            const v = parseInt(e.target.value, 10);
+            volText.textContent = `${v}%`;
+            Sound.setVolume(v);
+          });
+          volSlider.addEventListener('change', () => {
+            Sound.play('stepDone');
+          });
+        }
+
+        // 振動ボタン
+        const vibBtn = document.getElementById('setting-vibrate-btn');
+        if (vibBtn) {
+          vibBtn.textContent = Sound.vibrationEnabled ? 'ON' : 'OFF';
+          vibBtn.className = Sound.vibrationEnabled ? 'toggle-btn on' : 'toggle-btn';
+          vibBtn.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            const next = !Sound.vibrationEnabled;
+            Sound.setVibration(next);
+            vibBtn.textContent = next ? 'ON' : 'OFF';
+            vibBtn.className = next ? 'toggle-btn on' : 'toggle-btn';
+            if (next) Sound.vibrate(40);
+          });
+        }
+
+        // ゆっくりモードトグル
+        const slowBtn = document.getElementById('setting-slowmode-btn');
+        if (slowBtn) {
+          slowBtn.textContent = this.slowMode ? 'ON' : 'OFF';
+          slowBtn.className = this.slowMode ? 'toggle-btn on' : 'toggle-btn';
+          slowBtn.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            this.slowMode = !this.slowMode;
+            localStorage.setItem('nekoNoTeSlowMode', this.slowMode);
+            slowBtn.textContent = this.slowMode ? 'ON' : 'OFF';
+            slowBtn.className = this.slowMode ? 'toggle-btn on' : 'toggle-btn';
+            Sound.play('flick');
+            this.showToast(this.slowMode ? 'ゆっくりモードON（待ち時間1.5倍）' : 'ゆっくりモードOFF');
+          });
+        }
+
+        // 再開ボタン
+        const resumeBtn = document.getElementById('btn-resume-game');
+        if (resumeBtn) {
+          resumeBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            this.resumeGame();
+          });
+        }
+
+        // 一時停止中のリトライ
+        const retryBtn = document.getElementById('btn-pause-retry');
+        if (retryBtn) {
+          retryBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            this.resumeGame();
+            if (this.gameMode === 'daily') {
+              this.startDailyChallenge();
+            } else if (this.gameMode === 'endless') {
+              this.startEndlessMode();
+            } else {
+              this.startStage(this.currentStageNum);
+            }
+          });
+        }
+
+        // 一時停止中のタイトルへ戻る
+        const titleBtn = document.getElementById('btn-pause-title');
+        if (titleBtn) {
+          titleBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            this.isPaused = false;
+            document.getElementById('modal-settings').style.display = 'none';
+            this.state = 'title';
+            document.getElementById('modal-title').style.display = 'flex';
+            this.refreshManagerQuote();
+            this.updateGlobalState();
+          });
+        }
+
+        // メニューからの設定閉じるボタン
+        const closeBtn = document.getElementById('btn-close-settings');
+        if (closeBtn) {
+          closeBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            document.getElementById('modal-settings').style.display = 'none';
+          });
+        }
+      }
+
+      togglePause() {
+        if (this.state !== 'play') return;
+        if (this.isPaused) {
+          this.resumeGame();
+        } else {
+          this.pauseGame();
+        }
+      }
+
+      pauseGame() {
+        if (this.state !== 'play') return;
+        this.isPaused = true;
+        Sound.play('land');
+        this.openSettingsModal(true);
+        this.updateGlobalState();
+      }
+
+      resumeGame() {
+        this.isPaused = false;
+        document.getElementById('modal-settings').style.display = 'none';
+        Sound.play('stepDone');
+        this.lastTime = performance.now();
+        this.updateGlobalState();
+      }
+
+      openSettingsModal(fromInGame = false) {
+        const modal = document.getElementById('modal-settings');
+        if (!modal) return;
+        const inGameActions = document.getElementById('settings-ingame-actions');
+        const closeBtn = document.getElementById('btn-close-settings');
+        const subTitle = document.getElementById('settings-title-sub');
+        const mainTitle = document.getElementById('settings-title-main');
+
+        if (fromInGame) {
+          subTitle.textContent = 'PAUSED';
+          mainTitle.textContent = '営業一時停止';
+          if (inGameActions) inGameActions.style.display = 'block';
+          if (closeBtn) closeBtn.style.display = 'none';
+        } else {
+          subTitle.textContent = 'SETTINGS';
+          mainTitle.textContent = 'ゲーム設定';
+          if (inGameActions) inGameActions.style.display = 'none';
+          if (closeBtn) closeBtn.style.display = 'block';
+        }
+
+        // スライダー同期
+        const volSlider = document.getElementById('setting-se-vol');
+        const volText = document.getElementById('setting-vol-text');
+        if (volSlider && volText) {
+          volSlider.value = Math.round(Sound.volume * 100);
+          volText.textContent = `${volSlider.value}%`;
+        }
+
+        modal.style.display = 'flex';
+      }
+
+      /* =========================================================
+         第4回新要素: 実績 & 称号システム
+         ========================================================= */
+      unlockAchievement(id) {
+        if (!this.achievements) this.achievements = {};
+        if (this.achievements[id]) return; // 既に解除済み
+
+        const ach = ACHIEVEMENTS.find(a => a.id === id);
+        if (!ach) return;
+
+        this.achievements[id] = Date.now();
+        this.saveAchievements();
+        this.showAchievementToast(ach);
+        Sound.play('clear');
+        Sound.vibrate([40, 60, 40]);
+        this.updateGlobalState();
+
+        // 獲得した称号を自動で看板に設定（初回獲得時など）
+        if (ach.title && (!this.selectedTitle || this.selectedTitle === '見習い店員')) {
+          this.selectTitle(ach.title, false);
+        }
+      }
+
+      showAchievementToast(ach) {
+        const toast = document.getElementById('achievement-toast');
+        const iconEl = document.getElementById('ach-toast-icon');
+        const nameEl = document.getElementById('ach-toast-name');
+        if (!toast || !iconEl || !nameEl) return;
+
+        iconEl.textContent = ach.icon || '🏆';
+        nameEl.textContent = `${ach.name} (称号: ${ach.title})`;
+
+        toast.style.display = 'flex';
+        // forced reflow
+        void toast.offsetWidth;
+        toast.classList.add('show');
+
+        if (this._achToastTimer) clearTimeout(this._achToastTimer);
+        this._achToastTimer = setTimeout(() => {
+          toast.classList.remove('show');
+          setTimeout(() => {
+            if (!toast.classList.contains('show')) {
+              toast.style.display = 'none';
+            }
+          }, 350);
+        }, 3600);
+      }
+
+      selectTitle(titleName, notify = true) {
+        this.selectedTitle = titleName;
+        localStorage.setItem('nekoNoTeSelectedTitle', titleName);
+        this.updateTitleUserTitle();
+        if (notify) {
+          Sound.play('stepDone');
+          this.showToast(`称号を「${titleName}」に変更したにゃ！`);
+        }
+        this.renderTitlesList();
+        this.updateGlobalState();
+      }
+
+      updateTitleUserTitle() {
+        const titleEl = document.getElementById('title-user-title-text');
+        if (titleEl) {
+          titleEl.textContent = `称号: ${this.selectedTitle || '見習い店員'}`;
+        }
+      }
+
+      openAchievementsModal(initialTab = 'list') {
+        const modal = document.getElementById('modal-achievements');
+        if (!modal) return;
+
+        const count = Object.keys(this.achievements || {}).length;
+        const statsEl = document.getElementById('ach-stats-text');
+        if (statsEl) {
+          statsEl.textContent = `達成数: ${count} / ${ACHIEVEMENTS.length} 🐾`;
+        }
+
+        this.renderAchievementsList();
+        this.renderTitlesList();
+
+        // タブ切替
+        document.querySelectorAll('.ach-tab-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.achTab === (initialTab === 'titles' ? 'ach-titles' : 'ach-list'));
+        });
+        const tabList = document.getElementById('tab-ach-list');
+        const tabTitles = document.getElementById('tab-ach-titles');
+        if (tabList && tabTitles) {
+          tabList.style.display = (initialTab === 'titles') ? 'none' : 'flex';
+          tabTitles.style.display = (initialTab === 'titles') ? 'block' : 'none';
+        }
+
+        modal.style.display = 'flex';
+      }
+
+      renderAchievementsList() {
+        const container = document.getElementById('tab-ach-list');
+        if (!container) return;
+
+        container.innerHTML = ACHIEVEMENTS.map(ach => {
+          const isDone = !!(this.achievements && this.achievements[ach.id]);
+          return `
+            <div class="ach-item ${isDone ? 'unlocked' : 'locked'}">
+              <div class="ach-icon-box">${isDone ? ach.icon : '🔒'}</div>
+              <div class="ach-details">
+                <div class="ach-title-line">
+                  <span class="ach-name">${ach.name}</span>
+                  ${isDone ? '<span class="ach-badge-done">達成！</span>' : ''}
+                </div>
+                <div class="ach-desc">${ach.desc}</div>
+                <div class="ach-title-reward">🎖️ 称号: ${ach.title}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      renderTitlesList() {
+        const container = document.getElementById('title-chips-container');
+        if (!container) return;
+
+        // デフォルト称号
+        const unlockedTitlesSet = new Set(['見習い店員']);
+        ACHIEVEMENTS.forEach(ach => {
+          if (this.achievements && this.achievements[ach.id] && ach.title) {
+            unlockedTitlesSet.add(ach.title);
+          }
+        });
+
+        // 全称号リスト
+        const allTitles = ['見習い店員', ...ACHIEVEMENTS.map(a => a.title).filter(Boolean)];
+        // 重複除外
+        const uniqueTitles = Array.from(new Set(allTitles));
+
+        container.innerHTML = uniqueTitles.map(t => {
+          const isUnlocked = unlockedTitlesSet.has(t);
+          const isSelected = (this.selectedTitle === t);
+          return `
+            <button class="title-chip ${isSelected ? 'selected' : ''} ${isUnlocked ? '' : 'locked'}"
+                    data-title="${t}"
+                    ${!isUnlocked ? 'disabled title="実績解除で獲得"' : ''}>
+              ${isSelected ? '✓ ' : ''}${t}
+            </button>
+          `;
+        }).join('');
+
+        container.querySelectorAll('.title-chip:not(.locked)').forEach(btn => {
+          btn.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            const t = btn.dataset.title;
+            if (t) this.selectTitle(t);
+          });
+        });
+      }
+
+      /* =========================================================
+         第4回新要素: 遊び方・猫図鑑・お品書き
+         ========================================================= */
+      openGuideModal() {
+        const modal = document.getElementById('modal-guide');
+        if (!modal) return;
+        this.renderGuideCats();
+        this.renderGuideRecipes();
+        modal.style.display = 'flex';
+      }
+
+      renderGuideCats() {
+        const container = document.getElementById('tab-guide-cats');
+        if (!container) return;
+
+        const catKeys = ['tora', 'hakase', 'shiro', 'kuro', 'mike', 'boss'];
+        container.innerHTML = catKeys.map(k => {
+          const def = CAT_DEFS[k];
+          if (!def) return '';
+
+          // 関連する相性を検索
+          const synergies = [];
+          if (typeof CHEMISTRY_DEFS !== 'undefined') {
+            Object.values(CHEMISTRY_DEFS).forEach(chem => {
+              if (chem.cats && chem.cats.includes(k)) {
+                const partnerKey = chem.cats.find(c => c !== k);
+                const partnerName = CAT_DEFS[partnerKey] ? CAT_DEFS[partnerKey].name : partnerKey;
+                synergies.push(`${chem.icon} ${partnerName}と「${chem.name}」(${chem.quote})`);
+              }
+            });
+          }
+
+          const favText = def.favStation ? `得意: ${STEP_LABELS[def.favStation] ? STEP_LABELS[def.favStation].name : def.favStation}` : '得意: オールラウンダー';
+
+          return `
+            <div class="guide-cat-card">
+              <img src="${def.img}" class="guide-cat-img" alt="${def.name}">
+              <div class="guide-cat-info">
+                <div class="guide-cat-name">
+                  <span>${def.name}</span>
+                  <span class="guide-cat-fav">${favText}</span>
+                </div>
+                <div style="font-size: 10px; font-weight: 800; color: #b45309;">${def.roleTitle}</div>
+                <div class="guide-cat-desc">${def.trait}</div>
+                <div class="guide-cat-desc" style="color: #c2410c;">${def.rewardTip}</div>
+                ${synergies.length > 0 ? `<div class="guide-cat-synergy">🤝 相性: ${synergies.join(' / ')}</div>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      renderGuideRecipes() {
+        const container = document.getElementById('tab-guide-recipes');
+        if (!container) return;
+
+        container.innerHTML = Object.values(RECIPES).map(r => {
+          const stepChips = r.steps.map(s => {
+            const label = STEP_LABELS[s] || { name: s, icon: '🐾' };
+            return `<span class="guide-step-chip">${label.icon} ${label.name}</span>`;
+          }).join('<span class="guide-flow-arrow">➔</span>');
+
+          return `
+            <div class="guide-recipe-card">
+              <img src="${r.img}" class="guide-recipe-img" alt="${r.name}">
+              <div style="flex: 1;">
+                <div style="font-size: 13px; font-weight: 900; color: #3b2010; display: flex; justify-content: space-between;">
+                  <span>${r.name}</span>
+                  <span style="color: #b45309;">¥${r.price.toLocaleString()}</span>
+                </div>
+                <div class="guide-recipe-flow">${stepChips}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      /* =========================================================
+         第4回新要素: デイリーチャレンジ「本日のおすすめ」
+         ========================================================= */
+      openDailyModal() {
+        const modal = document.getElementById('modal-daily');
+        if (!modal) return;
+
+        const config = getDailyConfig(new Date());
+        this.dailyConfig = config;
+
+        // UI反映
+        const dateEl = document.getElementById('daily-date-label');
+        const titleEl = document.getElementById('daily-rule-title');
+        const descEl = document.getElementById('daily-rule-desc');
+        const catsEl = document.getElementById('daily-cats-label');
+        const recipesEl = document.getElementById('daily-recipes-label');
+        const streakEl = document.getElementById('daily-streak-val');
+        const bestEl = document.getElementById('daily-best-val');
+
+        if (dateEl) dateEl.textContent = `${config.dateStr} の仕入れ`;
+        if (titleEl) titleEl.textContent = config.modifier.title;
+        if (descEl) descEl.textContent = config.modifier.desc;
+
+        if (catsEl) {
+          const catNames = config.cats.map(c => {
+            if (c === 'tora_clone') return 'トラ(分身)';
+            return CAT_DEFS[c] ? CAT_DEFS[c].name : c;
+          });
+          catsEl.textContent = catNames.join('・');
+        }
+
+        if (recipesEl) {
+          const rNames = config.recipes.map(r => RECIPES[r] ? RECIPES[r].name : r);
+          recipesEl.textContent = rNames.join('・');
+        }
+
+        if (streakEl) streakEl.textContent = `${this.dailyStreak || 0}日`;
+        if (bestEl) bestEl.textContent = `¥${(this.dailyBest || 0).toLocaleString()}`;
+
+        modal.style.display = 'flex';
+      }
+
+      startDailyChallenge() {
+        document.getElementById('modal-title').style.display = 'none';
+        document.getElementById('modal-daily').style.display = 'none';
+        document.getElementById('modal-daily-result').style.display = 'none';
+
+        const config = this.dailyConfig || getDailyConfig(new Date());
+        this.dailyConfig = config;
+        this.gameMode = 'daily';
+
+        // ステージ設定をデイリー用に構築
+        this.stageConfig = {
+          num: 99,
+          name: `📅 本日: ${config.modifier.title}`,
+          time: config.time,
+          target: config.targetSales,
+          starTargets: [config.targetSales, config.targetSales * 1.3, config.targetSales * 1.6],
+          recipes: config.recipes,
+          cats: config.cats,
+          orderInterval: (config.modifier.id === 'flash_rush') ? [2.5, 3.8] : [3.8, 5.5],
+          desc: config.modifier.desc
+        };
+
+        // 基本のゲーム開始共通ロジック
+        this.setupStageCommon(this.stageConfig);
+
+        // 特殊ルールの適用
+        if (config.modifier.id === 'treat_party') {
+          this.treatsLeft = 5;
+          this.treatsUsed = [false, false, false, false, false];
+          this.renderTreats();
+        }
+
+        // デイリー開始トースト
+        this.showToast(`本日のおすすめ「${config.modifier.title}」営業開始！`);
+        this.updateGlobalState();
+      }
+
+      endDailyChallenge() {
+        this.state = 'clear';
+        Sound.play(this.sales >= this.targetSales ? 'clear' : 'stepDone');
+
+        // 実績解除チェック
+        this.unlockAchievement('daily_first');
+
+        // 連続挑戦日数の更新計算
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, '0');
+        const d = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${y}-${m}-${d}`;
+
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const y2 = yesterday.getFullYear();
+        const m2 = String(yesterday.getMonth() + 1).padStart(2, '0');
+        const d2 = String(yesterday.getDate()).padStart(2, '0');
+        const yesterdayStr = `${y2}-${m2}-${d2}`;
+
+        if (this.lastDailyDate === todayStr) {
+          // 本日すでに挑戦済み、streak維持
+        } else if (this.lastDailyDate === yesterdayStr) {
+          // 前日からの連続挑戦
+          this.dailyStreak = (this.dailyStreak || 0) + 1;
+          this.lastDailyDate = todayStr;
+        } else {
+          // 途切れたか初回
+          this.dailyStreak = 1;
+          this.lastDailyDate = todayStr;
+        }
+
+        if (this.dailyStreak >= 3) {
+          this.unlockAchievement('daily_streak3');
+        }
+
+        // ベスト売上更新
+        let isNewRecord = false;
+        if (this.sales > this.dailyBest) {
+          this.dailyBest = this.sales;
+          isNewRecord = true;
+        }
+
+        this.saveDailyStats();
+
+        // リザルトモーダル表示
+        const resModal = document.getElementById('modal-daily-result');
+        if (resModal) {
+          document.getElementById('daily-res-sales').textContent = `¥${this.sales.toLocaleString()}`;
+          document.getElementById('daily-res-best').textContent = `¥${this.dailyBest.toLocaleString()}`;
+          document.getElementById('daily-res-served').textContent = `${this.servedCount}皿`;
+          document.getElementById('daily-res-streak').textContent = `${this.dailyStreak}日連続！`;
+          const badge = document.getElementById('daily-new-record-badge');
+          if (badge) badge.style.display = isNewRecord ? 'block' : 'none';
+
+          resModal.style.display = 'flex';
+        }
+
+        this.updateGlobalState();
+      }
+
+      /* =========================================================
+         第4回新要素: エンドレス営業モード
+         ========================================================= */
+      isEndlessUnlocked() {
+        // Stage 5クリア済み (progress.stars[5] > 0 または progress.unlockedStage > 5)
+        return (this.progress && (this.progress.stars[5] > 0 || this.progress.unlockedStage > 5));
+      }
+
+      onClickMenuEndless() {
+        if (!this.isEndlessUnlocked()) {
+          Sound.play('brawl');
+          this.showToast('🔒 Stage 5をクリアすると解放されるにゃ！');
+          return;
+        }
+        document.getElementById('modal-menu').style.display = 'none';
+        this.startEndlessMode();
+      }
+
+      startEndlessMode() {
+        document.getElementById('modal-title').style.display = 'none';
+        document.getElementById('modal-menu').style.display = 'none';
+        document.getElementById('modal-endless-result').style.display = 'none';
+
+        this.gameMode = 'endless';
+        this.endlessTime = 0;
+        this.endlessLevel = 1;
+        this.endlessNextSpeedup = 30;
+
+        // 全猫・全料理
+        this.stageConfig = {
+          num: 100,
+          name: '♾️ エンドレス営業',
+          time: 999999, // 実質無制限
+          target: 999999,
+          starTargets: [10000, 20000, 30000],
+          recipes: ['fish', 'sushi', 'omurice', 'ramen', 'pancake'],
+          cats: ['tora', 'hakase', 'shiro', 'kuro', 'mike'],
+          orderInterval: [4.2, 6.0],
+          desc: '評判が0になるまで続く限界営業！30秒ごとに注文が激化！'
+        };
+
+        this.setupStageCommon(this.stageConfig);
+        this.showToast('♾️ エンドレス営業開始！評判を守り抜け！');
+        this.updateGlobalState();
+      }
+
+      updateEndlessMode(dt) {
+        if (this.gameMode !== 'endless' || this.state !== 'play') return;
+
+        this.endlessTime += dt;
+
+        // 実績チェック
+        if (this.endlessTime >= 90) {
+          this.unlockAchievement('endless_survivor');
+        }
+        if (this.sales >= 15000) {
+          this.unlockAchievement('endless_rich');
+        }
+
+        // 30秒ごとの難易度UP
+        if (this.endlessTime >= this.endlessNextSpeedup) {
+          this.endlessLevel += 1;
+          this.endlessNextSpeedup += 30;
+
+          // 注文間隔を短縮 (下限 1.5秒)
+          const baseMin = Math.max(1.5, 4.2 - (this.endlessLevel - 1) * 0.45);
+          const baseMax = Math.max(2.4, 6.0 - (this.endlessLevel - 1) * 0.55);
+          this.stageConfig.orderInterval = [baseMin, baseMax];
+
+          Sound.play('vip');
+          Sound.vibrate([60, 40, 60]);
+          this.showToast(`🔥 レベルUP (Lv.${this.endlessLevel})！注文スピード加速！`);
+        }
+      }
+
+      endEndlessMode() {
+        this.state = 'clear';
+        Sound.play('clear');
+
+        // ベスト記録の更新判定
+        let isNewRecord = false;
+        if (this.sales > this.endlessBestSales) {
+          this.endlessBestSales = this.sales;
+          isNewRecord = true;
+        }
+        if (this.endlessTime > this.endlessBestTime) {
+          this.endlessBestTime = this.endlessTime;
+        }
+        if (this.servedCount > this.endlessBestDishes) {
+          this.endlessBestDishes = this.servedCount;
+        }
+        this.saveEndlessStats();
+
+        // モーダル表示
+        const resModal = document.getElementById('modal-endless-result');
+        if (resModal) {
+          document.getElementById('endless-res-sales').textContent = `¥${this.sales.toLocaleString()}`;
+          document.getElementById('endless-res-best').textContent = `¥${this.endlessBestSales.toLocaleString()}`;
+          const m = Math.floor(this.endlessTime / 60);
+          const s = Math.floor(this.endlessTime % 60);
+          document.getElementById('endless-res-time').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+          document.getElementById('endless-res-served').textContent = `${this.servedCount}皿`;
+
+          const badge = document.getElementById('endless-new-record-badge');
+          if (badge) badge.style.display = isNewRecord ? 'block' : 'none';
+
+          resModal.style.display = 'flex';
+        }
+
+        this.updateGlobalState();
+      }
+
+      /* =========================================================
+         第4回新要素: メニューUI & 各種イベントバインド
+         ========================================================= */
+      openMenuModal() {
+        const modal = document.getElementById('modal-menu');
+        if (!modal) return;
+
+        // エンドレスのロック状態反映
+        const endlessBtn = document.getElementById('menu-btn-endless');
+        const endlessTitle = document.getElementById('menu-endless-title');
+        const endlessDesc = document.getElementById('menu-endless-desc');
+        const isUnlocked = this.isEndlessUnlocked();
+
+        if (endlessBtn) {
+          endlessBtn.classList.toggle('locked', !isUnlocked);
+          if (endlessTitle) {
+            endlessTitle.textContent = isUnlocked ? 'エンドレス営業' : 'エンドレス (🔒)';
+          }
+          if (endlessDesc) {
+            endlessDesc.textContent = isUnlocked ? '評判0まで続く限界挑戦！' : 'Stage 5クリアで解放！';
+          }
+        }
+
+        modal.style.display = 'flex';
+      }
+
+      initNewFeaturesUI() {
+        this.updateTitleUserTitle();
+
+        // 看板の称号タップ
+        const titleBadge = document.getElementById('title-user-title');
+        if (titleBadge) {
+          titleBadge.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            Sound.init();
+            this.openAchievementsModal('titles');
+          });
+        }
+
+        // タイトルの「本日のおすすめ」ボタン
+        const dailyBtn = document.getElementById('btn-daily-challenge');
+        if (dailyBtn) {
+          dailyBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            this.openDailyModal();
+          });
+        }
+
+        // タイトルの「メニュー」ボタン
+        const menuBtn = document.getElementById('btn-open-menu');
+        if (menuBtn) {
+          menuBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            this.openMenuModal();
+          });
+        }
+
+        // メニュー内ボタン
+        const guideBtn = document.getElementById('menu-btn-guide');
+        if (guideBtn) {
+          guideBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            this.openGuideModal();
+          });
+        }
+
+        const achBtn = document.getElementById('menu-btn-achievements');
+        if (achBtn) {
+          achBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            this.openAchievementsModal('list');
+          });
+        }
+
+        const endlessBtn = document.getElementById('menu-btn-endless');
+        if (endlessBtn) {
+          endlessBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            this.onClickMenuEndless();
+          });
+        }
+
+        const settingsBtn = document.getElementById('menu-btn-settings');
+        if (settingsBtn) {
+          settingsBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            this.openSettingsModal(false);
+          });
+        }
+
+        const closeMenuBtn = document.getElementById('btn-close-menu');
+        if (closeMenuBtn) {
+          closeMenuBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            document.getElementById('modal-menu').style.display = 'none';
+          });
+        }
+
+        // ガイドタブ切替
+        document.querySelectorAll('.guide-tab-btn').forEach(btn => {
+          btn.addEventListener('pointerdown', () => {
+            Sound.init();
+            const tabId = btn.dataset.tab;
+            document.querySelectorAll('.guide-tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+            document.querySelectorAll('.guide-content').forEach(c => {
+              c.style.display = (c.id === `tab-${tabId}`) ? 'block' : 'none';
+            });
+          });
+        });
+
+        const closeGuideBtn = document.getElementById('btn-close-guide');
+        if (closeGuideBtn) {
+          closeGuideBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            document.getElementById('modal-guide').style.display = 'none';
+          });
+        }
+
+        // 実績タブ切替
+        document.querySelectorAll('.ach-tab-btn').forEach(btn => {
+          btn.addEventListener('pointerdown', () => {
+            Sound.init();
+            const tab = btn.dataset.achTab;
+            document.querySelectorAll('.ach-tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+            const tabList = document.getElementById('tab-ach-list');
+            const tabTitles = document.getElementById('tab-ach-titles');
+            if (tabList && tabTitles) {
+              tabList.style.display = (tab === 'ach-list') ? 'flex' : 'none';
+              tabTitles.style.display = (tab === 'ach-titles') ? 'block' : 'none';
+            }
+          });
+        });
+
+        const closeAchBtn = document.getElementById('btn-close-achievements');
+        if (closeAchBtn) {
+          closeAchBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            document.getElementById('modal-achievements').style.display = 'none';
+          });
+        }
+
+        // デイリーボタン
+        const startDailyBtn = document.getElementById('btn-start-daily');
+        if (startDailyBtn) {
+          startDailyBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            this.startDailyChallenge();
+          });
+        }
+
+        const closeDailyBtn = document.getElementById('btn-close-daily');
+        if (closeDailyBtn) {
+          closeDailyBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            document.getElementById('modal-daily').style.display = 'none';
+          });
+        }
+
+        // デイリーリザルトボタン
+        const dailyRetryBtn = document.getElementById('btn-daily-retry');
+        if (dailyRetryBtn) {
+          dailyRetryBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            this.startDailyChallenge();
+          });
+        }
+
+        const dailyTitleBtn = document.getElementById('btn-daily-title');
+        if (dailyTitleBtn) {
+          dailyTitleBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            document.getElementById('modal-daily-result').style.display = 'none';
+            this.state = 'title';
+            document.getElementById('modal-title').style.display = 'flex';
+            this.refreshManagerQuote();
+            this.updateGlobalState();
+          });
+        }
+
+        // エンドレスリザルトボタン
+        const endlessRetryBtn = document.getElementById('btn-endless-retry');
+        if (endlessRetryBtn) {
+          endlessRetryBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            this.startEndlessMode();
+          });
+        }
+
+        const endlessTitleBtn = document.getElementById('btn-endless-title');
+        if (endlessTitleBtn) {
+          endlessTitleBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            document.getElementById('modal-endless-result').style.display = 'none';
+            this.state = 'title';
+            document.getElementById('modal-title').style.display = 'flex';
+            this.refreshManagerQuote();
+            this.updateGlobalState();
+          });
+        }
       }
 
       /* =========================================================
@@ -3848,9 +5817,11 @@
         if (this.treatsUsed) this.treatsUsed[treatIdx] = true;
         this.treatsLeft = Math.max(0, (this.treatsLeft || 1) - 1);
         this.selectedTreatIdx = null;
+        this.treatsUsedThisStage = (this.treatsUsedThisStage || 0) + 1;
 
         // 猫のやる気MAX化: 10秒間ブースト (サボらない・寝ない・金色に光る)
-        cat.treatBoostTimer = 10.0;
+        const boostDur = (this.dailyConfig && this.dailyConfig.modifier.special === 'treats_five') ? 15.0 : 10.0;
+        cat.treatBoostTimer = boostDur;
         cat.isBored = false;
         cat.isSleeping = false;
         cat.isFidgeting = false;
@@ -4123,9 +6094,16 @@
       }
 
       /* =========================================================
-         ステージ開始
+         ステージ開始 & 共通初期化
          ========================================================= */
       startStage(stageNum) {
+        this.gameMode = 'stage';
+        this.currentStageNum = stageNum;
+        this.stageConfig = STAGES.find(s => s.num === stageNum) || STAGES[0];
+        this.setupStageCommon(this.stageConfig);
+      }
+
+      setupStageCommon(stageConfig) {
         // 多重起動タイマー防止
         if (this._botTitleTimer) {
           clearTimeout(this._botTitleTimer);
@@ -4140,16 +6118,21 @@
           this._botFailTimer = null;
         }
 
-        this.currentStageNum = stageNum;
-        this.stageConfig = STAGES.find(s => s.num === stageNum) || STAGES[0];
-
+        this.stageConfig = stageConfig;
         this.state = 'play';
+        this.isPaused = false;
         this.timeLeft = this.stageConfig.time;
         this.sales = 0;
         this.targetSales = this.stageConfig.target;
         this.reputation = 3;
         this.servedCount = 0;
         this.angryCount = 0;
+
+        // 実績用トラッキング初期化
+        this.treatsUsedThisStage = 0;
+        this.vipOrdersThisStage = 0;
+        this.vipSatisfiedThisStage = 0;
+        this.toraActionsThisStage = 0;
 
         this.combo = 0;
         this.comboTimer = 0;
@@ -4211,15 +6194,16 @@
 
         // 猫の生成 (レベル補正 & クセ緩和を反映)
         this.cats = this.stageConfig.cats.map((catId, idx) => {
-          const def = CAT_DEFS[catId];
-          const catExp = (this.progress.catExp && this.progress.catExp[catId]) || 0;
+          const baseKey = catId.replace(/_clone$/, '');
+          const def = CAT_DEFS[baseKey] || CAT_DEFS.tora;
+          const catExp = (this.progress.catExp && this.progress.catExp[baseKey]) || 0;
           const levelInfo = getCatLevelInfo(catExp);
           const lvl = levelInfo.level;
           const levelSpeedMult = 1.0 + (lvl - 1) * 0.05;
 
           return {
             id: `${catId}_${idx}`,
-            defId: catId,
+            defId: baseKey,
             def: def,
             level: lvl,
             levelSpeedMult: levelSpeedMult,
@@ -4261,6 +6245,14 @@
         if (endingModal) endingModal.style.display = 'none';
         const mealEl = document.getElementById('meal-overlay');
         if (mealEl) mealEl.style.display = 'none';
+        const menuModal = document.getElementById('modal-menu');
+        if (menuModal) menuModal.style.display = 'none';
+        const guideModal = document.getElementById('modal-guide');
+        if (guideModal) guideModal.style.display = 'none';
+        const achModal = document.getElementById('modal-achievements');
+        if (achModal) achModal.style.display = 'none';
+        const settingsModal = document.getElementById('modal-settings');
+        if (settingsModal) settingsModal.style.display = 'none';
 
         // 残存する飛行要素があれば確実に非表示・削除
         document.querySelectorAll('.flying-cat').forEach(el => {
@@ -4272,7 +6264,8 @@
         this.initTutorialForStage();
 
         // HUD更新
-        document.getElementById('hud-stage-name').textContent = `🐾 ${this.stageConfig.name.replace(/^Stage\s*/, '')}`;
+        const displayName = this.stageConfig.name.startsWith('Stage') ? this.stageConfig.name.replace(/^Stage\s*/, '') : this.stageConfig.name;
+        document.getElementById('hud-stage-name').textContent = `🐾 ${displayName}`;
         this.renderHUD();
         this.renderAll();
 
@@ -4304,8 +6297,14 @@
           this.drunkSpawnedOnce = true;
         }
 
+        if (isVip) {
+          this.vipOrdersThisStage++;
+        }
+
+        // ゆっくりモード: 注文の待ち時間1.5倍
+        const slowMult = this.slowMode ? 1.5 : 1.0;
         // VIP客: 待ち時間短め(18秒)、売上3倍
-        const maxPatience = isVip ? 18 : 28;
+        const maxPatience = (isVip ? 18 : 28) * slowMult;
 
         const order = {
           id: 'ord_' + (++this.orderSeq),
@@ -4441,7 +6440,7 @@
          メイン更新ループ (dt: 秒)
          ========================================================= */
       update(dt) {
-        if (this.state !== 'play') return;
+        if (this.state !== 'play' || this.isPaused) return;
 
         // チュートリアル指アイコンの更新
         if (this.tutorialActive) {
@@ -4452,23 +6451,32 @@
           }
         }
 
-        // まかない休憩の判定 (ステージ残り時間50%の瞬間)
-        if (!this.mealBreakDone && this.timeLeft <= this.stageConfig.time * 0.5) {
-          this.startMealBreak();
-        }
+        // 第4回新要素: エンドレス営業モードの進行
+        if (this.gameMode === 'endless') {
+          this.updateEndlessMode(dt);
+        } else {
+          // まかない休憩の判定 (ステージ残り時間50%の瞬間)
+          if (!this.mealBreakDone && this.timeLeft <= this.stageConfig.time * 0.5) {
+            this.startMealBreak();
+          }
 
-        // まかない休憩中は調理・客・タイマー等の進行を一時ストップ
-        if (this.isMealBreak) {
-          this.updateMealBreak(dt);
-          return;
-        }
+          // まかない休憩中は調理・客・タイマー等の進行を一時ストップ
+          if (this.isMealBreak) {
+            this.updateMealBreak(dt);
+            return;
+          }
 
-        // 制限時間カウントダウン
-        this.timeLeft -= dt;
-        if (this.timeLeft <= 0) {
-          this.timeLeft = 0;
-          this.checkGameEnd();
-          return;
+          // 制限時間カウントダウン
+          this.timeLeft -= dt;
+          if (this.timeLeft <= 0) {
+            this.timeLeft = 0;
+            if (this.gameMode === 'daily') {
+              this.endDailyChallenge();
+            } else {
+              this.checkGameEnd();
+            }
+            return;
+          }
         }
 
         // 第3回新要素: ステージ別イベント進行
@@ -4753,6 +6761,13 @@
             c1.bubbleTimer = 2.2;
             c2.bubbleText = chem.quote;
             c2.bubbleTimer = 2.2;
+
+            // 実績判定
+            this.stats.totalSynergies = (this.stats.totalSynergies || 0) + 1;
+            this.saveStats();
+            if (this.stats.totalSynergies >= 10) {
+              this.unlockAchievement('synergy_expert');
+            }
           }
 
           // 各相性効果
@@ -5207,14 +7222,42 @@
 
         if (order.specialCut) {
           tip *= 2;
+          this.stats.totalHakaseChips = (this.stats.totalHakaseChips || 0) + tip;
+          this.saveStats();
+          if (this.stats.totalHakaseChips >= 2000) {
+            this.unlockAchievement('hakase_chips');
+          }
         }
         if (order.kuroHakaseBonus) {
           tip = Math.floor(tip * 1.2);
         }
 
+        // デイリー「大食い祭り」特別ルール
+        if (this.dailyConfig && this.dailyConfig.modifier && this.dailyConfig.modifier.special === 'big_tip') {
+          tip *= 2;
+        }
+
         const totalEarned = basePrice + tip;
         this.sales += totalEarned;
         this.servedCount++;
+
+        if (order.isVip) {
+          this.vipSatisfiedThisStage = (this.vipSatisfiedThisStage || 0) + 1;
+        }
+
+        if (this.combo >= 5) {
+          this.unlockAchievement('combo_fever');
+        }
+
+        // シロの寝ながら運搬カウント
+        const curServeCat = this.stations.serve;
+        if (curServeCat && curServeCat.defId === 'shiro' && curServeCat.isSleeping) {
+          this.stats.totalShiroSleepCarry = (this.stats.totalShiroSleepCarry || 0) + 1;
+          this.saveStats();
+          if (this.stats.totalShiroSleepCarry >= 20) {
+            this.unlockAchievement('shiro_sleep_carry');
+          }
+        }
 
         // 金額ポップアップ演出
         const servePos = this.getSlotCenter('serve');
@@ -5487,6 +7530,25 @@
         }
         this.saveProgress();
 
+        // 第4回新要素: クリア時実績判定
+        this.unlockAchievement('first_clear');
+        if (stars === 3) {
+          this.unlockAchievement('three_stars');
+        }
+        if (this.treatsUsedThisStage === 0) {
+          this.unlockAchievement('no_treats');
+        }
+        if (this.vipOrdersThisStage > 0 && this.vipSatisfiedThisStage >= this.vipOrdersThisStage) {
+          this.unlockAchievement('all_vips');
+        }
+        if (this.currentStageNum === 5) {
+          this.unlockAchievement('all_stages_clear');
+        }
+        const toraCat = this.cats.find(c => c.defId === 'tora');
+        if (toraCat && toraCat.stats && toraCat.stats.servedDishes >= 10) {
+          this.unlockAchievement('speed_tora');
+        }
+
         // 既存トーストがあればクリア画面に被らないよう非表示化
         const toastEl = document.getElementById('toast');
         if (toastEl) toastEl.classList.remove('show');
@@ -5632,6 +7694,15 @@
 
       /* ゲームオーバー */
       gameOver(reason) {
+        if (this.gameMode === 'endless') {
+          this.endEndlessMode();
+          return;
+        }
+        if (this.gameMode === 'daily') {
+          this.endDailyChallenge();
+          return;
+        }
+
         this.state = 'fail';
         Sound.play('angry');
 
@@ -5675,16 +7746,28 @@
       }
 
       renderHUD() {
-        const timerEl = document.getElementById('hud-timer');
-        const seconds = Math.ceil(this.timeLeft);
-        timerEl.textContent = `⏰ ${seconds}s`;
-        if (seconds <= 15) {
-          timerEl.classList.add('warning');
-        } else {
-          timerEl.classList.remove('warning');
+        const pauseBtn = document.getElementById('btn-pause');
+        if (pauseBtn) {
+          pauseBtn.style.display = (this.state === 'play') ? 'flex' : 'none';
         }
 
-        document.getElementById('hud-sales').innerHTML = `¥${this.sales.toLocaleString()} <span class="target-val" id="hud-target">/ ¥${this.targetSales.toLocaleString()}</span>`;
+        const timerEl = document.getElementById('hud-timer');
+        if (this.gameMode === 'endless') {
+          const m = Math.floor(this.endlessTime / 60);
+          const s = Math.floor(this.endlessTime % 60);
+          timerEl.textContent = `⏱️ ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')} (Lv.${this.endlessLevel})`;
+          timerEl.classList.remove('warning');
+          document.getElementById('hud-sales').innerHTML = `¥${this.sales.toLocaleString()} <span class="target-val" id="hud-target">/ 限界突破!</span>`;
+        } else {
+          const seconds = Math.ceil(this.timeLeft);
+          timerEl.textContent = `⏰ ${seconds}s`;
+          if (seconds <= 15) {
+            timerEl.classList.add('warning');
+          } else {
+            timerEl.classList.remove('warning');
+          }
+          document.getElementById('hud-sales').innerHTML = `¥${this.sales.toLocaleString()} <span class="target-val" id="hud-target">/ ¥${this.targetSales.toLocaleString()}</span>`;
+        }
 
         for (let i = 1; i <= 3; i++) {
           const starEl = document.getElementById(`star-${i}`);
@@ -6538,6 +8621,14 @@
         cat.location = targetKey;
         cat.timeInStation = 0;
 
+        // 第4回新要素: フリック命中 & 厨房全ポジション配置実績判定
+        if (targetKey !== 'rest') {
+          this.unlockAchievement('flick_sniper');
+          if (this.stations.cut && this.stations.cook && this.stations.plate && this.stations.serve) {
+            this.unlockAchievement('all_cats_kitchen');
+          }
+        }
+
         // トラは持ち場を変えると飽きが解消！ (サボり直前の持ち場替えなら「気分転換！」ボーナス)
         if (cat.defId === 'tora') {
           const wasCloseToBored = (cat.isFidgeting || cat.isBored || cat.timeInStation >= 5.5);
@@ -6630,6 +8721,43 @@
           return;
         }
 
+        // 第4回新要素: デイリー結果モーダルの自動進行
+        const dailyResModal = document.getElementById('modal-daily-result');
+        if (dailyResModal && dailyResModal.style.display === 'flex') {
+          if (!this._botDailyTimer) {
+            this._botDailyTimer = setTimeout(() => {
+              this._botDailyTimer = null;
+              dailyResModal.style.display = 'none';
+              this.state = 'title';
+              document.getElementById('modal-title').style.display = 'flex';
+              this.refreshManagerQuote();
+              this.updateGlobalState();
+            }, 2000);
+          }
+          return;
+        }
+
+        // 第4回新要素: エンドレス結果モーダルの自動進行
+        const endlessResModal = document.getElementById('modal-endless-result');
+        if (endlessResModal && endlessResModal.style.display === 'flex') {
+          if (!this._botEndlessTimer) {
+            this._botEndlessTimer = setTimeout(() => {
+              this._botEndlessTimer = null;
+              endlessResModal.style.display = 'none';
+              this.state = 'title';
+              document.getElementById('modal-title').style.display = 'flex';
+              this.refreshManagerQuote();
+              this.updateGlobalState();
+            }, 2000);
+          }
+          return;
+        }
+
+        // 一時停止状態なら自動で再開
+        if (this.isPaused) {
+          this.resumeGame();
+        }
+
         // タイトル画面: 0.6秒待って自動開始
         if (this.state === 'title') {
           if (!this._botTitleTimer) {
@@ -6644,7 +8772,7 @@
         }
 
         // クリア画面: 2秒見せて次へ (Stage 5クリア時はエンディングを表示)
-        if (this.state === 'clear') {
+        if (this.state === 'clear' && this.gameMode === 'stage') {
           if (!this._botClearTimer) {
             this._botClearTimer = setTimeout(() => {
               this._botClearTimer = null;
@@ -6663,7 +8791,13 @@
           if (!this._botFailTimer) {
             this._botFailTimer = setTimeout(() => {
               this._botFailTimer = null;
-              this.startStage(this.currentStageNum);
+              if (this.gameMode === 'daily') {
+                this.startDailyChallenge();
+              } else if (this.gameMode === 'endless') {
+                this.startEndlessMode();
+              } else {
+                this.startStage(this.currentStageNum);
+              }
             }, 2000);
           }
           return;
