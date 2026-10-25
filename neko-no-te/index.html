@@ -603,6 +603,8 @@
     .cat-bubble {
       position: absolute;
       top: -30px;
+      left: 50%;
+      transform: translateX(calc(-50% + var(--bubble-shift-x, 0px)));
       background: #fff;
       border: 1.5px solid #5a3c20;
       border-radius: 10px;
@@ -620,13 +622,20 @@
       content: "";
       position: absolute;
       bottom: -5px;
-      left: 50%;
+      left: clamp(10px, calc(50% - var(--bubble-shift-x, 0px)), calc(100% - 10px));
       transform: translateX(-50%);
       border-width: 5px 4px 0;
       border-style: solid;
       border-color: #5a3c20 transparent;
       display: block;
       width: 0;
+    }
+    /* 待機マットの端の猫の吹き出しが画面端で切れないよう初期安全シフト */
+    .rest-slot:nth-child(1) .cat-bubble {
+      --bubble-shift-x: 24px;
+    }
+    .rest-slot:nth-child(2) .cat-bubble {
+      --bubble-shift-x: 10px;
     }
     @keyframes bubbleFloat {
       from { opacity: 0; transform: translateY(6px); }
@@ -1757,6 +1766,602 @@
       font-size: 12px;
     }
 
+    /* === 第3回ブラッシュアップ: 新規CSSスタイル === */
+    /* 1. ステージ別イベントバナー */
+    #stage-event-banner {
+      position: absolute;
+      top: 50px;
+      left: 12px;
+      right: 12px;
+      background: linear-gradient(90deg, #ff8f00, #ffb300, #ff8f00);
+      color: #3e2718;
+      padding: 7px 12px;
+      border-radius: 10px;
+      box-shadow: 0 4px 14px rgba(255, 143, 0, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      z-index: 520;
+      border: 1px solid #ffe082;
+      animation: bannerSlide 0.3s ease-out;
+    }
+    #stage-event-banner.event-blackout {
+      background: linear-gradient(90deg, #37474f, #263238, #37474f);
+      color: #eceff1;
+      border-color: #78909c;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+    }
+    #stage-event-banner.event-rush {
+      background: linear-gradient(90deg, #d84315, #f4511e, #d84315);
+      color: #fff;
+      border-color: #ffab91;
+      box-shadow: 0 4px 14px rgba(216, 67, 21, 0.5);
+    }
+    #stage-event-banner.event-fish {
+      background: linear-gradient(90deg, #0277bd, #039be5, #0277bd);
+      color: #fff;
+      border-color: #81d4fa;
+      box-shadow: 0 4px 14px rgba(2, 119, 189, 0.5);
+    }
+
+    /* 2. 雨ステージ: 停電エフェクト */
+    .station-slot.station-blackout {
+      position: relative;
+      background: #2b2b2b !important;
+      border: 2px dashed #90a4ae !important;
+      animation: blackoutFlicker 1.2s infinite ease-in-out;
+    }
+    @keyframes blackoutFlicker {
+      0%, 100% { opacity: 0.85; filter: brightness(0.7); }
+      50% { opacity: 0.6; filter: brightness(0.5); }
+    }
+    .blackout-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(10, 15, 20, 0.72);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #ffeb3b;
+      font-size: 11px;
+      font-weight: 800;
+      z-index: 8;
+      pointer-events: none;
+      text-shadow: 0 0 6px rgba(255, 235, 59, 0.8);
+    }
+
+    /* 3. 料理長見回り足跡予告 */
+    #boss-footprints-container {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 15;
+    }
+    .boss-footprint {
+      position: absolute;
+      font-size: 22px;
+      opacity: 0;
+      transform: scale(0.6);
+      filter: drop-shadow(0 0 4px rgba(224, 71, 58, 0.8));
+      animation: footprintStamp 2.2s ease-in-out infinite;
+    }
+    @keyframes footprintStamp {
+      0% { opacity: 0; transform: scale(0.5); }
+      20% { opacity: 0.9; transform: scale(1.15); }
+      40% { opacity: 0.8; transform: scale(1.0); }
+      80% { opacity: 0.7; }
+      100% { opacity: 0; transform: scale(0.9); }
+    }
+
+    /* 4. 料理長持ち場占拠 (Phase 3) */
+    .station-slot.station-boss-occupied {
+      border: 3px solid #ffb300 !important;
+      box-shadow: 0 0 16px rgba(255, 179, 0, 0.75) !important;
+      animation: bossSlotPulse 1.6s infinite alternate;
+    }
+    @keyframes bossSlotPulse {
+      0% { box-shadow: 0 0 12px rgba(255, 179, 0, 0.5); }
+      100% { box-shadow: 0 0 22px rgba(255, 179, 0, 0.9); }
+    }
+    .boss-occupy-badge {
+      position: absolute;
+      top: 4px;
+      right: 6px;
+      background: #b71515;
+      color: #fff;
+      font-size: 9.5px;
+      font-weight: 900;
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1px solid #ffd54f;
+      z-index: 10;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+    .boss-working-portrait {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      border: 3px solid #ffb300;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+      animation: bossCookingMotion 0.6s infinite ease-in-out alternate;
+    }
+    @keyframes bossCookingMotion {
+      0% { transform: scale(1.0) translateY(0); }
+      100% { transform: scale(1.06) translateY(-4px); }
+    }
+
+    /* 5. 料理長の「試食」注文カード & 酔っぱらい客カード */
+    .order-card.boss-tasting {
+      border: 2px solid #ffb300 !important;
+      background: linear-gradient(180deg, #fff9c4, #fffde7) !important;
+      box-shadow: 0 3px 12px rgba(255, 179, 0, 0.6) !important;
+    }
+    .boss-tasting-ribbon {
+      font-size: 9px;
+      background: linear-gradient(90deg, #e65100, #ff8f00);
+      color: #fff;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 6px;
+      margin-bottom: 2px;
+      display: inline-block;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .order-card.drunk-customer {
+      border: 2px solid #ab47bc !important;
+      background: linear-gradient(180deg, #f3e5f5, #ede7f6) !important;
+    }
+    .drunk-ribbon {
+      font-size: 9px;
+      background: #8e24aa;
+      color: #fff;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 6px;
+      margin-bottom: 2px;
+      display: inline-block;
+    }
+
+    /* 6. 指アイコン チュートリアル (Stage 1 初回30秒) */
+    #tutorial-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      z-index: 600;
+      display: none;
+    }
+    .tutorial-pointer-anim {
+      position: absolute;
+      font-size: 40px;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
+      animation: tutorialSwipe 1.8s infinite ease-in-out;
+    }
+    @keyframes tutorialSwipe {
+      0% { transform: translate(0, 0) scale(1); opacity: 0; }
+      20% { transform: translate(0, 0) scale(1.2); opacity: 1; }
+      70% { transform: translate(0, -180px) scale(0.95); opacity: 1; }
+      90%, 100% { transform: translate(0, -180px) scale(0.85); opacity: 0; }
+    }
+    .tutorial-card {
+      position: absolute;
+      bottom: 120px;
+      left: 18px;
+      right: 18px;
+      background: rgba(43, 26, 15, 0.92);
+      border: 2px solid #ffca28;
+      border-radius: 14px;
+      padding: 10px 14px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+      pointer-events: auto;
+      animation: bannerSlide 0.3s ease-out;
+    }
+    .tutorial-text {
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 700;
+      color: #fff8e1;
+    }
+    .btn-tutorial-skip {
+      background: #78909c;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .btn-tutorial-skip:active {
+      transform: scale(0.95);
+    }
+
+    /* 7. ステージ選択画面: 猫の育成状況カード */
+    .cat-roster-section {
+      width: 100%;
+      margin: 12px 0 8px;
+      background: #fdf6ec;
+      border-radius: 12px;
+      padding: 10px;
+      border: 1px solid #e0c9aa;
+      text-align: left;
+    }
+    .cat-roster-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #5c3818;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .cat-roster-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+    .cat-roster-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 5px 3px;
+      border: 1px solid #d4be9e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+    }
+    .cat-roster-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1.5px solid #8c5d33;
+    }
+    .cat-roster-name {
+      font-size: 10px;
+      font-weight: 800;
+      color: #3e2718;
+      margin-top: 3px;
+    }
+    .cat-roster-level {
+      font-size: 9.5px;
+      font-weight: 900;
+      color: #d84315;
+      background: #ffebe6;
+      border-radius: 4px;
+      padding: 1px 4px;
+      margin-top: 2px;
+    }
+    .cat-roster-exp-bar {
+      width: 90%;
+      height: 4px;
+      background: #eceff1;
+      border-radius: 2px;
+      margin-top: 3px;
+      overflow: hidden;
+    }
+    .cat-roster-exp-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #ff9800, #4caf50);
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    /* 8. クリア画面: 料理長総評カード */
+    .boss-eval-card {
+      width: 100%;
+      background: linear-gradient(135deg, #fff8e1, #ffecb3);
+      border: 2px solid #ffb300;
+      border-radius: 12px;
+      padding: 8px 12px;
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-align: left;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    }
+    .boss-eval-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid #ff8f00;
+      flex-shrink: 0;
+    }
+    .boss-eval-title {
+      font-size: 11px;
+      font-weight: 900;
+      color: #b71515;
+    }
+    .boss-eval-quote {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #4a2c14;
+      line-height: 1.3;
+      margin-top: 2px;
+    }
+
+    /* クリア画面の余白調整・中だけスクロール・ボタン固定配置 */
+    #modal-clear .modal-box {
+      max-height: calc(100% - 24px);
+      padding: 14px 14px 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-clear-scroll {
+      width: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      flex: 1 1 auto;
+      min-height: 0;
+      padding: 0 4px 6px;
+      scrollbar-width: thin;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #modal-clear .title-sub {
+      font-size: 11px;
+      margin-bottom: 2px;
+    }
+    #modal-clear .title-main {
+      font-size: 20px;
+      margin-bottom: 2px;
+    }
+    #modal-clear .result-stars {
+      font-size: 30px;
+      margin: 2px 0 4px;
+      letter-spacing: 3px;
+    }
+    #modal-clear .result-grid {
+      padding: 6px 10px;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+    #modal-clear .result-label {
+      font-size: 10px;
+    }
+    #modal-clear .result-val {
+      font-size: 14px;
+    }
+    #modal-clear .result-cats-wrap {
+      width: 100%;
+      margin: 4px 0 6px;
+      gap: 6px;
+    }
+    #modal-clear .result-cat-card {
+      padding: 5px 8px;
+      gap: 8px;
+    }
+    #modal-clear .result-cat-avatar {
+      width: 36px;
+      height: 36px;
+    }
+    #modal-clear .result-cat-reason {
+      font-size: 10.5px;
+    }
+    #modal-clear .boss-eval-card {
+      margin-top: 6px;
+      padding: 6px 10px;
+      gap: 8px;
+    }
+    #modal-clear .boss-eval-avatar {
+      width: 38px;
+      height: 38px;
+    }
+    #modal-clear .boss-eval-title {
+      font-size: 10.5px;
+    }
+    #modal-clear .boss-eval-quote {
+      font-size: 10.5px;
+      line-height: 1.35;
+    }
+
+    /* レベルアップ通知 1行リスト (MVP欄の下) */
+    .clear-level-up-box {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .clear-level-up-item {
+      background: linear-gradient(135deg, #fffde7, #fff9c4);
+      border: 1.5px solid #fbc02d;
+      border-radius: 8px;
+      padding: 4px 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #795548;
+      text-align: left;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .clear-level-up-badge {
+      background: #f57f17;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 900;
+      padding: 1px 5px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+    .clear-level-up-text {
+      flex: 1;
+      font-size: 11px;
+      color: #4e342e;
+    }
+
+    /* クリア画面 ボタン固定領域 */
+    .modal-clear-actions {
+      width: 100%;
+      flex-shrink: 0;
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .modal-clear-actions .btn-main {
+      width: 100%;
+      margin-top: 0;
+      padding: 11px 18px;
+      font-size: 14px;
+    }
+    .modal-clear-actions .btn-secondary {
+      width: 100%;
+      margin-top: 0;
+      padding: 8px 14px;
+      font-size: 12.5px;
+    }
+
+    /* 9. 全ステージクリア エンディング画面 (集合写真風) */
+    #modal-ending {
+      background: rgba(15, 10, 6, 0.90);
+    }
+    .ending-box {
+      width: 100%;
+      max-width: 370px;
+      background: var(--cream-light);
+      border-radius: 22px;
+      padding: 20px 16px;
+      border: 3px solid #c9a474;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+    }
+    .ending-photo-frame {
+      background: #fff;
+      border: 1px solid #dcd1c0;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.22);
+      border-radius: 8px;
+      padding: 10px 10px 14px;
+      margin-bottom: 12px;
+      width: 100%;
+      transform: rotate(-1.2deg);
+      transition: transform 0.3s;
+    }
+    .ending-photo-storefront {
+      background: linear-gradient(180deg, #ffecb3 0%, #fff8e1 40%, #e0d0b8 100%);
+      border-radius: 6px;
+      padding: 10px 6px;
+      border: 1px solid #d4be9e;
+      position: relative;
+      overflow: hidden;
+    }
+    .ending-noren {
+      font-size: 13px;
+      font-weight: 900;
+      color: #fff;
+      background: #795548;
+      padding: 3px 14px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      letter-spacing: 2px;
+    }
+    .ending-cats-row {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .ending-cat-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .ending-cat-img {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid #8c5d33;
+      object-fit: cover;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    .ending-cat-img.boss-center {
+      width: 54px;
+      height: 54px;
+      border: 3px solid #ffb300;
+      transform: translateY(-4px);
+    }
+    .ending-cat-tag {
+      font-size: 9px;
+      font-weight: 800;
+      color: #4a2c14;
+      margin-top: 2px;
+    }
+    .ending-photo-caption {
+      font-size: 11px;
+      font-weight: 800;
+      color: #795548;
+      margin-top: 8px;
+      letter-spacing: 1px;
+    }
+    .ending-badge-result {
+      font-size: 12px;
+      font-weight: 900;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 6px;
+      display: inline-block;
+    }
+    .ending-badge-legend {
+      background: linear-gradient(90deg, #ff6f00, #ffa000);
+      color: #fff;
+      box-shadow: 0 3px 10px rgba(255, 111, 0, 0.4);
+    }
+    .ending-badge-popular {
+      background: linear-gradient(90deg, #2e7d32, #4caf50);
+      color: #fff;
+      box-shadow: 0 3px 10px rgba(46, 125, 50, 0.4);
+    }
+    .ending-badge-cafe {
+      background: linear-gradient(90deg, #c2185b, #e91e63);
+      color: #fff;
+      box-shadow: 0 3px 10px rgba(194, 24, 91, 0.4);
+    }
+    .ending-title {
+      font-size: 21px;
+      font-weight: 900;
+      color: #3e2718;
+      margin-bottom: 4px;
+    }
+    .ending-stars-sum {
+      font-size: 13px;
+      font-weight: 800;
+      color: #e65100;
+      margin-bottom: 8px;
+    }
+    .ending-desc {
+      font-size: 12px;
+      color: #5c3818;
+      line-height: 1.45;
+      margin-bottom: 14px;
+      background: #fbf5ee;
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid #ebd9c2;
+    }
+
   </style>
 </head>
 <body>
@@ -1777,6 +2382,12 @@
         【警告】料理長が見回りに来たにゃ！<br>
         サボっている猫は急いで叩き起こすにゃ！
       </div>
+    </div>
+
+    <!-- ステージ別イベントバナー (第3回新要素) -->
+    <div id="stage-event-banner">
+      <span id="stage-event-icon">📢</span>
+      <span id="stage-event-text">イベント発生！</span>
     </div>
 
     <!-- 上部 HUD -->
@@ -1815,6 +2426,8 @@
       <div class="kitchen-grid" id="kitchen-grid" style="position: relative;">
         <!-- 相性バッジ表示オーバーレイ -->
         <div id="synergy-badges-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></div>
+        <!-- 料理長見回り足跡コンテナ -->
+        <div id="boss-footprints-container"></div>
 
         <!-- 4つの持ち場: 切る, 焼く, 盛る, 運ぶ -->
         <div class="station-slot" data-station="cut">
@@ -1915,6 +2528,18 @@
       </div>
     </div>
 
+    <!-- チュートリアル指アイコン案内 (Stage 1 初回30秒) -->
+    <div id="tutorial-overlay" style="display: none;">
+      <div id="tutorial-pointer" class="tutorial-pointer-anim">👆</div>
+      <div class="tutorial-card">
+        <div class="tutorial-text">
+          🐾 <strong>チュートリアル</strong><br>
+          待機中の猫を指で<strong>スワイプ</strong>して、光る持ち場へ飛ばそう！
+        </div>
+        <button id="btn-tutorial-skip" class="btn-tutorial-skip">スキップ</button>
+      </div>
+    </div>
+
     <!-- モーダル: タイトル画面 -->
     <div id="modal-title" class="modal-overlay">
       <div class="modal-box">
@@ -1954,6 +2579,18 @@
         <div class="stage-list" id="stage-selection-list">
           <!-- JSで生成 -->
         </div>
+
+        <!-- 猫の成長・レベル表示セクション (第3回新要素) -->
+        <div class="cat-roster-section">
+          <div class="cat-roster-title">
+            <span>🐾 出勤猫たちの成長度 (レベル)</span>
+            <span style="font-size: 10px; color: #8c5d33;">★調理でEXP獲得！</span>
+          </div>
+          <div class="cat-roster-grid" id="cat-roster-grid">
+            <!-- JSで動的生成 -->
+          </div>
+        </div>
+
         <button class="btn-secondary" id="btn-close-stages">戻る</button>
       </div>
     </div>
@@ -1961,54 +2598,72 @@
     <!-- モーダル: クリア画面 -->
     <div id="modal-clear" class="modal-overlay" style="display: none;">
       <div class="modal-box">
-        <div class="title-sub" style="color: var(--accent-green);">STAGE CLEAR!</div>
-        <div class="title-main" style="font-size: 24px;">営業終了！</div>
-        <div class="result-stars" id="clear-stars">★★★</div>
-        <div class="result-grid">
-          <div>
-            <div class="result-label">本日の売上</div>
-            <div class="result-val" id="clear-sales">¥0</div>
+        <!-- スクロール可能なコンテンツ領域 -->
+        <div class="modal-clear-scroll">
+          <div class="title-sub" style="color: var(--accent-green);">STAGE CLEAR!</div>
+          <div class="title-main" style="font-size: 20px;">営業終了！</div>
+          <div class="result-stars" id="clear-stars">★★★</div>
+          <div class="result-grid">
+            <div>
+              <div class="result-label">本日の売上</div>
+              <div class="result-val" id="clear-sales">¥0</div>
+            </div>
+            <div>
+              <div class="result-label">目標売上</div>
+              <div class="result-val" id="clear-target">¥0</div>
+            </div>
+            <div>
+              <div class="result-label">提供数</div>
+              <div class="result-val" id="clear-served">0皿</div>
+            </div>
+            <div>
+              <div class="result-label">評判の残り</div>
+              <div class="result-val" id="clear-rep">★3</div>
+            </div>
           </div>
-          <div>
-            <div class="result-label">目標売上</div>
-            <div class="result-val" id="clear-target">¥0</div>
+
+          <!-- MVP猫 & やらかし猫 -->
+          <div class="result-cats-wrap" id="clear-result-cats">
+            <div class="result-cat-card mvp" id="clear-mvp">
+              <img src="assets/cat_tora.jpg" class="result-cat-avatar" id="clear-mvp-img" alt="MVP">
+              <div class="result-cat-info">
+                <div class="result-cat-badge-line">
+                  <span class="badge-mvp">🏆 今日のMVP猫</span>
+                  <span class="result-cat-name" id="clear-mvp-name">トラ</span>
+                </div>
+                <div class="result-cat-reason" id="clear-mvp-quote">「今日は腕が鳴ったにゃ！」</div>
+              </div>
+            </div>
+            <div class="result-cat-card blunder" id="clear-blunder">
+              <img src="assets/cat_shiro.jpg" class="result-cat-avatar" id="clear-blunder-img" alt="やらかし">
+              <div class="result-cat-info">
+                <div class="result-cat-badge-line">
+                  <span class="badge-blunder">💥 今日のやらかし猫</span>
+                  <span class="result-cat-name" id="clear-blunder-name">シロ</span>
+                </div>
+                <div class="result-cat-reason" id="clear-blunder-quote">「…すやすや…」</div>
+              </div>
+            </div>
           </div>
-          <div>
-            <div class="result-label">提供数</div>
-            <div class="result-val" id="clear-served">0皿</div>
-          </div>
-          <div>
-            <div class="result-label">評判の残り</div>
-            <div class="result-val" id="clear-rep">★3</div>
+
+          <!-- レベルアップ通知 1行リスト (MVP欄の下) -->
+          <div id="clear-level-up-box" class="clear-level-up-box" style="display: none;"></div>
+
+          <!-- 料理長の総評 (Stage 5クリア時用) -->
+          <div class="boss-eval-card" id="clear-boss-eval" style="display: none;">
+            <img src="assets/cat_boss.jpg" class="boss-eval-avatar" alt="料理長">
+            <div>
+              <div class="boss-eval-title" id="clear-boss-eval-title">👑 料理長の総評 (最終審査)</div>
+              <div class="boss-eval-quote" id="clear-boss-eval-quote">「うむ、よくやったニャ！」</div>
+            </div>
           </div>
         </div>
 
-        <!-- MVP猫 & やらかし猫 -->
-        <div class="result-cats-wrap" id="clear-result-cats">
-          <div class="result-cat-card mvp" id="clear-mvp">
-            <img src="assets/cat_tora.jpg" class="result-cat-avatar" id="clear-mvp-img" alt="MVP">
-            <div class="result-cat-info">
-              <div class="result-cat-badge-line">
-                <span class="badge-mvp">🏆 今日のMVP猫</span>
-                <span class="result-cat-name" id="clear-mvp-name">トラ</span>
-              </div>
-              <div class="result-cat-reason" id="clear-mvp-quote">「今日は腕が鳴ったにゃ！」</div>
-            </div>
-          </div>
-          <div class="result-cat-card blunder" id="clear-blunder">
-            <img src="assets/cat_shiro.jpg" class="result-cat-avatar" id="clear-blunder-img" alt="やらかし">
-            <div class="result-cat-info">
-              <div class="result-cat-badge-line">
-                <span class="badge-blunder">💥 今日のやらかし猫</span>
-                <span class="result-cat-name" id="clear-blunder-name">シロ</span>
-              </div>
-              <div class="result-cat-reason" id="clear-blunder-quote">「…すやすや…」</div>
-            </div>
-          </div>
+        <!-- 固定ボタン領域 (重なり防止) -->
+        <div class="modal-clear-actions">
+          <button class="btn-main" id="btn-next-stage">次のステージへ 🐾</button>
+          <button class="btn-secondary" id="btn-clear-retry">もう一度挑戦</button>
         </div>
-
-        <button class="btn-main" id="btn-next-stage">次のステージへ 🐾</button>
-        <button class="btn-secondary" id="btn-clear-retry">もう一度挑戦</button>
       </div>
     </div>
 
@@ -2057,6 +2712,54 @@
 
         <button class="btn-main" id="btn-fail-retry">リベンジする！ 🐾</button>
         <button class="btn-secondary" id="btn-fail-stages">ステージ選択</button>
+      </div>
+    </div>
+
+    <!-- モーダル: 全ステージクリア エンディング画面 (集合写真風) -->
+    <div id="modal-ending" class="modal-overlay" style="display: none;">
+      <div class="ending-box">
+        <div class="ending-photo-frame">
+          <div class="ending-photo-storefront">
+            <div class="ending-noren">猫の手食堂</div>
+            <div class="ending-cats-row">
+              <div class="ending-cat-card">
+                <img src="assets/cat_tora.jpg" class="ending-cat-img" alt="トラ">
+                <span class="ending-cat-tag">トラ</span>
+              </div>
+              <div class="ending-cat-card">
+                <img src="assets/cat_hakase.jpg" class="ending-cat-img" alt="ハカセ">
+                <span class="ending-cat-tag">ハカセ</span>
+              </div>
+              <div class="ending-cat-card">
+                <img src="assets/cat_boss.jpg" class="ending-cat-img boss-center" alt="料理長">
+                <span class="ending-cat-tag" style="color: #b71515; font-weight: 900;">料理長</span>
+              </div>
+              <div class="ending-cat-card">
+                <img src="assets/cat_shiro.jpg" class="ending-cat-img" alt="シロ">
+                <span class="ending-cat-tag">シロ</span>
+              </div>
+              <div class="ending-cat-card">
+                <img src="assets/cat_kuro.jpg" class="ending-cat-img" alt="クロ">
+                <span class="ending-cat-tag">クロ</span>
+              </div>
+              <div class="ending-cat-card">
+                <img src="assets/cat_mike.jpg" class="ending-cat-img" alt="ミケ">
+                <span class="ending-cat-tag">ミケ</span>
+              </div>
+            </div>
+          </div>
+          <div class="ending-photo-caption">🐾 猫の手食堂 全員集合記念 🐾</div>
+        </div>
+
+        <div id="ending-badge" class="ending-badge-result ending-badge-legend">🏆 結末</div>
+        <div id="ending-title" class="ending-title">行列のできる伝説の名店</div>
+        <div id="ending-stars-sum" class="ending-stars-sum">獲得★合計: 15 / 15</div>
+        <div id="ending-desc" class="ending-desc">
+          <!-- JSで結末文が動的挿入される -->
+        </div>
+
+        <button class="btn-main" id="btn-ending-title">タイトルへ戻る 🐾</button>
+        <button class="btn-secondary" id="btn-ending-stages" style="margin-top: 6px;">ステージ選択</button>
       </div>
     </div>
 
@@ -2432,6 +3135,39 @@
             });
             break;
           }
+
+          case 'thunder': {
+            // 落雷・停電 (激しいノイズと低音)
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(180, now);
+            osc.frequency.exponentialRampToValueAtTime(40, now + 0.35);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.4);
+            break;
+          }
+
+          case 'levelUp': {
+            // レベルアップ (華やかな上昇音)
+            [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98].forEach((freq, idx) => {
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'triangle';
+              osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+              gain.gain.setValueAtTime(0.22, now + idx * 0.06);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.22);
+              osc.connect(gain);
+              gain.connect(this.ctx.destination);
+              osc.start(now + idx * 0.06);
+              osc.stop(now + idx * 0.06 + 0.24);
+            });
+            break;
+          }
         }
       }
     };
@@ -2632,6 +3368,35 @@
       return CHEMISTRY_DEFS[key] || null;
     }
 
+    /* 猫の成長・レベルシステム (第3回新要素) */
+    const CAT_LEVEL_THRESHOLDS = [0, 80, 200, 360, 560]; // Lv 1, 2, 3, 4, 5 (Max)
+
+    function getCatLevelInfo(exp = 0) {
+      let level = 1;
+      for (let i = 0; i < CAT_LEVEL_THRESHOLDS.length; i++) {
+        if (exp >= CAT_LEVEL_THRESHOLDS[i]) {
+          level = i + 1;
+        } else {
+          break;
+        }
+      }
+      level = Math.min(5, Math.max(1, level));
+      const curThreshold = CAT_LEVEL_THRESHOLDS[level - 1];
+      const nextThreshold = level < 5 ? CAT_LEVEL_THRESHOLDS[level] : curThreshold;
+      const progressExp = exp - curThreshold;
+      const needExp = level < 5 ? (nextThreshold - curThreshold) : 0;
+      const ratio = level < 5 ? Math.min(1.0, progressExp / Math.max(1, needExp)) : 1.0;
+
+      let perkText = '';
+      if (level === 1) perkText = '通常';
+      else if (level === 2) perkText = '速度+5%・クセ緩和';
+      else if (level === 3) perkText = '速度+10%・クセ改善';
+      else if (level === 4) perkText = '速度+15%・クセ大幅改善';
+      else perkText = '速度+20%・達人の域！';
+
+      return { level, exp, curThreshold, nextThreshold, progressExp, needExp, ratio, perkText };
+    }
+
     const STAGES = [
       {
         num: 1,
@@ -2754,16 +3519,25 @@
       }
 
       loadProgress() {
+        let p = {
+          unlockedStage: 1,
+          stars: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+          catExp: { tora: 0, hakase: 0, shiro: 0, kuro: 0, mike: 0 }
+        };
         try {
           const raw = localStorage.getItem('nekoNoTeProgress');
-          if (raw) return JSON.parse(raw);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            p = Object.assign(p, parsed);
+            if (!p.catExp) {
+              p.catExp = { tora: 0, hakase: 0, shiro: 0, kuro: 0, mike: 0 };
+            }
+            return p;
+          }
         } catch (e) {
           console.warn('Progress load failed', e);
         }
-        return {
-          unlockedStage: 1,
-          stars: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
-        };
+        return p;
       }
 
       saveProgress() {
@@ -2772,6 +3546,11 @@
         } catch (e) {
           console.warn('Progress save failed', e);
         }
+      }
+
+      getTotalStars() {
+        if (!this.progress || !this.progress.stars) return 0;
+        return Object.values(this.progress.stars).reduce((sum, s) => sum + (s || 0), 0);
       }
 
       updateGlobalState() {
@@ -2785,7 +3564,16 @@
           rep: this.reputation,
           combo: this.combo,
           treatsLeft: this.treatsLeft !== undefined ? this.treatsLeft : 3,
-          isMealBreak: !!this.isMealBreak
+          isMealBreak: !!this.isMealBreak,
+          // 第3回新要素
+          stageEvent: this.currentStageEvent || null,
+          isBlackout: !!this.isBlackout,
+          isFishBoost: !!this.isFishBoost,
+          isLunchRush: !!this.isLunchRush,
+          bossPhase: this.bossPhase || 1,
+          bossOccupiedStation: this.bossOccupiedStation || null,
+          bossTastingPassed: !!this.bossTastingPassed,
+          totalStars: this.getTotalStars()
         };
       }
 
@@ -2870,6 +3658,34 @@
           document.getElementById('modal-fail').style.display = 'none';
           this.showStageSelection();
         });
+
+        // チュートリアル スキップボタン
+        const skipBtn = document.getElementById('btn-tutorial-skip');
+        if (skipBtn) {
+          skipBtn.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            this.hideTutorial(true);
+          });
+        }
+
+        // エンディング画面ボタン
+        const endingTitleBtn = document.getElementById('btn-ending-title');
+        if (endingTitleBtn) {
+          endingTitleBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            document.getElementById('modal-ending').style.display = 'none';
+            document.getElementById('modal-title').style.display = 'flex';
+            this.refreshManagerQuote();
+          });
+        }
+        const endingStagesBtn = document.getElementById('btn-ending-stages');
+        if (endingStagesBtn) {
+          endingStagesBtn.addEventListener('pointerdown', () => {
+            Sound.init();
+            document.getElementById('modal-ending').style.display = 'none';
+            this.showStageSelection();
+          });
+        }
 
         // タイトル画面の猫たち: タップで鳴く＆くるっと跳ねる
         document.querySelectorAll('.showcase-cat').forEach(catEl => {
@@ -3119,10 +3935,41 @@
         }, duration);
       }
 
+      renderCatRoster() {
+        const grid = document.getElementById('cat-roster-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        const rosterCats = ['tora', 'hakase', 'shiro', 'kuro', 'mike'];
+        rosterCats.forEach(catId => {
+          const def = CAT_DEFS[catId];
+          const exp = (this.progress.catExp && this.progress.catExp[catId]) || 0;
+          const info = getCatLevelInfo(exp);
+
+          const card = document.createElement('div');
+          card.className = 'cat-roster-card';
+          card.title = `${def.name} (Lv.${info.level}): ${info.perkText}`;
+
+          card.innerHTML = `
+            <img src="${def.img}" class="cat-roster-avatar" alt="${def.name}">
+            <div class="cat-roster-name">${def.name}</div>
+            <div class="cat-roster-level">Lv.${info.level}</div>
+            <div class="cat-roster-exp-bar" title="EXP: ${info.progressExp} / ${info.needExp || 'MAX'}">
+              <div class="cat-roster-exp-fill" style="width: ${(info.ratio * 100).toFixed(0)}%;"></div>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+      }
+
       showStageSelection() {
         document.getElementById('modal-title').style.display = 'none';
         document.getElementById('modal-clear').style.display = 'none';
         document.getElementById('modal-fail').style.display = 'none';
+        const endingModal = document.getElementById('modal-ending');
+        if (endingModal) endingModal.style.display = 'none';
+
+        this.renderCatRoster();
 
         const list = document.getElementById('stage-selection-list');
         list.innerHTML = '';
@@ -3154,6 +4001,125 @@
         });
 
         document.getElementById('modal-stages').style.display = 'flex';
+      }
+
+      /* =========================================================
+         第3回新要素ヘルパー (イベントバナー・料理長演出・チュートリアル)
+         ========================================================= */
+      showStageEventBanner(icon, text, bannerClass = '') {
+        const banner = document.getElementById('stage-event-banner');
+        if (!banner) return;
+        const iconEl = document.getElementById('stage-event-icon');
+        const textEl = document.getElementById('stage-event-text');
+        if (iconEl) iconEl.textContent = icon;
+        if (textEl) textEl.textContent = text;
+        banner.className = bannerClass;
+        banner.style.display = 'flex';
+      }
+
+      hideStageEventBanner() {
+        const banner = document.getElementById('stage-event-banner');
+        if (banner) banner.style.display = 'none';
+      }
+
+      showBossFootprints() {
+        if (this.footprintsActive) return;
+        this.footprintsActive = true;
+        const container = document.getElementById('boss-footprints-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const route = [
+          { top: '22%', left: '78%', delay: '0s' },
+          { top: '38%', left: '56%', delay: '0.4s' },
+          { top: '56%', left: '42%', delay: '0.8s' },
+          { top: '74%', left: '24%', delay: '1.2s' }
+        ];
+
+        route.forEach(pt => {
+          const fp = document.createElement('div');
+          fp.className = 'boss-footprint';
+          fp.textContent = '🐾';
+          fp.style.top = pt.top;
+          fp.style.left = pt.left;
+          fp.style.animationDelay = pt.delay;
+          container.appendChild(fp);
+        });
+      }
+
+      clearBossFootprints() {
+        this.footprintsActive = false;
+        const container = document.getElementById('boss-footprints-container');
+        if (container) container.innerHTML = '';
+      }
+
+      clearStationOccupied() {
+        document.querySelectorAll('.station-slot').forEach(el => {
+          el.classList.remove('station-boss-occupied');
+          const badge = el.querySelector('.boss-occupy-badge');
+          if (badge) badge.remove();
+        });
+        this.bossOccupiedStation = null;
+      }
+
+      setBossOccupiedStation(stationKey) {
+        this.bossOccupiedStation = stationKey;
+        const slotEl = document.querySelector(`.station-slot[data-station="${stationKey}"]`);
+        if (!slotEl) return;
+        slotEl.classList.add('station-boss-occupied');
+
+        if (!slotEl.querySelector('.boss-occupy-badge')) {
+          const badge = document.createElement('div');
+          badge.className = 'boss-occupy-badge';
+          badge.textContent = '👑 料理長専任中！';
+          slotEl.appendChild(badge);
+        }
+
+        const bodyEl = document.getElementById(`slot-${stationKey}`);
+        if (bodyEl) {
+          bodyEl.innerHTML = `
+            <img src="assets/cat_boss.jpg" class="boss-working-portrait" alt="料理長">
+            <div style="font-size: 10px; font-weight: 800; color: #ffb300; margin-top: 3px;">料理長が超速調理中！</div>
+          `;
+        }
+      }
+
+      initTutorialForStage() {
+        const done = localStorage.getItem('nekoNoTeTutorialDone');
+        if (this.currentStageNum === 1 && !done) {
+          this.tutorialActive = true;
+          this.tutorialTimer = 30.0;
+          const overlay = document.getElementById('tutorial-overlay');
+          if (overlay) overlay.style.display = 'block';
+          this.updateTutorialPointer();
+        } else {
+          this.hideTutorial(false);
+        }
+      }
+
+      updateTutorialPointer() {
+        if (!this.tutorialActive) return;
+        const pointer = document.getElementById('tutorial-pointer');
+        const restTrack = document.getElementById('rest-track');
+        if (!pointer || !restTrack) return;
+
+        const firstCat = restTrack.firstElementChild;
+        if (firstCat) {
+          const r = firstCat.getBoundingClientRect();
+          pointer.style.left = `${Math.max(10, r.left + 15)}px`;
+          pointer.style.top = `${Math.max(10, r.top - 10)}px`;
+        }
+      }
+
+      hideTutorial(save = true) {
+        this.tutorialActive = false;
+        const overlay = document.getElementById('tutorial-overlay');
+        if (overlay) overlay.style.display = 'none';
+        if (save) {
+          try {
+            localStorage.setItem('nekoNoTeTutorialDone', '1');
+          } catch (e) {}
+        }
       }
 
       /* =========================================================
@@ -3199,6 +4165,28 @@
         this.isBossAlert = false;
         document.getElementById('boss-alert').style.display = 'none';
 
+        // 第3回新要素: ステージ別イベント状態の初期化
+        this.currentStageEvent = null;
+        this.stageEventTriggered = false;
+        this.stageEventTimer = 0;
+        this.isFishBoost = false;
+        this.isLunchRush = false;
+        this.isBlackout = false;
+        this.blackoutTimer = 0;
+        this.drunkOrderSpawned = false;
+        this.drunkSpawnedOnce = false;
+
+        // 料理長3段階戦 (Stage 5)
+        this.bossPhase = 1; // 1: 見回り, 2: 試食, 3: 占拠
+        this.bossOccupiedStation = null;
+        this.bossTastingSpawned = false;
+        this.bossTastingPassed = false;
+        this.footprintsActive = false;
+
+        this.hideStageEventBanner();
+        this.clearBossFootprints();
+        this.clearStationOccupied();
+
         // 持ち場初期化
         this.stations = {
           cut: null,
@@ -3221,24 +4209,32 @@
         // 相性バッジ保持
         this.activeSynergies = {};
 
-        // 猫の生成
+        // 猫の生成 (レベル補正 & クセ緩和を反映)
         this.cats = this.stageConfig.cats.map((catId, idx) => {
           const def = CAT_DEFS[catId];
+          const catExp = (this.progress.catExp && this.progress.catExp[catId]) || 0;
+          const levelInfo = getCatLevelInfo(catExp);
+          const lvl = levelInfo.level;
+          const levelSpeedMult = 1.0 + (lvl - 1) * 0.05;
+
           return {
             id: `${catId}_${idx}`,
             defId: catId,
             def: def,
+            level: lvl,
+            levelSpeedMult: levelSpeedMult,
+            levelInfo: levelInfo,
+            expEarnedThisStage: 0,
             location: 'rest', // 'rest' | 'cut' | 'cook' | 'plate' | 'serve'
             timeInStation: 0,
             isBored: false,
             isSleeping: false,
             wakeTaps: 0,
-            sleepTimer: 10 + Math.random() * 8, // シロ用
-            jumpTimer: 12 + Math.random() * 6,  // ミケ用
+            sleepTimer: (10 + (lvl - 1) * 2.5) + Math.random() * 8, // シロ用
+            jumpTimer: (12 + (lvl - 1) * 3) + Math.random() * 6,  // ミケ用
             bubbleText: '',
             bubbleTimer: 0,
             hasNeighbor: false,
-            // 新要素: おやつ・ケンカ・統計トラッキング
             treatBoostTimer: 0,
             brawlTimer: 0,
             stats: {
@@ -3261,6 +4257,8 @@
         document.getElementById('modal-stages').style.display = 'none';
         document.getElementById('modal-clear').style.display = 'none';
         document.getElementById('modal-fail').style.display = 'none';
+        const endingModal = document.getElementById('modal-ending');
+        if (endingModal) endingModal.style.display = 'none';
         const mealEl = document.getElementById('meal-overlay');
         if (mealEl) mealEl.style.display = 'none';
 
@@ -3269,6 +4267,9 @@
           el.style.display = 'none';
           el.remove();
         });
+
+        // チュートリアル初期化 (Stage 1 初回30秒)
+        this.initTutorialForStage();
 
         // HUD更新
         document.getElementById('hud-stage-name').textContent = `🐾 ${this.stageConfig.name.replace(/^Stage\s*/, '')}`;
@@ -3280,7 +4281,7 @@
       }
 
       /* =========================================================
-         注文の生成 (VIP客 & 猫舌客 変わり種注文対応)
+         注文の生成 (VIP客 & 猫舌客 & 酔っぱらい客 変わり種注文対応)
          ========================================================= */
       spawnOrder() {
         if (this.orders.length >= 3) return;
@@ -3296,6 +4297,13 @@
         const isVip = (rand < 0.20); // 20%でVIP客
         const isCatTongue = (!isVip && hasCookAndPlate && rand < 0.42); // 22%で猫舌客
 
+        // Stage 3 酔っぱらい客 (同じ注文を2回頼む)
+        let isDrunk = false;
+        if (this.currentStageNum === 3 && this.drunkOrderSpawned && !this.drunkSpawnedOnce) {
+          isDrunk = true;
+          this.drunkSpawnedOnce = true;
+        }
+
         // VIP客: 待ち時間短め(18秒)、売上3倍
         const maxPatience = isVip ? 18 : 28;
 
@@ -3310,19 +4318,59 @@
           specialCut: false,
           isVip: isVip,
           isCatTongue: isCatTongue,
+          isDrunk: isDrunk,
+          isDrunkRepeat: false,
           coolingTimer: 0,
           maxCoolingTime: 3.2
         };
 
         this.orders.push(order);
 
-        if (isVip) {
+        if (isDrunk) {
+          Sound.play('vip');
+          this.showToast('🍶 酔っぱらい客がご来店！同じ注文を2回頼む呑兵衛だにゃ！', 2500);
+        } else if (isVip) {
           Sound.play('vip');
           this.showToast('👑 VIP客がご来店！待ち時間短めだが売上3倍！', 2200);
         } else if (isCatTongue) {
           this.showToast('🐱 猫舌のお客様がご来店！焼いた後は冷ましが必要にゃ！', 2200);
         }
 
+        this.renderOrders();
+      }
+
+      /* 料理長の「試食」注文 (Stage 5 Phase 2) */
+      spawnBossTastingOrder() {
+        this.bossTastingSpawned = true;
+        // ハカセが「切る」ことで高評価を得られるよう、cutを含むレシピ(sushiやfish)を優先
+        const cutRecipes = this.stageConfig.recipes.filter(r => RECIPES[r].steps.includes('cut'));
+        const recipeKey = cutRecipes.length > 0 ? cutRecipes[0] : this.stageConfig.recipes[0];
+        const recipe = RECIPES[recipeKey];
+
+        const order = {
+          id: 'ord_boss_' + (++this.orderSeq),
+          recipeKey: recipeKey,
+          recipe: recipe,
+          currentStepIdx: 0,
+          stepProgress: 0,
+          patience: 35,
+          maxPatience: 35,
+          specialCut: false,
+          isVip: false,
+          isCatTongue: false,
+          isBossTasting: true,
+          coolingTimer: 0,
+          maxCoolingTime: 3.2
+        };
+
+        // もし注文枠が満杯なら一番古い非試食注文と入れ替える
+        if (this.orders.length >= 3) {
+          this.orders.shift();
+        }
+        this.orders.push(order);
+
+        Sound.play('vip');
+        this.showToast('👑 料理長「腕前を見せてもらおう！試食だ！」ハカセに切らせると高評価！', 3200);
         this.renderOrders();
       }
 
@@ -3361,6 +4409,8 @@
         this.showToast('🍚 まかないタイムだにゃ！全員の疲れ＆サボりが全回復！', 2500);
 
         this.renderAll();
+        this.clampCatBubbles();
+        requestAnimationFrame(() => this.clampCatBubbles());
       }
 
       updateMealBreak(dt) {
@@ -3382,6 +4432,8 @@
 
           this.showToast('ごちそうさまでした！後半戦スタート！🐾', 2000);
           this.renderAll();
+          this.clampCatBubbles();
+          requestAnimationFrame(() => this.clampCatBubbles());
         }
       }
 
@@ -3390,6 +4442,15 @@
          ========================================================= */
       update(dt) {
         if (this.state !== 'play') return;
+
+        // チュートリアル指アイコンの更新
+        if (this.tutorialActive) {
+          this.tutorialTimer -= dt;
+          this.updateTutorialPointer();
+          if (this.tutorialTimer <= 0) {
+            this.hideTutorial(true);
+          }
+        }
 
         // まかない休憩の判定 (ステージ残り時間50%の瞬間)
         if (!this.mealBreakDone && this.timeLeft <= this.stageConfig.time * 0.5) {
@@ -3410,7 +4471,105 @@
           return;
         }
 
-        // 料理長 (Stage 5) の見回りロジック
+        // 第3回新要素: ステージ別イベント進行
+        // ステージ1 (朝): 魚屋さんの差し入れ (焼き魚一時倍速)
+        if (this.currentStageNum === 1) {
+          if (!this.stageEventTriggered && this.timeLeft <= 52) {
+            this.stageEventTriggered = true;
+            this.currentStageEvent = 'fish_boost';
+            this.isFishBoost = true;
+            this.stageEventTimer = 15.0;
+            Sound.play('treat');
+            this.showStageEventBanner('🐟', '魚屋さんの差し入れ！15秒間「焼き魚」調理速度2倍！', 'event-fish');
+          }
+          if (this.stageEventTimer > 0) {
+            this.stageEventTimer -= dt;
+            if (this.stageEventTimer <= 0) {
+              this.isFishBoost = false;
+              this.stageEventTimer = 0;
+              this.hideStageEventBanner();
+              this.showToast('魚屋さんの差し入れタイム終了！');
+            } else {
+              this.showStageEventBanner('🐟', `魚屋さんの差し入れ！焼き魚2倍速！ (${Math.ceil(this.stageEventTimer)}s)`, 'event-fish');
+            }
+          }
+        }
+
+        // ステージ2 (昼): ランチラッシュ10秒 (注文一気に3枚殺到)
+        if (this.currentStageNum === 2) {
+          if (!this.stageEventTriggered && this.timeLeft <= 55) {
+            this.stageEventTriggered = true;
+            this.currentStageEvent = 'lunch_rush';
+            this.isLunchRush = true;
+            this.stageEventTimer = 10.0;
+            Sound.play('vip');
+            this.showStageEventBanner('🔥', 'ランチラッシュ突入！注文が一気に3枚殺到中！(10s)', 'event-rush');
+            while (this.orders.length < 3) {
+              this.spawnOrder();
+            }
+          }
+          if (this.stageEventTimer > 0) {
+            this.stageEventTimer -= dt;
+            this.nextOrderTimer = Math.min(this.nextOrderTimer, 0.4);
+            if (this.stageEventTimer <= 0) {
+              this.isLunchRush = false;
+              this.stageEventTimer = 0;
+              this.hideStageEventBanner();
+              this.showToast('ランチラッシュ終了！ご苦労さまにゃ！');
+            } else {
+              this.showStageEventBanner('🔥', `ランチラッシュ突入中！注文殺到！ (${Math.ceil(this.stageEventTimer)}s)`, 'event-rush');
+            }
+          }
+        }
+
+        // ステージ3 (夜): 酔っぱらい客 (残65秒付近で発生)
+        if (this.currentStageNum === 3) {
+          if (!this.drunkOrderSpawned && this.timeLeft <= 65) {
+            this.drunkOrderSpawned = true;
+            if (this.orders.length < 3) {
+              this.spawnOrder();
+            }
+          }
+        }
+
+        // ステージ4 (雨): 停電で「焼く」が5秒停止
+        if (this.currentStageNum === 4) {
+          if (!this.stageEventTriggered && this.timeLeft <= 58) {
+            this.stageEventTriggered = true;
+            this.currentStageEvent = 'blackout';
+            this.isBlackout = true;
+            this.blackoutTimer = 5.0;
+            Sound.play('thunder');
+            this.showStageEventBanner('⚡', '落雷で厨房が停電！5秒間「焼く」停止！寿司など非調理を回せ！', 'event-blackout');
+            const cookSlot = document.querySelector('.station-slot[data-station="cook"]');
+            if (cookSlot) {
+              cookSlot.classList.add('station-blackout');
+              if (!cookSlot.querySelector('.blackout-overlay')) {
+                const blk = document.createElement('div');
+                blk.className = 'blackout-overlay';
+                blk.innerHTML = '⚡ 停電中！<br>「焼く」停止';
+                cookSlot.appendChild(blk);
+              }
+            }
+          }
+          if (this.blackoutTimer > 0) {
+            this.blackoutTimer -= dt;
+            if (this.blackoutTimer <= 0) {
+              this.isBlackout = false;
+              this.blackoutTimer = 0;
+              this.hideStageEventBanner();
+              const cookSlot = document.querySelector('.station-slot[data-station="cook"]');
+              if (cookSlot) {
+                cookSlot.classList.remove('station-blackout');
+                const blk = cookSlot.querySelector('.blackout-overlay');
+                if (blk) blk.remove();
+              }
+              this.showToast('💡 電気が復旧したにゃ！「焼く」作業を再開！');
+            }
+          }
+        }
+
+        // 料理長 (Stage 5) の見回り＆3段階ボスロジック
         if (this.stageConfig.hasBoss) {
           this.updateBoss(dt);
         }
@@ -3466,24 +4625,58 @@
       }
 
       /* =========================================================
-         料理長の見回り更新 (Stage 5)
+         料理長の見回り・3段階戦更新 (Stage 5)
          ========================================================= */
       updateBoss(dt) {
+        // フェーズ遷移判定
+        // Phase 1 (序盤: 見回りのみ 90s -> 62s)
+        // Phase 2 (中盤: 試食チェック 62s -> 32s)
+        if (this.timeLeft <= 62 && this.timeLeft > 32 && this.bossPhase === 1) {
+          this.bossPhase = 2;
+          this.clearBossFootprints();
+          this.spawnBossTastingOrder();
+        }
+        // Phase 3 (終盤: 厨房乱入・持ち場占拠 32s -> 0s)
+        else if (this.timeLeft <= 32 && this.bossPhase <= 2) {
+          this.bossPhase = 3;
+          this.clearBossFootprints();
+          // 料理長が自ら「焼く(cook)」を占拠
+          const catAtCook = this.stations['cook'];
+          if (catAtCook) {
+            this.stations['cook'] = null;
+            catAtCook.location = 'rest';
+            if (!this.restCats.includes(catAtCook)) this.restCats.push(catAtCook);
+            catAtCook.bubbleText = '料理長にお任せにゃ！';
+            catAtCook.bubbleTimer = 2.0;
+            this.renderAll();
+          }
+          this.setBossOccupiedStation('cook');
+          Sound.play('boss');
+          this.showStageEventBanner('👑', '料理長が自ら厨房に乱入！「焼く」を占拠中！残り3持ち場で回せ！', 'event-rush');
+          this.showToast('料理長「どけ！見本を見せてやる！」持ち場占拠！', 3000);
+        }
+
+        // 見回りタイマー
         this.bossTimer -= dt;
 
-        // 警告表示（見回り前の4秒間）
+        // 警告表示 & 足跡予告（見回り前の4秒間）
         if (this.bossTimer <= 4.0 && !this.isBossAlert) {
           this.isBossAlert = true;
           const banner = document.getElementById('boss-alert');
-          banner.style.display = 'flex';
-          banner.classList.add('pulse');
+          if (banner) {
+            banner.style.display = 'flex';
+            banner.classList.add('pulse');
+          }
+          this.showBossFootprints();
         }
 
         // 見回り発動！
         if (this.bossTimer <= 0) {
           this.bossTimer = 13 + Math.random() * 4;
           this.isBossAlert = false;
-          document.getElementById('boss-alert').style.display = 'none';
+          const banner = document.getElementById('boss-alert');
+          if (banner) banner.style.display = 'none';
+          this.clearBossFootprints();
 
           // 厨房の持ち場にいるサボり猫チェック
           let caughtCount = 0;
@@ -3816,7 +5009,6 @@
         const stationKeys = ['cut', 'cook', 'plate', 'serve'];
 
         stationKeys.forEach(stKey => {
-          const cat = this.stations[stKey];
           // 該当持ち場を求めている最も古い注文を探索
           const targetOrder = this.orders.find(ord => {
             if (ord.isAngryLeaving) return false;
@@ -3831,12 +5023,31 @@
             return;
           }
 
+          // 第3回新要素: 停電中は「焼く(cook)」が5秒完全停止！
+          if (stKey === 'cook' && this.isBlackout) {
+            return;
+          }
+
+          // 第3回新要素: 料理長が持ち場を占拠している場合(Stage 5 Phase 3)、自ら超速調理！
+          if (this.bossOccupiedStation === stKey) {
+            const baseStepTime = targetOrder.recipe.baseTime || 4.0;
+            targetOrder.stepProgress += (dt * 1.8) / baseStepTime;
+            if (targetOrder.stepProgress >= 1.0) {
+              this.completeStep(stKey, null, targetOrder);
+            }
+            return;
+          }
+
+          const cat = this.stations[stKey];
           if (!cat) {
             return;
           }
 
-          // 作業速度の計算
+          // 作業速度の計算 (基本速度 + レベル補正)
           let speed = cat.def.baseSpeed;
+          if (cat.levelSpeedMult) {
+            speed *= cat.levelSpeedMult;
+          }
 
           // おやつブースト: 10秒間やる気MAX！(1.5倍、サボり・居眠り・ケンカ完全無効)
           if (cat.treatBoostTimer > 0) {
@@ -3856,9 +5067,9 @@
               }
             }
 
-            // ハカセ: 切るが得意
+            // ハカセ: 切るが得意 (レベルでさらに強化)
             if (cat.defId === 'hakase' && stKey === 'cut') {
-              speed *= 1.45;
+              speed *= (1.45 + (cat.level - 1) * 0.08);
             }
 
             // シロ: 眠り猫（寝ていても「運ぶ」なら運ぶ。ハカセの読み聞かせで1.5倍に強化！）
@@ -3873,13 +5084,13 @@
               }
             }
 
-            // クロ: 「焼く」名人 & 隣接関係
+            // クロ: 「焼く」名人 & 隣接関係 (レベルで孤立時ペナルティ緩和)
             if (cat.defId === 'kuro') {
               if (stKey === 'cook') speed *= 1.3;
               if (cat.hasNeighbor) {
                 speed *= 1.35;
               } else {
-                speed *= 0.58;
+                speed *= Math.min(0.85, 0.58 + (cat.level - 1) * 0.08);
               }
             }
 
@@ -3887,6 +5098,11 @@
             if (cat.synergySpeedMult) {
               speed *= cat.synergySpeedMult;
             }
+          }
+
+          // 第3回新要素: 朝ステージ 魚屋さんの差し入れ中は焼き魚が2倍速！
+          if (targetOrder.recipeKey === 'fish' && this.isFishBoost) {
+            speed *= 2.0;
           }
 
           // 進行
@@ -3901,17 +5117,18 @@
 
       /* 工程完了処理 */
       completeStep(stationKey, cat, order) {
-        if (cat && cat.stats) {
-          cat.stats.servedDishes++;
+        if (cat) {
+          if (cat.stats) cat.stats.servedDishes++;
+          cat.expEarnedThisStage = (cat.expEarnedThisStage || 0) + 12;
         }
 
         // ハカセが切った場合、特製チップ2倍フラグを付与
-        if (cat.defId === 'hakase' && stationKey === 'cut') {
+        if (cat && cat.defId === 'hakase' && stationKey === 'cut') {
           order.specialCut = true;
         }
 
         // ハカセ×クロ相性でクロが焼いた場合
-        if (cat.defId === 'kuro' && stationKey === 'cook' && cat.hasKuroHakaseBonus) {
+        if (cat && cat.defId === 'kuro' && stationKey === 'cook' && cat.hasKuroHakaseBonus) {
           order.kuroHakaseBonus = true;
         }
 
@@ -3926,15 +5143,17 @@
         order.currentStepIdx++;
 
         // 猫のひとこと
-        if (cat.defId === 'hakase' && stationKey === 'cut') {
-          cat.bubbleText = '完璧な切り口にゃ！';
-          cat.bubbleTimer = 2.0;
-        } else if (cat.defId === 'kuro' && stationKey === 'cook' && cat.hasNeighbor) {
-          cat.bubbleText = '絶妙な焼き加減にゃ！';
-          cat.bubbleTimer = 2.0;
-        } else if (cat.defId === 'shiro' && cat.isSleeping && stationKey === 'serve') {
-          cat.bubbleText = 'むにゃ…運べたにゃ…';
-          cat.bubbleTimer = 2.0;
+        if (cat) {
+          if (cat.defId === 'hakase' && stationKey === 'cut') {
+            cat.bubbleText = '完璧な切り口にゃ！';
+            cat.bubbleTimer = 2.0;
+          } else if (cat.defId === 'kuro' && stationKey === 'cook' && cat.hasNeighbor) {
+            cat.bubbleText = '絶妙な焼き加減にゃ！';
+            cat.bubbleTimer = 2.0;
+          } else if (cat.defId === 'shiro' && cat.isSleeping && stationKey === 'serve') {
+            cat.bubbleText = 'むにゃ…運べたにゃ…';
+            cat.bubbleTimer = 2.0;
+          }
         }
 
         // 次の工程があるか判定
@@ -4007,9 +5226,54 @@
           this.orders.splice(idx, 1);
         }
 
+        // 第3回新要素: 料理長の「試食」注文チェック
+        if (order.isBossTasting) {
+          if (order.specialCut) {
+            this.bossTastingPassed = true;
+            Sound.play('clear');
+            this.reputation = Math.min(3, this.reputation + 1);
+            this.sales += 2500;
+            this.showToast('👑 料理長「ハカセの見事な包丁さばき…文句なしの合格だ！」評判★回復＆特別賞与¥2,500！', 3200);
+          } else {
+            this.bossTastingPassed = false;
+            this.showToast('👑 料理長「ふむ…悪くはないが、ハカセの冴え渡る切れ味には及ばんな」', 2800);
+          }
+        }
+
+        // 第3回新要素: 酔っぱらい客の「もう一丁！」おかわり注文
+        if (order.isDrunk && !order.isDrunkRepeat) {
+          setTimeout(() => {
+            if (this.state !== 'play') return;
+            const repeatOrder = {
+              id: 'ord_' + (++this.orderSeq),
+              recipeKey: order.recipeKey,
+              recipe: order.recipe,
+              currentStepIdx: 0,
+              stepProgress: 0,
+              patience: 26,
+              maxPatience: 26,
+              specialCut: false,
+              isVip: false,
+              isCatTongue: order.isCatTongue,
+              isDrunk: true,
+              isDrunkRepeat: true,
+              coolingTimer: 0,
+              maxCoolingTime: 3.2
+            };
+            this.orders.push(repeatOrder);
+            Sound.play('combo');
+            this.showToast('🍶 酔っぱらい客「うめぇ！大将、同じのもう一丁頼むニャ！」', 2500);
+            this.renderOrders();
+          }, 600);
+        }
+
         let toastMsg = `${order.recipe.name} 提供！ +¥${totalEarned.toLocaleString()}`;
         if (order.isVip) {
           toastMsg += ` (👑 VIP売上3倍!)`;
+        } else if (order.isBossTasting) {
+          toastMsg += ` (👑 料理長試食完了!)`;
+        } else if (order.isDrunkRepeat) {
+          toastMsg += ` (🍶 おかわり提供!)`;
         } else if (this.combo >= 2) {
           toastMsg += ` (${this.combo}連続コンボ!)`;
         } else if (order.specialCut) {
@@ -4045,7 +5309,12 @@
           card.classList.add('angry-leaving');
         }
 
-        this.showToast(`お客様が怒って帰ってしまった！ 評判★-1`, 2200);
+        if (order.isBossTasting) {
+          this.bossTastingPassed = false;
+          this.showToast(`👑 料理長「試食を待たせるとは何事だ！減点！」評判★-1`, 2800);
+        } else {
+          this.showToast(`お客様が怒って帰ってしまった！ 評判★-1`, 2200);
+        }
 
         setTimeout(() => {
           const curIdx = this.orders.indexOf(order);
@@ -4193,7 +5462,34 @@
         if (this.currentStageNum >= this.progress.unlockedStage && this.currentStageNum < 5) {
           this.progress.unlockedStage = this.currentStageNum + 1;
         }
+
+        // 今日のMVP猫 & 今日のやらかし猫を絵入り・理由つきで発表
+        const resultCats = this.evaluateStageCats();
+
+        // 第3回新要素: 参加猫たちに経験値(EXP)付与 & レベルアップ判定
+        const leveledUpList = [];
+        if (this.cats) {
+          this.cats.forEach(c => {
+            const isMvp = (resultCats.mvp && resultCats.mvp.cat && resultCats.mvp.cat.defId === c.defId);
+            const gainedExp = (c.expEarnedThisStage || 0) + 50 + (isMvp ? 60 : 0);
+            if (!this.progress.catExp) this.progress.catExp = {};
+            const prevExp = this.progress.catExp[c.defId] || 0;
+            const prevLevel = getCatLevelInfo(prevExp).level;
+            this.progress.catExp[c.defId] = prevExp + gainedExp;
+            const newLevel = getCatLevelInfo(this.progress.catExp[c.defId]).level;
+            if (newLevel > prevLevel) {
+              leveledUpList.push({ cat: c, level: newLevel });
+            }
+          });
+        }
+        if (leveledUpList.length > 0) {
+          Sound.play('levelUp');
+        }
         this.saveProgress();
+
+        // 既存トーストがあればクリア画面に被らないよう非表示化
+        const toastEl = document.getElementById('toast');
+        if (toastEl) toastEl.classList.remove('show');
 
         // UI表示
         document.getElementById('clear-stars').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
@@ -4202,8 +5498,6 @@
         document.getElementById('clear-served').textContent = `${this.servedCount}皿`;
         document.getElementById('clear-rep').textContent = `★${this.reputation}`;
 
-        // 今日のMVP猫 & 今日のやらかし猫を絵入り・理由つきで発表
-        const resultCats = this.evaluateStageCats();
         const mvpImg = document.getElementById('clear-mvp-img');
         const mvpName = document.getElementById('clear-mvp-name');
         const mvpQuote = document.getElementById('clear-mvp-quote');
@@ -4222,19 +5516,117 @@
           if (blunderQuote) blunderQuote.textContent = resultCats.blunder.reason;
         }
 
-        // 次のステージボタン制御（Stage 5クリア時は非表示または再挑戦）
+        // レベルアップ通知リスト (クリア画面内・MVP欄の下の1行リスト)
+        const levelUpBox = document.getElementById('clear-level-up-box');
+        if (levelUpBox) {
+          if (leveledUpList.length > 0) {
+            levelUpBox.style.display = 'flex';
+            levelUpBox.innerHTML = leveledUpList.map(item => `
+              <div class="clear-level-up-item">
+                <span class="clear-level-up-badge">LEVEL UP!</span>
+                <span class="clear-level-up-text">🎉 <strong>${item.cat.def.name}</strong> が <strong>Lv.${item.level}</strong> にレベルアップ！</span>
+              </div>
+            `).join('');
+          } else {
+            levelUpBox.style.display = 'none';
+            levelUpBox.innerHTML = '';
+          }
+        }
+
+        // 第3回新要素: Stage 5 料理長の総評カード表示
+        const bossEvalCard = document.getElementById('clear-boss-eval');
+        if (this.currentStageNum === 5 && bossEvalCard) {
+          bossEvalCard.style.display = 'flex';
+          const quoteEl = document.getElementById('clear-boss-eval-quote');
+          const titleEl = document.getElementById('clear-boss-eval-title');
+          if (titleEl) titleEl.textContent = `👑 料理長の総評 (最終審査 ★${stars})`;
+          let bQuote = '';
+          if (stars === 3 && this.bossTastingPassed) {
+            bQuote = '「……見事だ！ハカセの包丁さばきも厨房の連係も完璧。お前たちの店は今日、真の三ツ星に相応しい！」';
+          } else if (stars === 3) {
+            bQuote = '「売上は見事だ！だが試食の切れ味がさらに磨ければ伝説になれるぞ。精進を怠るな！」';
+          } else if (stars === 2) {
+            bQuote = '「ふむ、合格点はやろう。だが忙しい時こそ連携を乱すなよ。基本を忘れるな！」';
+          } else {
+            bQuote = '「ギリギリだな…！もっと猫たちの個性を生かして厨房を回せ！次回に期待するぞ！」';
+          }
+          if (quoteEl) quoteEl.textContent = bQuote;
+        } else if (bossEvalCard) {
+          bossEvalCard.style.display = 'none';
+        }
+
+        // 次のステージボタン制御（Stage 5クリア時はエンディングへ誘導）
         const nextBtn = document.getElementById('btn-next-stage');
         if (this.currentStageNum >= 5) {
-          nextBtn.textContent = '全ステージ制覇！🎉';
-          nextBtn.disabled = true;
-          nextBtn.style.opacity = '0.6';
+          nextBtn.textContent = 'エンディングを見る 🎉🐾';
+          nextBtn.disabled = false;
+          nextBtn.style.opacity = '1';
+          nextBtn.onclick = () => {
+            this.showEndingModal();
+          };
         } else {
           nextBtn.textContent = `次のステージへ (Stage ${this.currentStageNum + 1}) 🐾`;
           nextBtn.disabled = false;
           nextBtn.style.opacity = '1';
+          nextBtn.onclick = null;
         }
 
         document.getElementById('modal-clear').style.display = 'flex';
+        const scrollArea = document.querySelector('#modal-clear .modal-clear-scroll');
+        if (scrollArea) scrollArea.scrollTop = 0;
+        this.updateGlobalState();
+      }
+
+      /* =========================================================
+         全ステージクリア エンディング画面 (集合写真風 & 3種の結末)
+         ========================================================= */
+      showEndingModal() {
+        document.getElementById('modal-clear').style.display = 'none';
+        const endingModal = document.getElementById('modal-ending');
+        if (!endingModal) return;
+
+        const totalStars = this.getTotalStars();
+        const starsSumEl = document.getElementById('ending-stars-sum');
+        if (starsSumEl) starsSumEl.textContent = `全ステージ獲得★合計: ${totalStars} / 15`;
+
+        const badgeEl = document.getElementById('ending-badge');
+        const titleEl = document.getElementById('ending-title');
+        const descEl = document.getElementById('ending-desc');
+
+        if (totalStars >= 13) {
+          // 結末1: 行列のできる伝説の名店
+          if (badgeEl) {
+            badgeEl.className = 'ending-badge-result ending-badge-legend';
+            badgeEl.textContent = '🏆 結末: 伝説の名店ランク';
+          }
+          if (titleEl) titleEl.textContent = '行列のできる伝説の名店';
+          if (descEl) {
+            descEl.innerHTML = '猫たちの息の合った超絶連携がSNSで大バズり！<br>連日連夜、全国から客が押し寄せる伝説の名店となった。<br>厳しい料理長も満面の笑みで誇らしげに腕を組んでいるにゃ！';
+          }
+        } else if (totalStars >= 9) {
+          // 結末2: 町の人気店
+          if (badgeEl) {
+            badgeEl.className = 'ending-badge-result ending-badge-popular';
+            badgeEl.textContent = '⭐ 結末: 町の人気店ランク';
+          }
+          if (titleEl) titleEl.textContent = '町で大人気の愛され食堂';
+          if (descEl) {
+            descEl.innerHTML = '『猫の手食堂』は町のみんなに愛される定番スポットに定着！<br>気まぐれな猫たちと温かい常連客に囲まれ、<br>今日も笑顔とおいしい料理が厨房から溢れ出しているにゃ。';
+          }
+        } else {
+          // 結末3: 猫カフェに転職
+          if (badgeEl) {
+            badgeEl.className = 'ending-badge-result ending-badge-cafe';
+            badgeEl.textContent = '☕ 結末: 癒やしの転身ランク';
+          }
+          if (titleEl) titleEl.textContent = 'マイペースな猫カフェに転職！？';
+          if (descEl) {
+            descEl.innerHTML = '料理の提供はのんびりマイペースだったが…<br>『寝てる姿が可愛すぎる！』とお客さんに大好評！<br>思い切って猫カフェにリニューアルし、行列の絶えない大繁盛となったニャ！';
+          }
+        }
+
+        endingModal.style.display = 'flex';
+        Sound.play('clear');
         this.updateGlobalState();
       }
 
@@ -4314,10 +5706,16 @@
           card.id = `card-${ord.id}`;
           if (ord.isVip) card.classList.add('vip');
           if (ord.isCatTongue) card.classList.add('cat-tongue');
+          if (ord.isBossTasting) card.classList.add('boss-tasting');
+          if (ord.isDrunk) card.classList.add('drunk-customer');
 
           // 特別注文タグ
           let tagsHtml = '';
-          if (ord.isVip) {
+          if (ord.isBossTasting) {
+            tagsHtml += `<div class="boss-tasting-ribbon">👑 料理長試食</div>`;
+          } else if (ord.isDrunk) {
+            tagsHtml += `<div class="drunk-ribbon">${ord.isDrunkRepeat ? '🍶 もう一丁！' : '🍶 酔っぱらい客'}</div>`;
+          } else if (ord.isVip) {
             tagsHtml += `<div class="vip-tag">👑 VIP (売上3x)</div>`;
           } else if (ord.isCatTongue) {
             tagsHtml += `<div class="tongue-tag">🐱 猫舌</div>`;
@@ -4339,11 +5737,12 @@
           }).join('');
 
           const displayPrice = ord.isVip ? ord.recipe.price * 3 : ord.recipe.price;
+          let customerFace = ord.isBossTasting ? '👑' : (ord.isDrunk ? '🥴' : (ord.isVip ? '👑' : '😊'));
 
           card.innerHTML = `
             ${tagsHtml}
             <div class="order-head">
-              <span class="order-customer-face" id="cface-${ord.id}">${ord.isVip ? '👑' : '😊'}</span>
+              <span class="order-customer-face" id="cface-${ord.id}">${customerFace}</span>
               <img src="${ord.recipe.img}" class="order-img" alt="${ord.recipe.name}">
               <div class="order-info">
                 <div class="order-name">${ord.recipe.name}</div>
@@ -4424,6 +5823,15 @@
           const slot = document.getElementById(`slot-${stKey}`);
           slot.innerHTML = '';
 
+          // 料理長が持ち場を占拠中
+          if (this.bossOccupiedStation === stKey) {
+            slot.innerHTML = `
+              <img src="assets/cat_boss.jpg" class="boss-working-portrait" alt="料理長">
+              <div style="font-size: 10px; font-weight: 800; color: #ffb300; margin-top: 3px;">料理長調理中！</div>
+            `;
+            return;
+          }
+
           const cat = this.stations[stKey];
           if (cat) {
             const catEl = this.createCatElement(cat);
@@ -4458,6 +5866,27 @@
 
           if (count) {
             count.textContent = `待ち: ${waitingOrders.length}`;
+          }
+
+          // 停電中の場合
+          if (stKey === 'cook' && this.isBlackout) {
+            if (fill) fill.style.width = '0%';
+            if (text) text.textContent = '⚡ 停電停止中';
+            return;
+          }
+
+          // 料理長占拠中の場合
+          if (this.bossOccupiedStation === stKey) {
+            const curOrder = waitingOrders[0];
+            if (curOrder) {
+              const pct = Math.floor(curOrder.stepProgress * 100);
+              if (fill) fill.style.width = `${pct}%`;
+              if (text) text.textContent = `👑 料理長調理中 (${pct}%)`;
+            } else {
+              if (fill) fill.style.width = '0%';
+              if (text) text.textContent = '👑 料理長待機中';
+            }
+            return;
           }
 
           const cat = this.stations[stKey];
@@ -4512,6 +5941,7 @@
           }
           track.appendChild(slot);
         }
+        this.clampCatBubbles();
       }
 
       createCatElement(cat) {
@@ -4578,9 +6008,34 @@
         if (cat.bubbleText) {
           bubble.textContent = cat.bubbleText;
           bubble.style.display = 'block';
+          this.clampCatBubbles();
         } else {
           bubble.style.display = 'none';
         }
+      }
+
+      /* 吹き出しを画面内（左右8px以上の余白）に収める */
+      clampCatBubbles() {
+        const container = document.getElementById('app-container') || document.body;
+        const cRect = container.getBoundingClientRect();
+        const minLeft = cRect.left + 8;
+        const maxRight = cRect.right - 8;
+        const scale = container.offsetWidth ? (cRect.width / container.offsetWidth) : 1;
+
+        document.querySelectorAll('.cat-bubble').forEach(b => {
+          if (b.style.display === 'none' || !b.textContent.trim()) return;
+          b.style.setProperty('--bubble-shift-x', '0px');
+          const r = b.getBoundingClientRect();
+          let shift = 0;
+          if (r.left < minLeft) {
+            shift = (minLeft - r.left) / scale;
+          } else if (r.right > maxRight) {
+            shift = (maxRight - r.right) / scale;
+          }
+          if (shift !== 0) {
+            b.style.setProperty('--bubble-shift-x', `${shift}px`);
+          }
+        });
       }
 
       /* =========================================================
@@ -5034,6 +6489,25 @@
           return;
         }
 
+        // 第3回新要素: 料理長が占拠している持ち場への配置は不可
+        if (targetKey !== 'rest' && this.bossOccupiedStation === targetKey) {
+          this.showToast('料理長が占拠中です！別の持ち場へ配置してください！', 1800);
+          if (oldLocation === 'rest') {
+            if (!this.restCats.includes(cat)) this.restCats.push(cat);
+            cat.location = 'rest';
+          } else {
+            this.stations[oldLocation] = cat;
+            cat.location = oldLocation;
+          }
+          this.renderAll();
+          return;
+        }
+
+        // チュートリアル案内中に猫を配置できたらチュートリアル完了
+        if (this.tutorialActive) {
+          this.hideTutorial(true);
+        }
+
         // 2. 持ち場への配置
         const existingCatInSlot = this.stations[targetKey];
 
@@ -5135,8 +6609,26 @@
       runBotLogic(dt) {
         if (!this.isBotMode) return;
 
+        // チュートリアル表示中なら即時スキップしてゲーム続行
+        if (this.tutorialActive) {
+          this.hideTutorial(true);
+        }
+
         this.botActionCooldown -= dt;
         if (this.botActionCooldown > 0) return;
+
+        // エンディング画面: 2.5秒見せてステージ1へループ
+        const endingModal = document.getElementById('modal-ending');
+        if (endingModal && endingModal.style.display === 'flex') {
+          if (!this._botEndingTimer) {
+            this._botEndingTimer = setTimeout(() => {
+              this._botEndingTimer = null;
+              endingModal.style.display = 'none';
+              this.startStage(1);
+            }, 2500);
+          }
+          return;
+        }
 
         // タイトル画面: 0.6秒待って自動開始
         if (this.state === 'title') {
@@ -5151,15 +6643,15 @@
           return;
         }
 
-        // クリア画面: 2秒見せて次へ
+        // クリア画面: 2秒見せて次へ (Stage 5クリア時はエンディングを表示)
         if (this.state === 'clear') {
           if (!this._botClearTimer) {
             this._botClearTimer = setTimeout(() => {
               this._botClearTimer = null;
-              if (this.currentStageNum < 5) {
-                this.startStage(this.currentStageNum + 1);
+              if (this.currentStageNum >= 5) {
+                this.showEndingModal();
               } else {
-                this.startStage(1);
+                this.startStage(this.currentStageNum + 1);
               }
             }, 2000);
           }
@@ -5185,7 +6677,7 @@
 
           // 0. おやつ「かつおぶし」の自動活用 (VIP客やピンチ時にブースト)
           if (this.treatsLeft > 0) {
-            const urgentOrVipOrder = this.orders.find(o => o.isVip || o.patience <= 10);
+            const urgentOrVipOrder = this.orders.find(o => o.isVip || o.isBossTasting || o.patience <= 10);
             if (urgentOrVipOrder) {
               const currentSt = urgentOrVipOrder.recipe.steps[urgentOrVipOrder.currentStepIdx];
               const workingCat = this.stations[currentSt];
@@ -5206,7 +6698,7 @@
           if (sleepingShiro) {
             sleepingShiro.wakeTaps++;
             Sound.play('land');
-            if (sleepingShiro.wakeTaps >= 3) {
+            if (sleepingShiro.wakeTaps >= (sleepingShiro.level >= 3 ? 2 : 3)) {
               sleepingShiro.isSleeping = false;
               sleepingShiro.wakeTaps = 0;
               sleepingShiro.bubbleText = 'ハッ！目が覚めたにゃ！';
@@ -5220,19 +6712,21 @@
           // 2. トラがサボっていたら放物線移動で持ち場替えして復活
           const boredTora = this.cats.find(c => c.defId === 'tora' && c.isBored);
           if (boredTora) {
-            const stationKeys = ['cut', 'cook', 'plate', 'serve'];
+            const stationKeys = ['cut', 'cook', 'plate', 'serve'].filter(k => k !== this.bossOccupiedStation && !(this.isBlackout && k === 'cook'));
             const otherStations = stationKeys.filter(k => k !== boredTora.location);
-            const targetSt = otherStations[Math.floor(Math.random() * otherStations.length)];
-            this.botMoveCat(boredTora, targetSt);
-            return;
+            if (otherStations.length > 0) {
+              const targetSt = otherStations[Math.floor(Math.random() * otherStations.length)];
+              this.botMoveCat(boredTora, targetSt);
+              return;
+            }
           }
 
           // 3. 最も急ぎの注文が必要としている持ち場を特定し、適材適所に猫をフリック移動
           if (this.orders.length > 0) {
-            // VIP客優先、猫舌冷まし待ちは除外してソート
+            // 試食チェック最優先 > VIP客優先、猫舌冷まし待ちは除外してソート
             const sortedOrders = [...this.orders].sort((a, b) => {
-              const scoreA = a.patience - (a.isVip ? 8 : 0);
-              const scoreB = b.patience - (b.isVip ? 8 : 0);
+              const scoreA = a.patience - (a.isBossTasting ? 14 : (a.isVip ? 8 : 0));
+              const scoreB = b.patience - (b.isBossTasting ? 14 : (b.isVip ? 8 : 0));
               return scoreA - scoreB;
             });
 
@@ -5240,21 +6734,30 @@
               const neededStation = ord.recipe.steps[ord.currentStepIdx];
               // 猫舌客が冷まし中の場合、盛る(plate)は後回し
               if (neededStation === 'plate' && ord.coolingTimer > 0) continue;
+              // 停電中の場合、「焼く(cook)」は停止しているので後回し
+              if (neededStation === 'cook' && this.isBlackout) continue;
+              // 料理長占拠中の持ち場なら自ら調理するため配置不要
+              if (neededStation === this.bossOccupiedStation) continue;
 
               if (!this.stations[neededStation]) {
                 // その持ち場が空いている！猫を配置する
                 let candidateCat = null;
 
+                // 試食チェックの「切る」はハカセを最優先！
+                if (ord.isBossTasting && neededStation === 'cut') {
+                  candidateCat = this.cats.find(c => c.defId === 'hakase');
+                }
+
                 // ハカセは cut を最優先
-                if (neededStation === 'cut') {
+                if (!candidateCat && neededStation === 'cut') {
                   candidateCat = this.cats.find(c => c.defId === 'hakase');
                 }
                 // クロは cook を最優先
-                if (neededStation === 'cook' && !candidateCat) {
+                if (!candidateCat && neededStation === 'cook') {
                   candidateCat = this.cats.find(c => c.defId === 'kuro');
                 }
                 // シロは serve を優先
-                if (neededStation === 'serve' && !candidateCat) {
+                if (!candidateCat && neededStation === 'serve') {
                   candidateCat = this.cats.find(c => c.defId === 'shiro');
                 }
 
@@ -5281,11 +6784,15 @@
             }
           }
 
-          // 4. 空いている持ち場があれば待機猫を埋める
-          const emptySlot = ['cut', 'cook', 'plate', 'serve'].find(st => !this.stations[st]);
-          if (emptySlot && this.restCats.length > 0) {
+          // 4. 空いている持ち場があれば待機猫を埋める (占拠中・停電中スロットは除外)
+          const availableSlots = ['cut', 'cook', 'plate', 'serve'].filter(st => {
+            if (st === this.bossOccupiedStation) return false;
+            if (st === 'cook' && this.isBlackout) return false;
+            return !this.stations[st];
+          });
+          if (availableSlots.length > 0 && this.restCats.length > 0) {
             const cat = this.restCats[0];
-            this.botMoveCat(cat, emptySlot);
+            this.botMoveCat(cat, availableSlots[0]);
             return;
           }
         }
