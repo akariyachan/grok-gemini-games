@@ -4,6 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>猫の手も借りたい - 気まぐれ猫たちの厨房パニック！</title>
+  <meta name="description" content="気まぐれな猫たちを厨房へ放り投げて料理を完成させよう！個性豊かな猫たちと切り盛りする大忙しクッキングアクション！">
+  <!-- OGP & Twitter Cards -->
+  <meta property="og:title" content="猫の手も借りたい - 気まぐれ猫たちの厨房パニック！">
+  <meta property="og:description" content="気まぐれな猫たちを厨房へ放り投げて料理を完成させよう！個性豊かな猫たちと切り盛りする大忙しクッキングアクション！">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://akariyachan.github.io/grok-gemini-games/neko-no-te/">
+  <meta property="og:image" content="https://akariyachan.github.io/grok-gemini-games/neko-no-te/assets/cat_boss.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="猫の手も借りたい - 気まぐれ猫たちの厨房パニック！">
+  <meta name="twitter:description" content="気まぐれな猫たちを厨房へ放り投げて料理を完成させよう！個性豊かな猫たちと切り盛りする大忙しクッキングアクション！">
+  <meta name="twitter:image" content="https://akariyachan.github.io/grok-gemini-games/neko-no-te/assets/cat_boss.jpg">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
   <style>
     :root {
@@ -750,6 +761,9 @@
     .modal-box {
       width: 100%;
       max-width: 360px;
+      max-height: calc(100% - 20px);
+      overflow-y: auto;
+      scrollbar-width: thin;
       background: var(--cream-light);
       border-radius: 20px;
       padding: 22px 18px;
@@ -963,15 +977,15 @@
       font-style: italic;
     }
 
-    /* トーストメッセージ */
+    /* トーストメッセージ (画面下部・クリア画面の★やMVPに重ねない) */
     #toast {
       position: absolute;
-      top: 215px;
+      bottom: 16px;
       left: 50%;
-      transform: translateX(-50%) translateY(-15px);
+      transform: translateX(-50%) translateY(15px);
       background: rgba(40, 26, 17, 0.95);
       color: #fff;
-      padding: 6px 16px;
+      padding: 7px 18px;
       border-radius: 20px;
       font-size: 12px;
       font-weight: 800;
@@ -980,8 +994,11 @@
       pointer-events: none;
       transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.3s;
       opacity: 0;
-      white-space: nowrap;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      max-width: 88%;
+      box-sizing: border-box;
+      text-align: center;
+      line-height: 1.35;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.45);
     }
     #toast.show {
       transform: translateX(-50%) translateY(0);
@@ -2228,6 +2245,157 @@
       font-size: 12.5px;
     }
 
+    /* =========================================================
+       第5回新要素: 営業結果カード & シェア機能
+       ========================================================= */
+    .result-share-card {
+      width: 100%;
+      background: #fffdf9;
+      border: 2px dashed #cca87c;
+      border-radius: 14px;
+      padding: 10px 12px;
+      margin: 8px 0;
+      text-align: left;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+      box-sizing: border-box;
+      position: relative;
+    }
+    .r-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #ebd9c5;
+      padding-bottom: 5px;
+      margin-bottom: 6px;
+    }
+    .r-card-shop {
+      font-size: 13.5px;
+      font-weight: 900;
+      color: #3e2413;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .r-card-badge {
+      font-size: 10px;
+      font-weight: 800;
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+      color: #92400e;
+      padding: 2px 7px;
+      border-radius: 8px;
+    }
+    .r-card-stats {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 6px;
+    }
+    .r-card-sales {
+      font-size: 14.5px;
+      font-weight: 900;
+      color: #ea580c;
+    }
+    .r-card-served {
+      font-size: 11.5px;
+      font-weight: 800;
+      color: #68432a;
+    }
+    .r-card-mvp {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #fcf6ed;
+      border: 1px solid #ebd9c2;
+      border-radius: 8px;
+      padding: 5px 8px;
+      margin-bottom: 6px;
+    }
+    .r-card-mvp-img {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1.5px solid #d4be9e;
+      flex-shrink: 0;
+    }
+    .r-card-mvp-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .r-card-mvp-title {
+      font-size: 9.5px;
+      font-weight: 800;
+      color: #d97706;
+      line-height: 1.2;
+    }
+    .r-card-mvp-name {
+      font-size: 11px;
+      font-weight: 900;
+      color: #3e2413;
+    }
+    .r-card-grok {
+      background: #fbf5ee;
+      border-left: 3px solid #ea580c;
+      border-radius: 3px;
+      padding: 5px 8px;
+      font-size: 10.5px;
+      line-height: 1.4;
+      color: #4a2f1c;
+      margin-bottom: 6px;
+    }
+    .r-card-grok-label {
+      font-weight: 900;
+      color: #c2410c;
+      font-size: 10px;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .btn-copy-result {
+      width: 100%;
+      background: linear-gradient(180deg, #ea580c 0%, #c2410c 100%);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      padding: 7px 12px;
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 3px 8px rgba(234, 88, 12, 0.3);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    .btn-copy-result:active {
+      transform: scale(0.97);
+    }
+    .btn-hub-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 6px 14px;
+      background: rgba(80, 50, 30, 0.08);
+      border: 1.5px solid #bd9b78;
+      border-radius: 20px;
+      font-size: 11.5px;
+      font-weight: 800;
+      color: #68432a;
+      text-decoration: none;
+      margin-top: 8px;
+      transition: all 0.2s;
+    }
+    .btn-hub-link:hover, .btn-hub-link:active {
+      background: #fff;
+      border-color: #ea580c;
+      color: #ea580c;
+      transform: scale(1.02);
+    }
+
     /* 9. 全ステージクリア エンディング画面 (集合写真風) */
     #modal-ending {
       background: rgba(15, 10, 6, 0.90);
@@ -2235,6 +2403,9 @@
     .ending-box {
       width: 100%;
       max-width: 370px;
+      max-height: calc(100% - 20px);
+      overflow-y: auto;
+      scrollbar-width: thin;
       background: var(--cream-light);
       border-radius: 22px;
       padding: 20px 16px;
@@ -2856,7 +3027,7 @@
 
     <!-- 料理長見回り警告 (Stage 5) -->
     <div id="boss-alert">
-      <img src="assets/cat_boss.jpg" class="boss-icon-img" alt="料理長">
+      <img src="assets/cat_boss.jpg" class="boss-icon-img" alt="料理長" loading="lazy" decoding="async">
       <div class="boss-alert-text">
         【警告】料理長が見回りに来たにゃ！<br>
         サボっている猫は急いで叩き起こすにゃ！
@@ -3031,11 +3202,11 @@
           <span>🎖️</span><span id="title-user-title-text">称号: 見習い店員</span>
         </div>
         <div class="cats-showcase">
-          <img src="assets/cat_tora.jpg" class="showcase-cat hopping" style="animation-delay: 0s;" data-cat="tora" alt="トラ" title="タップで鳴く！">
-          <img src="assets/cat_hakase.jpg" class="showcase-cat hopping" style="animation-delay: 0.15s;" data-cat="hakase" alt="ハカセ" title="タップで鳴く！">
-          <img src="assets/cat_shiro.jpg" class="showcase-cat hopping" style="animation-delay: 0.3s;" data-cat="shiro" alt="シロ" title="タップで鳴く！">
-          <img src="assets/cat_kuro.jpg" class="showcase-cat hopping" style="animation-delay: 0.45s;" data-cat="kuro" alt="クロ" title="タップで鳴く！">
-          <img src="assets/cat_mike.jpg" class="showcase-cat hopping" style="animation-delay: 0.6s;" data-cat="mike" alt="ミケ" title="タップで鳴く！">
+          <img src="assets/cat_tora.jpg" class="showcase-cat hopping" style="animation-delay: 0s;" data-cat="tora" alt="トラ" title="タップで鳴く！" loading="lazy" decoding="async">
+          <img src="assets/cat_hakase.jpg" class="showcase-cat hopping" style="animation-delay: 0.15s;" data-cat="hakase" alt="ハカセ" title="タップで鳴く！" loading="lazy" decoding="async">
+          <img src="assets/cat_shiro.jpg" class="showcase-cat hopping" style="animation-delay: 0.3s;" data-cat="shiro" alt="シロ" title="タップで鳴く！" loading="lazy" decoding="async">
+          <img src="assets/cat_kuro.jpg" class="showcase-cat hopping" style="animation-delay: 0.45s;" data-cat="kuro" alt="クロ" title="タップで鳴く！" loading="lazy" decoding="async">
+          <img src="assets/cat_mike.jpg" class="showcase-cat hopping" style="animation-delay: 0.6s;" data-cat="mike" alt="ミケ" title="タップで鳴く！" loading="lazy" decoding="async">
         </div>
         <!-- 本日の店長のひとこと -->
         <div class="manager-word-box">
@@ -3059,6 +3230,9 @@
           <button class="btn-secondary" id="btn-open-menu" style="flex: 1; margin-top: 0;">
             📋 メニュー
           </button>
+        </div>
+        <div style="margin-top: 6px;">
+          <a href="https://akariyachan.github.io/grok-gemini-games/" class="btn-hub-link" target="_top">🎮 ゲーム一覧へ</a>
         </div>
       </div>
     </div>
@@ -3116,7 +3290,7 @@
           <!-- MVP猫 & やらかし猫 -->
           <div class="result-cats-wrap" id="clear-result-cats">
             <div class="result-cat-card mvp" id="clear-mvp">
-              <img src="assets/cat_tora.jpg" class="result-cat-avatar" id="clear-mvp-img" alt="MVP">
+              <img src="assets/cat_tora.jpg" class="result-cat-avatar" id="clear-mvp-img" alt="MVP" loading="lazy" decoding="async">
               <div class="result-cat-info">
                 <div class="result-cat-badge-line">
                   <span class="badge-mvp">🏆 今日のMVP猫</span>
@@ -3126,7 +3300,7 @@
               </div>
             </div>
             <div class="result-cat-card blunder" id="clear-blunder">
-              <img src="assets/cat_shiro.jpg" class="result-cat-avatar" id="clear-blunder-img" alt="やらかし">
+              <img src="assets/cat_shiro.jpg" class="result-cat-avatar" id="clear-blunder-img" alt="やらかし" loading="lazy" decoding="async">
               <div class="result-cat-info">
                 <div class="result-cat-badge-line">
                   <span class="badge-blunder">💥 今日のやらかし猫</span>
@@ -3142,11 +3316,37 @@
 
           <!-- 料理長の総評 (Stage 5クリア時用) -->
           <div class="boss-eval-card" id="clear-boss-eval" style="display: none;">
-            <img src="assets/cat_boss.jpg" class="boss-eval-avatar" alt="料理長">
+            <img src="assets/cat_boss.jpg" class="boss-eval-avatar" alt="料理長" loading="lazy" decoding="async">
             <div>
               <div class="boss-eval-title" id="clear-boss-eval-title">👑 料理長の総評 (最終審査)</div>
               <div class="boss-eval-quote" id="clear-boss-eval-quote">「うむ、よくやったニャ！」</div>
             </div>
+          </div>
+
+          <!-- 第5回新要素: 営業結果カード & コピー -->
+          <div class="result-share-card" id="clear-share-card">
+            <div class="r-card-header">
+              <span class="r-card-shop" id="clear-card-shop">🐱 猫の手食堂 本店</span>
+              <span class="r-card-badge" id="clear-card-title">見習い店員</span>
+            </div>
+            <div class="r-card-stats">
+              <span class="r-card-sales" id="clear-card-sales">売上 ¥0</span>
+              <span class="r-card-served" id="clear-card-served">提供: 0皿</span>
+            </div>
+            <div class="r-card-mvp">
+              <img src="assets/cat_tora.jpg" class="r-card-mvp-img" id="clear-card-mvp-img" alt="MVP猫" loading="lazy" decoding="async">
+              <div class="r-card-mvp-info">
+                <div class="r-card-mvp-title">🏆 本日のMVP猫</div>
+                <div class="r-card-mvp-name" id="clear-card-mvp-name">トラ</div>
+              </div>
+            </div>
+            <div class="r-card-grok">
+              <div class="r-card-grok-label">😼 店長（Grok）の辛口ひとこと</div>
+              <div id="clear-card-grok-quote">「ふん、手際だけは一丁前だな。」</div>
+            </div>
+            <button class="btn-copy-result" id="btn-copy-clear-result">
+              📋 結果をコピーしてシェア 🐾
+            </button>
           </div>
         </div>
 
@@ -3180,7 +3380,7 @@
         <!-- 失敗時のMVP猫 & やらかし猫 -->
         <div class="result-cats-wrap" id="fail-result-cats">
           <div class="result-cat-card mvp" id="fail-mvp">
-            <img src="assets/cat_tora.jpg" class="result-cat-avatar" id="fail-mvp-img" alt="MVP">
+            <img src="assets/cat_tora.jpg" class="result-cat-avatar" id="fail-mvp-img" alt="MVP" loading="lazy" decoding="async">
             <div class="result-cat-info">
               <div class="result-cat-badge-line">
                 <span class="badge-mvp">🏆 孤軍奮闘猫</span>
@@ -3190,7 +3390,7 @@
             </div>
           </div>
           <div class="result-cat-card blunder" id="fail-blunder">
-            <img src="assets/cat_shiro.jpg" class="result-cat-avatar" id="fail-blunder-img" alt="やらかし">
+            <img src="assets/cat_shiro.jpg" class="result-cat-avatar" id="fail-blunder-img" alt="やらかし" loading="lazy" decoding="async">
             <div class="result-cat-info">
               <div class="result-cat-badge-line">
                 <span class="badge-blunder">💥 本日のお騒がせ猫</span>
@@ -3214,27 +3414,27 @@
             <div class="ending-noren">猫の手食堂</div>
             <div class="ending-cats-row">
               <div class="ending-cat-card">
-                <img src="assets/cat_tora.jpg" class="ending-cat-img" alt="トラ">
+                <img src="assets/cat_tora.jpg" class="ending-cat-img" alt="トラ" loading="lazy" decoding="async">
                 <span class="ending-cat-tag">トラ</span>
               </div>
               <div class="ending-cat-card">
-                <img src="assets/cat_hakase.jpg" class="ending-cat-img" alt="ハカセ">
+                <img src="assets/cat_hakase.jpg" class="ending-cat-img" alt="ハカセ" loading="lazy" decoding="async">
                 <span class="ending-cat-tag">ハカセ</span>
               </div>
               <div class="ending-cat-card">
-                <img src="assets/cat_boss.jpg" class="ending-cat-img boss-center" alt="料理長">
+                <img src="assets/cat_boss.jpg" class="ending-cat-img boss-center" alt="料理長" loading="lazy" decoding="async">
                 <span class="ending-cat-tag" style="color: #b71515; font-weight: 900;">料理長</span>
               </div>
               <div class="ending-cat-card">
-                <img src="assets/cat_shiro.jpg" class="ending-cat-img" alt="シロ">
+                <img src="assets/cat_shiro.jpg" class="ending-cat-img" alt="シロ" loading="lazy" decoding="async">
                 <span class="ending-cat-tag">シロ</span>
               </div>
               <div class="ending-cat-card">
-                <img src="assets/cat_kuro.jpg" class="ending-cat-img" alt="クロ">
+                <img src="assets/cat_kuro.jpg" class="ending-cat-img" alt="クロ" loading="lazy" decoding="async">
                 <span class="ending-cat-tag">クロ</span>
               </div>
               <div class="ending-cat-card">
-                <img src="assets/cat_mike.jpg" class="ending-cat-img" alt="ミケ">
+                <img src="assets/cat_mike.jpg" class="ending-cat-img" alt="ミケ" loading="lazy" decoding="async">
                 <span class="ending-cat-tag">ミケ</span>
               </div>
             </div>
@@ -3249,8 +3449,37 @@
           <!-- JSで結末文が動的挿入される -->
         </div>
 
+        <!-- 第5回新要素: エンディング結果カード & コピー -->
+        <div class="result-share-card" id="ending-share-card">
+          <div class="r-card-header">
+            <span class="r-card-shop" id="ending-card-shop">🏆 猫の手食堂 伝説の本家</span>
+            <span class="r-card-badge" id="ending-card-title">見習い店員</span>
+          </div>
+          <div class="r-card-stats">
+            <span class="r-card-sales" id="ending-card-sales">累計売上 ¥0</span>
+            <span class="r-card-served" id="ending-card-served">総提供: 0皿</span>
+          </div>
+          <div class="r-card-mvp">
+            <img src="assets/cat_boss.jpg" class="r-card-mvp-img" id="ending-card-mvp-img" alt="MVP猫" loading="lazy" decoding="async">
+            <div class="r-card-mvp-info">
+              <div class="r-card-mvp-title">🏆 厨房のMVP</div>
+              <div class="r-card-mvp-name" id="ending-card-mvp-name">トラ</div>
+            </div>
+          </div>
+          <div class="r-card-grok">
+            <div class="r-card-grok-label">😼 店長（Grok）の辛口総括</div>
+            <div id="ending-card-grok-quote">「最高の厨房だったぞ。次はもっと腕を磨いてこい！」</div>
+          </div>
+          <button class="btn-copy-result" id="btn-copy-ending-result">
+            📋 結末結果をコピーしてシェア 🐾
+          </button>
+        </div>
+
         <button class="btn-main" id="btn-ending-title">タイトルへ戻る 🐾</button>
         <button class="btn-secondary" id="btn-ending-stages" style="margin-top: 6px;">ステージ選択</button>
+        <div style="margin-top: 6px;">
+          <a href="https://akariyachan.github.io/grok-gemini-games/" class="btn-hub-link" target="_top">🎮 ゲーム一覧へ</a>
+        </div>
       </div>
     </div>
 
@@ -3478,6 +3707,32 @@
           </div>
         </div>
 
+        <!-- 第5回新要素: デイリー結果カード & コピー -->
+        <div class="result-share-card" id="daily-share-card">
+          <div class="r-card-header">
+            <span class="r-card-shop" id="daily-card-shop">📅 猫の手食堂 本日のおすすめ処</span>
+            <span class="r-card-badge" id="daily-card-title">見習い店員</span>
+          </div>
+          <div class="r-card-stats">
+            <span class="r-card-sales" id="daily-card-sales">売上 ¥0</span>
+            <span class="r-card-served" id="daily-card-served">提供: 0皿</span>
+          </div>
+          <div class="r-card-mvp">
+            <img src="assets/cat_tora.jpg" class="r-card-mvp-img" id="daily-card-mvp-img" alt="MVP猫" loading="lazy" decoding="async">
+            <div class="r-card-mvp-info">
+              <div class="r-card-mvp-title">🏆 本日のMVP猫</div>
+              <div class="r-card-mvp-name" id="daily-card-mvp-name">トラ</div>
+            </div>
+          </div>
+          <div class="r-card-grok">
+            <div class="r-card-grok-label">😼 店長（Grok）の辛口ひとこと</div>
+            <div id="daily-card-grok-quote">「今日のおすすめを捌き切ったか。まあ合格点だ。」</div>
+          </div>
+          <button class="btn-copy-result" id="btn-copy-daily-result">
+            📋 結果をコピーしてシェア 🐾
+          </button>
+        </div>
+
         <button class="btn-main" id="btn-daily-retry">もう一度挑戦 🐾</button>
         <button class="btn-secondary" id="btn-daily-title">タイトルへ戻る</button>
       </div>
@@ -3513,6 +3768,32 @@
           </div>
         </div>
 
+        <!-- 第5回新要素: エンドレス結果カード & コピー -->
+        <div class="result-share-card" id="endless-share-card">
+          <div class="r-card-header">
+            <span class="r-card-shop" id="endless-card-shop">♾️ 猫の手食堂 限界突破支店</span>
+            <span class="r-card-badge" id="endless-card-title">見習い店員</span>
+          </div>
+          <div class="r-card-stats">
+            <span class="r-card-sales" id="endless-card-sales">最終売上 ¥0</span>
+            <span class="r-card-served" id="endless-card-served">提供: 0皿</span>
+          </div>
+          <div class="r-card-mvp">
+            <img src="assets/cat_tora.jpg" class="r-card-mvp-img" id="endless-card-mvp-img" alt="MVP猫" loading="lazy" decoding="async">
+            <div class="r-card-mvp-info">
+              <div class="r-card-mvp-title">🏆 限界営業MVP猫</div>
+              <div class="r-card-mvp-name" id="endless-card-mvp-name">トラ</div>
+            </div>
+          </div>
+          <div class="r-card-grok">
+            <div class="r-card-grok-label">😼 店長（Grok）の辛口ひとこと</div>
+            <div id="endless-card-grok-quote">「よくここまで持ちこたえた。だがモップ掛けして帰れ！」</div>
+          </div>
+          <button class="btn-copy-result" id="btn-copy-endless-result">
+            📋 結果をコピーしてシェア 🐾
+          </button>
+        </div>
+
         <button class="btn-main" id="btn-endless-retry">もう一度限界に挑戦！ 🐾</button>
         <button class="btn-secondary" id="btn-endless-title">タイトルへ戻る</button>
       </div>
@@ -3526,8 +3807,15 @@
 
   <script>
     /* =========================================================
-       1. サウンドエンジン (WebAudio API)
+       1. サウンドエンジン (WebAudio API) & BGM シーケンサー
        ========================================================= */
+    const BGM_NOTES = {
+      C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.00, A3: 220.00, B3: 246.94,
+      C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88,
+      C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.00, Bb4: 466.16,
+      _: 0
+    };
+
     const Sound = {
       ctx: null,
       masterGain: null,
@@ -3535,6 +3823,52 @@
       volume: 0.7,
       vibrationEnabled: true,
       userInteracted: false,
+
+      // 第5回新要素: WebAudio BGM
+      bgmGainNode: null,
+      bgmTimer: null,
+      bgmStageKey: null,
+      bgmStep: 0,
+      bgmNextNoteTime: 0,
+      bgmIsRush: false,
+      bgmBaseVolume: 0.18,
+      bgmPatterns: {
+        '1': {
+          bpm: 128,
+          melody: [BGM_NOTES.C5, BGM_NOTES._, BGM_NOTES.G4, BGM_NOTES.E4, BGM_NOTES.A4, BGM_NOTES._, BGM_NOTES.G4, BGM_NOTES._, BGM_NOTES.C5, BGM_NOTES.D5, BGM_NOTES.E5, BGM_NOTES.C5, BGM_NOTES.D5, BGM_NOTES._, BGM_NOTES.G4, BGM_NOTES._],
+          bass:   [BGM_NOTES.C3, BGM_NOTES._, BGM_NOTES.G3, BGM_NOTES._, BGM_NOTES.C3, BGM_NOTES._, BGM_NOTES.G3, BGM_NOTES._, BGM_NOTES.F3, BGM_NOTES._, BGM_NOTES.C3, BGM_NOTES._, BGM_NOTES.G3, BGM_NOTES._, BGM_NOTES.G3, BGM_NOTES._]
+        },
+        '2': {
+          bpm: 136,
+          melody: [BGM_NOTES.G4, BGM_NOTES.B4, BGM_NOTES.D5, BGM_NOTES._, BGM_NOTES.E5, BGM_NOTES.D5, BGM_NOTES.B4, BGM_NOTES.G4, BGM_NOTES.A4, BGM_NOTES.C5, BGM_NOTES.E5, BGM_NOTES._, BGM_NOTES.D5, BGM_NOTES.B4, BGM_NOTES.G4, BGM_NOTES.A4],
+          bass:   [BGM_NOTES.G3, BGM_NOTES._, BGM_NOTES.D3, BGM_NOTES._, BGM_NOTES.G3, BGM_NOTES._, BGM_NOTES.D3, BGM_NOTES._, BGM_NOTES.C3, BGM_NOTES._, BGM_NOTES.G3, BGM_NOTES._, BGM_NOTES.D3, BGM_NOTES._, BGM_NOTES.D3, BGM_NOTES._]
+        },
+        '3': {
+          bpm: 120,
+          melody: [BGM_NOTES.D4, BGM_NOTES.F4, BGM_NOTES.A4, BGM_NOTES._, BGM_NOTES.G4, BGM_NOTES.F4, BGM_NOTES.D4, BGM_NOTES._, BGM_NOTES.C4, BGM_NOTES.D4, BGM_NOTES.F4, BGM_NOTES.G4, BGM_NOTES.A4, BGM_NOTES._, BGM_NOTES.D5, BGM_NOTES._],
+          bass:   [BGM_NOTES.D3, BGM_NOTES._, BGM_NOTES.A3, BGM_NOTES._, BGM_NOTES.D3, BGM_NOTES._, BGM_NOTES.A3, BGM_NOTES._, BGM_NOTES.C3, BGM_NOTES._, BGM_NOTES.G3, BGM_NOTES._, BGM_NOTES.D3, BGM_NOTES._, BGM_NOTES.A3, BGM_NOTES._]
+        },
+        '4': {
+          bpm: 124,
+          melody: [BGM_NOTES.A4, BGM_NOTES.C5, BGM_NOTES._, BGM_NOTES.E5, BGM_NOTES.D5, BGM_NOTES.C5, BGM_NOTES.A4, BGM_NOTES._, BGM_NOTES.G4, BGM_NOTES.A4, BGM_NOTES.C5, BGM_NOTES.D5, BGM_NOTES.C5, BGM_NOTES.A4, BGM_NOTES.G4, BGM_NOTES._],
+          bass:   [BGM_NOTES.A3, BGM_NOTES._, BGM_NOTES.E3, BGM_NOTES._, BGM_NOTES.A3, BGM_NOTES._, BGM_NOTES.E3, BGM_NOTES._, BGM_NOTES.F3, BGM_NOTES._, BGM_NOTES.C3, BGM_NOTES._, BGM_NOTES.G3, BGM_NOTES._, BGM_NOTES.E3, BGM_NOTES._]
+        },
+        '5': {
+          bpm: 140,
+          melody: [BGM_NOTES.E4, BGM_NOTES.G4, BGM_NOTES.B4, BGM_NOTES.E5, BGM_NOTES.D5, BGM_NOTES.B4, BGM_NOTES.C5, BGM_NOTES.B4, BGM_NOTES.A4, BGM_NOTES.B4, BGM_NOTES.C5, BGM_NOTES.E5, BGM_NOTES.B4, BGM_NOTES.G4, BGM_NOTES.E4, BGM_NOTES._],
+          bass:   [BGM_NOTES.E3, BGM_NOTES._, BGM_NOTES.B3, BGM_NOTES._, BGM_NOTES.E3, BGM_NOTES._, BGM_NOTES.B3, BGM_NOTES._, BGM_NOTES.A3, BGM_NOTES._, BGM_NOTES.E3, BGM_NOTES._, BGM_NOTES.B3, BGM_NOTES._, BGM_NOTES.B3, BGM_NOTES._]
+        },
+        'daily': {
+          bpm: 132,
+          melody: [BGM_NOTES.F4, BGM_NOTES.A4, BGM_NOTES.C5, BGM_NOTES._, BGM_NOTES.D5, BGM_NOTES.C5, BGM_NOTES.A4, BGM_NOTES.F4, BGM_NOTES.G4, BGM_NOTES.Bb4, BGM_NOTES.D5, BGM_NOTES._, BGM_NOTES.C5, BGM_NOTES.A4, BGM_NOTES.G4, BGM_NOTES._],
+          bass:   [BGM_NOTES.F3, BGM_NOTES._, BGM_NOTES.C3, BGM_NOTES._, BGM_NOTES.F3, BGM_NOTES._, BGM_NOTES.C3, BGM_NOTES._, BGM_NOTES.Bb3, BGM_NOTES._, BGM_NOTES.F3, BGM_NOTES._, BGM_NOTES.C3, BGM_NOTES._, BGM_NOTES.C3, BGM_NOTES._]
+        },
+        'endless': {
+          bpm: 136,
+          melody: [BGM_NOTES.C5, BGM_NOTES.E5, BGM_NOTES.G5, BGM_NOTES.E5, BGM_NOTES.D5, BGM_NOTES.C5, BGM_NOTES.A4, BGM_NOTES.C5, BGM_NOTES.D5, BGM_NOTES.F5, BGM_NOTES.E5, BGM_NOTES.D5, BGM_NOTES.C5, BGM_NOTES.G4, BGM_NOTES.C5, BGM_NOTES._],
+          bass:   [BGM_NOTES.C3, BGM_NOTES._, BGM_NOTES.G3, BGM_NOTES._, BGM_NOTES.A3, BGM_NOTES._, BGM_NOTES.E3, BGM_NOTES._, BGM_NOTES.F3, BGM_NOTES._, BGM_NOTES.C3, BGM_NOTES._, BGM_NOTES.G3, BGM_NOTES._, BGM_NOTES.G3, BGM_NOTES._]
+        }
+      },
 
       get dest() {
         if (!this.ctx) return null;
@@ -3548,6 +3882,159 @@
           }
         }
         return this.masterGain;
+      },
+
+      get bgmDest() {
+        if (!this.ctx) return null;
+        if (!this.bgmGainNode) {
+          try {
+            this.bgmGainNode = this.ctx.createGain();
+            const vol = this.muted ? 0 : this.bgmBaseVolume;
+            this.bgmGainNode.gain.setValueAtTime(vol, this.ctx.currentTime);
+            this.bgmGainNode.connect(this.dest);
+          } catch (e) {
+            return this.dest;
+          }
+        }
+        return this.bgmGainNode;
+      },
+
+      updateBgmState() {
+        if (this.bgmGainNode && this.ctx) {
+          const targetVol = this.muted ? 0 : this.bgmBaseVolume;
+          this.bgmGainNode.gain.setValueAtTime(targetVol, this.ctx.currentTime);
+        }
+      },
+
+      startBgm(stageKey, isRush = false) {
+        if (!this.ctx) this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+        this.bgmStageKey = String(stageKey);
+        this.bgmIsRush = !!isRush;
+        this.bgmStep = 0;
+        this.bgmNextNoteTime = this.ctx.currentTime + 0.05;
+        this.updateBgmState();
+
+        if (this.bgmTimer) {
+          clearInterval(this.bgmTimer);
+        }
+        this.bgmTimer = setInterval(() => this.tickBgm(), 40);
+      },
+
+      setBgmRush(isRush) {
+        this.bgmIsRush = !!isRush;
+      },
+
+      pauseBgm() {
+        if (this.bgmTimer) {
+          clearInterval(this.bgmTimer);
+          this.bgmTimer = null;
+        }
+        if (this.bgmGainNode && this.ctx) {
+          this.bgmGainNode.gain.setValueAtTime(0, this.ctx.currentTime);
+        }
+      },
+
+      resumeBgm() {
+        if (this.bgmStageKey) {
+          this.startBgm(this.bgmStageKey, this.bgmIsRush);
+        }
+      },
+
+      stopBgm() {
+        if (this.bgmTimer) {
+          clearInterval(this.bgmTimer);
+          this.bgmTimer = null;
+        }
+        this.bgmStageKey = null;
+        this.bgmIsRush = false;
+        if (this.bgmGainNode && this.ctx) {
+          this.bgmGainNode.gain.setValueAtTime(0, this.ctx.currentTime);
+        }
+      },
+
+      tickBgm() {
+        if (!this.ctx || !this.bgmStageKey) return;
+        const pat = this.bgmPatterns[this.bgmStageKey] || this.bgmPatterns['1'];
+        if (!pat) return;
+
+        let bpm = pat.bpm || 128;
+        if (this.bgmIsRush) bpm *= 1.35;
+        const stepDuration = (60 / bpm) / 2;
+
+        while (this.bgmNextNoteTime < this.ctx.currentTime + 0.15) {
+          const step = this.bgmStep;
+          const melNote = pat.melody[step % pat.melody.length];
+          const bassNote = pat.bass[step % pat.bass.length];
+          const time = this.bgmNextNoteTime;
+
+          if (!this.muted && this.bgmDest) {
+            if (melNote > 0) {
+              try {
+                const osc = this.ctx.createOscillator();
+                const filter = this.ctx.createBiquadFilter();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(melNote, time);
+
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(2400, time);
+
+                const dur = stepDuration * 0.85;
+                gain.gain.setValueAtTime(0.0001, time);
+                gain.gain.linearRampToValueAtTime(0.10, time + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.bgmDest);
+                osc.start(time);
+                osc.stop(time + dur + 0.04);
+              } catch (e) {}
+            }
+
+            if (bassNote > 0) {
+              try {
+                const bOsc = this.ctx.createOscillator();
+                const bGain = this.ctx.createGain();
+                bOsc.type = 'sine';
+                bOsc.frequency.setValueAtTime(bassNote, time);
+
+                const bDur = stepDuration * 0.9;
+                bGain.gain.setValueAtTime(0.0001, time);
+                bGain.gain.linearRampToValueAtTime(0.12, time + 0.012);
+                bGain.gain.exponentialRampToValueAtTime(0.0001, time + bDur);
+
+                bOsc.connect(bGain);
+                bGain.connect(this.bgmDest);
+                bOsc.start(time);
+                bOsc.stop(time + bDur + 0.04);
+              } catch (e) {}
+            }
+
+            if (step % 2 === 1) {
+              try {
+                const pOsc = this.ctx.createOscillator();
+                const pGain = this.ctx.createGain();
+                pOsc.type = 'sine';
+                pOsc.frequency.setValueAtTime(1200, time);
+                pGain.gain.setValueAtTime(0.018, time);
+                pGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.035);
+                pOsc.connect(pGain);
+                pGain.connect(this.bgmDest);
+                pOsc.start(time);
+                pOsc.stop(time + 0.04);
+              } catch (e) {}
+            }
+          }
+
+          this.bgmStep = (this.bgmStep + 1) % 16;
+          this.bgmNextNoteTime += stepDuration;
+        }
       },
 
       init() {
@@ -3576,6 +4063,7 @@
         if (this.masterGain && this.ctx) {
           this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
         }
+        this.updateBgmState();
         this.updateBtnUI();
       },
 
@@ -3609,6 +4097,7 @@
         this.muted = !this.muted;
         localStorage.setItem('nekoNoTeMuted', this.muted);
         this.updateBtnUI();
+        this.updateBgmState();
         if (!this.muted) {
           this.play('stepDone');
         }
@@ -3969,6 +4458,7 @@
         }
       }
     };
+    window.Sound = Sound;
 
     if (typeof window !== 'undefined') {
       window.addEventListener('pointerdown', () => {
@@ -4511,6 +5001,7 @@
         // コンボ管理 (連続提供)
         this.combo = 0;
         this.comboTimer = 0;
+        this.maxCombo = 0;
 
         // 猫長押しカード用
         this.longPressTimer = null;
@@ -4668,6 +5159,7 @@
           angry: this.angryCount,
           rep: this.reputation,
           combo: this.combo,
+          maxCombo: this.maxCombo || 0,
           treatsLeft: this.treatsLeft !== undefined ? this.treatsLeft : 3,
           isMealBreak: !!this.isMealBreak,
           // 第3回新要素
@@ -4689,7 +5181,12 @@
           endlessTime: this.endlessTime || 0,
           endlessBestSales: this.endlessBestSales || 0,
           achievementsCount: Object.keys(this.achievements || {}).length,
-          currentTitle: this.selectedTitle || '見習い店員'
+          currentTitle: this.selectedTitle || '見習い店員',
+          // 第5回新要素
+          bgmStage: Sound.bgmStageKey || null,
+          isBgmMuted: !!Sound.muted,
+          lastResultCard: this.lastResultCard || null,
+          copyResultCard: () => this.copyResultCard(this.lastResultCard)
         };
       }
 
@@ -4789,6 +5286,7 @@
         if (endingTitleBtn) {
           endingTitleBtn.addEventListener('pointerdown', () => {
             Sound.init();
+            Sound.stopBgm();
             document.getElementById('modal-ending').style.display = 'none';
             this.state = 'title';
             document.getElementById('modal-title').style.display = 'flex';
@@ -4800,8 +5298,39 @@
         if (endingStagesBtn) {
           endingStagesBtn.addEventListener('pointerdown', () => {
             Sound.init();
+            Sound.stopBgm();
             document.getElementById('modal-ending').style.display = 'none';
             this.showStageSelection();
+          });
+        }
+
+        // 第5回新要素: 営業結果カードの「結果をコピー」ボタン
+        const clearCopyBtn = document.getElementById('btn-copy-clear-result');
+        if (clearCopyBtn) {
+          clearCopyBtn.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            this.copyResultCard();
+          });
+        }
+        const endingCopyBtn = document.getElementById('btn-copy-ending-result');
+        if (endingCopyBtn) {
+          endingCopyBtn.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            this.copyResultCard();
+          });
+        }
+        const dailyCopyBtn = document.getElementById('btn-copy-daily-result');
+        if (dailyCopyBtn) {
+          dailyCopyBtn.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            this.copyResultCard();
+          });
+        }
+        const endlessCopyBtn = document.getElementById('btn-copy-endless-result');
+        if (endlessCopyBtn) {
+          endlessCopyBtn.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            this.copyResultCard();
           });
         }
 
@@ -4937,6 +5466,7 @@
         if (titleBtn) {
           titleBtn.addEventListener('pointerdown', () => {
             Sound.init();
+            Sound.stopBgm();
             this.isPaused = false;
             document.getElementById('modal-settings').style.display = 'none';
             this.state = 'title';
@@ -4968,6 +5498,7 @@
       pauseGame() {
         if (this.state !== 'play') return;
         this.isPaused = true;
+        Sound.pauseBgm();
         Sound.play('land');
         this.openSettingsModal(true);
         this.updateGlobalState();
@@ -4976,6 +5507,7 @@
       resumeGame() {
         this.isPaused = false;
         document.getElementById('modal-settings').style.display = 'none';
+        Sound.resumeBgm();
         Sound.play('stepDone');
         this.lastTime = performance.now();
         this.updateGlobalState();
@@ -5202,7 +5734,7 @@
 
           return `
             <div class="guide-cat-card">
-              <img src="${def.img}" class="guide-cat-img" alt="${def.name}">
+              <img src="${def.img}" class="guide-cat-img" alt="${def.name}" loading="lazy" decoding="async">
               <div class="guide-cat-info">
                 <div class="guide-cat-name">
                   <span>${def.name}</span>
@@ -5230,7 +5762,7 @@
 
           return `
             <div class="guide-recipe-card">
-              <img src="${r.img}" class="guide-recipe-img" alt="${r.name}">
+              <img src="${r.img}" class="guide-recipe-img" alt="${r.name}" loading="lazy" decoding="async">
               <div style="flex: 1;">
                 <div style="font-size: 13px; font-weight: 900; color: #3b2010; display: flex; justify-content: space-between;">
                   <span>${r.name}</span>
@@ -5324,6 +5856,7 @@
 
       endDailyChallenge() {
         this.state = 'clear';
+        Sound.stopBgm();
         Sound.play(this.sales >= this.targetSales ? 'clear' : 'stepDone');
 
         // 実績解除チェック
@@ -5377,6 +5910,10 @@
           document.getElementById('daily-res-streak').textContent = `${this.dailyStreak}日連続！`;
           const badge = document.getElementById('daily-new-record-badge');
           if (badge) badge.style.display = isNewRecord ? 'block' : 'none';
+
+          // 第5回新要素: デイリー結果カード
+          const cardData = this.generateResultCardData('daily');
+          this.renderResultCardUI('daily', cardData);
 
           resModal.style.display = 'flex';
         }
@@ -5461,6 +5998,7 @@
 
       endEndlessMode() {
         this.state = 'clear';
+        Sound.stopBgm();
         Sound.play('clear');
 
         // ベスト記録の更新判定
@@ -5489,6 +6027,10 @@
 
           const badge = document.getElementById('endless-new-record-badge');
           if (badge) badge.style.display = isNewRecord ? 'block' : 'none';
+
+          // 第5回新要素: エンドレス結果カード
+          const cardData = this.generateResultCardData('endless');
+          this.renderResultCardUI('endless', cardData);
 
           resModal.style.display = 'flex';
         }
@@ -5667,6 +6209,7 @@
         if (dailyTitleBtn) {
           dailyTitleBtn.addEventListener('pointerdown', () => {
             Sound.init();
+            Sound.stopBgm();
             document.getElementById('modal-daily-result').style.display = 'none';
             this.state = 'title';
             document.getElementById('modal-title').style.display = 'flex';
@@ -5688,6 +6231,7 @@
         if (endlessTitleBtn) {
           endlessTitleBtn.addEventListener('pointerdown', () => {
             Sound.init();
+            Sound.stopBgm();
             document.getElementById('modal-endless-result').style.display = 'none';
             this.state = 'title';
             document.getElementById('modal-title').style.display = 'flex';
@@ -5876,7 +6420,7 @@
         overlay.innerHTML = `
           <div class="cat-profile-card">
             <div class="profile-card-header">
-              <img src="${def.img}" class="profile-card-avatar" alt="${def.name}">
+              <img src="${def.img}" class="profile-card-avatar" alt="${def.name}" loading="lazy" decoding="async">
               <div>
                 <div class="profile-card-name">${def.name} 🐾</div>
                 <div class="profile-card-title">${def.roleTitle || '気まぐれ厨房猫'}</div>
@@ -5896,14 +6440,49 @@
       }
 
       showToast(text, duration = 1800) {
+        if (!this.toastQueue) this.toastQueue = [];
+        if (this.toastQueue.length >= 4) {
+          this.toastQueue.shift();
+        }
+        this.toastQueue.push({ text, duration });
+        if (!this.isToastShowing) {
+          this.processNextToast();
+        }
+      }
+
+      processNextToast() {
+        if (!this.toastQueue || this.toastQueue.length === 0) {
+          this.isToastShowing = false;
+          return;
+        }
+
+        this.isToastShowing = true;
+        const item = this.toastQueue.shift();
         const toast = document.getElementById('toast');
-        if (!toast) return;
-        toast.textContent = text;
+        if (!toast) {
+          this.isToastShowing = false;
+          return;
+        }
+
+        toast.textContent = item.text;
         toast.classList.add('show');
+
         if (this._toastTimer) clearTimeout(this._toastTimer);
         this._toastTimer = setTimeout(() => {
           toast.classList.remove('show');
-        }, duration);
+          setTimeout(() => {
+            this.processNextToast();
+          }, 220);
+        }, item.duration);
+      }
+
+      clearToastQueue() {
+        if (this._toastTimer) clearTimeout(this._toastTimer);
+        this._toastTimer = null;
+        this.toastQueue = [];
+        this.isToastShowing = false;
+        const toast = document.getElementById('toast');
+        if (toast) toast.classList.remove('show');
       }
 
       renderCatRoster() {
@@ -5922,7 +6501,7 @@
           card.title = `${def.name} (Lv.${info.level}): ${info.perkText}`;
 
           card.innerHTML = `
-            <img src="${def.img}" class="cat-roster-avatar" alt="${def.name}">
+            <img src="${def.img}" class="cat-roster-avatar" alt="${def.name}" loading="lazy" decoding="async">
             <div class="cat-roster-name">${def.name}</div>
             <div class="cat-roster-level">Lv.${info.level}</div>
             <div class="cat-roster-exp-bar" title="EXP: ${info.progressExp} / ${info.needExp || 'MAX'}">
@@ -6049,7 +6628,7 @@
         const bodyEl = document.getElementById(`slot-${stationKey}`);
         if (bodyEl) {
           bodyEl.innerHTML = `
-            <img src="assets/cat_boss.jpg" class="boss-working-portrait" alt="料理長">
+            <img src="assets/cat_boss.jpg" class="boss-working-portrait" alt="料理長" loading="lazy" decoding="async">
             <div style="font-size: 10px; font-weight: 800; color: #ffb300; margin-top: 3px;">料理長が超速調理中！</div>
           `;
         }
@@ -6136,6 +6715,7 @@
 
         this.combo = 0;
         this.comboTimer = 0;
+        this.maxCombo = 0;
         const comboBadge = document.getElementById('combo-badge-hud');
         if (comboBadge) comboBadge.style.display = 'none';
 
@@ -6269,6 +6849,15 @@
         this.renderHUD();
         this.renderAll();
 
+        // BGM開始 (ステージ/モード別)
+        if (this.gameMode === 'daily') {
+          Sound.startBgm('daily', false);
+        } else if (this.gameMode === 'endless') {
+          Sound.startBgm('endless', false);
+        } else {
+          Sound.startBgm(this.currentStageNum, false);
+        }
+
         this.showToast(`営業開始！ 目標: ¥${this.targetSales.toLocaleString()}`);
         this.updateGlobalState();
       }
@@ -6399,7 +6988,7 @@
         const catsRow = document.getElementById('meal-cats-row');
         if (catsRow) {
           catsRow.innerHTML = this.cats.map(c => `
-            <img src="${c.def.img}" class="meal-cat-eating" alt="${c.def.name}" title="${c.def.name}">
+            <img src="${c.def.img}" class="meal-cat-eating" alt="${c.def.name}" title="${c.def.name}" loading="lazy" decoding="async">
           `).join('');
         }
         if (overlay) overlay.style.display = 'flex';
@@ -6509,6 +7098,7 @@
             this.stageEventTriggered = true;
             this.currentStageEvent = 'lunch_rush';
             this.isLunchRush = true;
+            Sound.setBgmRush(true);
             this.stageEventTimer = 10.0;
             Sound.play('vip');
             this.showStageEventBanner('🔥', 'ランチラッシュ突入！注文が一気に3枚殺到中！(10s)', 'event-rush');
@@ -6521,6 +7111,7 @@
             this.nextOrderTimer = Math.min(this.nextOrderTimer, 0.4);
             if (this.stageEventTimer <= 0) {
               this.isLunchRush = false;
+              Sound.setBgmRush(false);
               this.stageEventTimer = 0;
               this.hideStageEventBanner();
               this.showToast('ランチラッシュ終了！ご苦労さまにゃ！');
@@ -7195,6 +7786,7 @@
           this.combo = 1;
         }
         this.comboTimer = 5.0; // 5秒間有効
+        this.maxCombo = Math.max(this.maxCombo || 0, this.combo);
 
         // コンボ倍率
         let comboMult = 1.0;
@@ -7486,9 +8078,207 @@
         };
       }
 
+      /* =========================================================
+         第5回新要素: 営業結果カード & 店長Grokの辛口評価生成
+         ========================================================= */
+      calcStageStars() {
+        if (!this.stageConfig || !this.stageConfig.starTargets) return 1;
+        const t = this.stageConfig.starTargets;
+        if (this.sales >= t[2]) return 3;
+        if (this.sales >= t[1]) return 2;
+        return 1;
+      }
+
+      generateResultCardData(mode = 'stage', resultCats = null) {
+        if (!resultCats) {
+          resultCats = this.evaluateStageCats();
+        }
+        const mvpCat = resultCats?.mvp?.cat?.def || this.cats[0]?.def || CAT_DEFS.tora;
+
+        let shopName = '🐱 猫の手食堂 朝市本店';
+        if (mode === 'ending') {
+          shopName = '🏆 猫の手食堂 伝説の本家';
+        } else if (mode === 'daily') {
+          shopName = '📅 猫の手食堂 本日のおすすめ処';
+        } else if (mode === 'endless') {
+          shopName = '♾️ 猫の手食堂 限界突破支店';
+        } else {
+          const shopNames = {
+            1: '🐱 猫の手食堂 朝市本店',
+            2: '⚡ 猫の手食堂 ランチ特急店',
+            3: '🏮 猫の手食堂 黄昏横丁店',
+            4: '🌧️ 猫の手食堂 雨宿り本店',
+            5: '👑 猫の手食堂 料理長特選本店'
+          };
+          shopName = shopNames[this.currentStageNum] || '🐱 猫の手食堂 本店';
+        }
+
+        const userTitle = this.selectedTitle || '見習い店員';
+        const sales = this.sales;
+        const served = this.servedCount;
+
+        // 店長Grokの辛口ひとこと
+        let grokQuote = '「猫の手も借りたいが、猫の足は引っ張るなよ。次の仕込みはもっと気合いを入れろ！」';
+        if (mode === 'ending') {
+          const totalStars = this.getTotalStars();
+          if (totalStars >= 13) {
+            grokQuote = '「ふん、伝説の名店だと？調子に乗るなよ。明日からも猫たちのブラッシングと爪研ぎは店長自ら抜き打ち検査だ！」';
+          } else if (totalStars >= 9) {
+            grokQuote = '「町で人気？悪くはないが、猫が厨房の隅で寝返り打ってたぞ。次は全員に気合を入れ直せ！」';
+          } else {
+            grokQuote = '「猫カフェに転職だと！？料理の腕を磨けと言ったはずが…まあ、客が癒やされてるなら今回は見逃してやるニャ。」';
+          }
+        } else if (mode === 'daily') {
+          if (sales >= 10000) {
+            grokQuote = '「本日のおすすめをこれだけ捌くとはな。だが厨房に落ちた魚の骨はちゃんと拾ったか？」';
+          } else {
+            grokQuote = '「おすすめメニューで客を唸らせるには、あと一歩工夫が足りんな。明日は出直してこい！」';
+          }
+        } else if (mode === 'endless') {
+          if (served >= 20) {
+            grokQuote = '「限界までよく粘った。だが厨房の床は毛玉だらけだ！モップ掛けして反省会だニャ！」';
+          } else {
+            grokQuote = '「もう息切れか？猫の手を借りる前に、自分の段取りを見直すんだな！」';
+          }
+        } else {
+          const stars = this.calcStageStars();
+          const angry = this.angryCount || 0;
+          const maxCombo = this.maxCombo || 0;
+          const activeCats = this.cats || [];
+          const catIds = activeCats.map(c => c.defId);
+          const hasShiro = catIds.includes('shiro');
+          const hasTora = catIds.includes('tora');
+          const hasHakase = catIds.includes('hakase');
+          const hasKuro = catIds.includes('kuro');
+          const hasMike = catIds.includes('mike');
+          const blunderId = resultCats?.blunder?.cat?.defId;
+
+          if (stars === 3 && angry === 0) {
+            if (maxCombo >= 4) {
+              if (hasTora && hasHakase && !hasShiro) {
+                grokQuote = `「ハカセの精密カットとトラの猛ダッシュで${maxCombo}連続コンボか…ふん、完璧すぎてツッコミどころがないのが気に食わん！」`;
+              } else {
+                grokQuote = `「怒った客ゼロで${maxCombo}連続コンボとはな。手際だけは一丁前だ。猫たちにマグロでも奢ってやれ！」`;
+              }
+            } else {
+              grokQuote = '「ふん、手際だけは一丁前だな。文句のつけようがないのが気に食わん。猫たちにマグロでも奢ってやれ！」';
+            }
+          } else if (stars === 3) {
+            grokQuote = '「星3つは合格だが、客を待たせてピリつかせた場面があったぞ。もっと素早く放り投げろ！」';
+          } else if (stars === 2) {
+            if (angry >= 1) {
+              grokQuote = '「客を怒らせて評判を削りながらのギリギリ合格だな！次は注文をよく見極めて猫を飛ばせ！」';
+            } else if (blunderId === 'shiro' && hasShiro) {
+              grokQuote = '「ギリギリ合格点だな。シロが厨房を昼寝スポットにしてたぞ！ここは縁側じゃねえんだ！」';
+            } else if (blunderId === 'tora' && hasTora) {
+              grokQuote = '「ギリギリ合格点だな。トラが途中で『飽きたにゃ』と突っ立ってなきゃもっと稼げたはずだぞ！」';
+            } else if (blunderId === 'hakase' && hasHakase) {
+              grokQuote = '「ギリギリ合格点だな。ハカセが包丁の角度にこだわりすぎて手際がもたついてたぞ！」';
+            } else if (blunderId === 'kuro' && hasKuro) {
+              grokQuote = '「ギリギリ合格点だな。クロが隣の猫と張り合ってばかりで焦がしかけてたぞ！」';
+            } else if (blunderId === 'mike' && hasMike) {
+              grokQuote = '「ギリギリ合格点だな。ミケが勝手に持ち場を飛び回って厨房を引っ掻き回してたぞ！」';
+            } else {
+              grokQuote = '「ギリギリ合格点だな。手際がもたついて注文が溜まってたぞ！次はもっと素早く猫を回せ！」';
+            }
+          } else {
+            // 星1
+            if (hasShiro) {
+              grokQuote = '「冷や汗ものの営業だったな…シロの寝息で客が和んでなきゃ大炎上だったぞ！」';
+            } else if (angry > 0) {
+              grokQuote = '「冷や汗ものの営業だったな…客を怒らせて評判ギリギリだ！目標売上に滑り込んだだけで安心するなよ！」';
+            } else if (blunderId === 'tora' && hasTora) {
+              grokQuote = '「冷や汗ものの営業だったな…トラが飽きてサボり散らかしてなきゃもっと楽勝だったはずだぞ！」';
+            } else if (blunderId === 'hakase' && hasHakase) {
+              grokQuote = '「冷や汗ものの営業だったな…ハカセが理屈ばかり語って注文を溜め込みすぎだ！」';
+            } else {
+              grokQuote = '「冷や汗ものの営業だったな…ハカセの几帳面さとトラの気まぐれに振り回されてヒヤヒヤしたぞ！」';
+            }
+          }
+        }
+
+        const data = {
+          shopName,
+          userTitle,
+          sales,
+          served,
+          mvpName: mvpCat.name,
+          mvpImg: mvpCat.img,
+          mvpReason: resultCats?.mvp?.reason || '「今日も腕が鳴ったにゃ！」',
+          grokQuote
+        };
+
+        this.lastResultCard = data;
+        return data;
+      }
+
+      renderResultCardUI(prefix, cardData) {
+        const shopEl = document.getElementById(`${prefix}-card-shop`);
+        const titleEl = document.getElementById(`${prefix}-card-title`);
+        const salesEl = document.getElementById(`${prefix}-card-sales`);
+        const servedEl = document.getElementById(`${prefix}-card-served`);
+        const mvpImg = document.getElementById(`${prefix}-card-mvp-img`);
+        const mvpName = document.getElementById(`${prefix}-card-mvp-name`);
+        const grokQuoteEl = document.getElementById(`${prefix}-card-grok-quote`);
+
+        if (shopEl) shopEl.textContent = cardData.shopName;
+        if (titleEl) titleEl.textContent = cardData.userTitle;
+        if (salesEl) salesEl.textContent = `売上 ¥${cardData.sales.toLocaleString()}`;
+        if (servedEl) servedEl.textContent = `提供: ${cardData.served}皿`;
+        if (mvpImg) mvpImg.src = cardData.mvpImg;
+        if (mvpName) mvpName.textContent = `${cardData.mvpName} (MVP)`;
+        if (grokQuoteEl) grokQuoteEl.textContent = cardData.grokQuote;
+      }
+
+      copyResultCard(cardData = null) {
+        const data = cardData || this.lastResultCard;
+        if (!data) return;
+
+        const text = [
+          '🐾【猫の手食堂 営業リザルト】🐾',
+          `店名：${data.shopName}`,
+          `称号：${data.userTitle}`,
+          `売上：¥${data.sales.toLocaleString()}（${data.served}皿提供）`,
+          `本日のMVP猫：${data.mvpName}`,
+          `店長Grokの辛口評価：${data.grokQuote}`,
+          '#猫の手も借りたい',
+          'https://akariyachan.github.io/grok-gemini-games/neko-no-te/'
+        ].join('\n');
+
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          navigator.clipboard.writeText(text).then(() => {
+            this.showToast('📋 結果をクリップボードにコピーしたにゃ！🐾');
+            Sound.play('cash');
+          }).catch(() => {
+            this.fallbackCopyText(text);
+          });
+        } else {
+          this.fallbackCopyText(text);
+        }
+        return text;
+      }
+
+      fallbackCopyText(text) {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          this.showToast('📋 結果をクリップボードにコピーしたにゃ！🐾');
+          Sound.play('cash');
+        } catch (e) {
+          this.showToast('コピーに失敗しました');
+        }
+      }
+
       /* ステージクリア */
       stageClear() {
         this.state = 'clear';
+        Sound.stopBgm();
         Sound.play('clear');
 
         // 星の計算 (1〜3)
@@ -7633,6 +8423,10 @@
           nextBtn.onclick = null;
         }
 
+        // 第5回新要素: 営業結果カード
+        const cardData = this.generateResultCardData('stage', resultCats);
+        this.renderResultCardUI('clear', cardData);
+
         document.getElementById('modal-clear').style.display = 'flex';
         const scrollArea = document.querySelector('#modal-clear .modal-clear-scroll');
         if (scrollArea) scrollArea.scrollTop = 0;
@@ -7687,7 +8481,12 @@
           }
         }
 
+        // 第5回新要素: エンディング結果カード
+        const cardData = this.generateResultCardData('ending');
+        this.renderResultCardUI('ending', cardData);
+
         endingModal.style.display = 'flex';
+        Sound.stopBgm();
         Sound.play('clear');
         this.updateGlobalState();
       }
@@ -7704,6 +8503,7 @@
         }
 
         this.state = 'fail';
+        Sound.stopBgm();
         Sound.play('angry');
 
         document.getElementById('fail-title').textContent = '本日の営業失敗…';
@@ -7746,35 +8546,69 @@
       }
 
       renderHUD() {
-        const pauseBtn = document.getElementById('btn-pause');
-        if (pauseBtn) {
-          pauseBtn.style.display = (this.state === 'play') ? 'flex' : 'none';
+        if (!this._hudDom) {
+          this._hudDom = {
+            pauseBtn: document.getElementById('btn-pause'),
+            timerEl: document.getElementById('hud-timer'),
+            salesEl: document.getElementById('hud-sales'),
+            stars: [
+              document.getElementById('star-1'),
+              document.getElementById('star-2'),
+              document.getElementById('star-3')
+            ]
+          };
+          this._hudLast = {};
         }
 
-        const timerEl = document.getElementById('hud-timer');
+        const isPlay = (this.state === 'play');
+        if (this._hudLast.isPlay !== isPlay && this._hudDom.pauseBtn) {
+          this._hudLast.isPlay = isPlay;
+          this._hudDom.pauseBtn.style.display = isPlay ? 'flex' : 'none';
+        }
+
         if (this.gameMode === 'endless') {
           const m = Math.floor(this.endlessTime / 60);
           const s = Math.floor(this.endlessTime % 60);
-          timerEl.textContent = `⏱️ ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')} (Lv.${this.endlessLevel})`;
-          timerEl.classList.remove('warning');
-          document.getElementById('hud-sales').innerHTML = `¥${this.sales.toLocaleString()} <span class="target-val" id="hud-target">/ 限界突破!</span>`;
+          const timeStr = `⏱️ ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')} (Lv.${this.endlessLevel})`;
+          if (this._hudLast.timeStr !== timeStr && this._hudDom.timerEl) {
+            this._hudLast.timeStr = timeStr;
+            this._hudDom.timerEl.textContent = timeStr;
+            this._hudDom.timerEl.classList.remove('warning');
+          }
+          const salesHtml = `¥${this.sales.toLocaleString()} <span class="target-val" id="hud-target">/ 限界突破!</span>`;
+          if (this._hudLast.salesHtml !== salesHtml && this._hudDom.salesEl) {
+            this._hudLast.salesHtml = salesHtml;
+            this._hudDom.salesEl.innerHTML = salesHtml;
+          }
         } else {
           const seconds = Math.ceil(this.timeLeft);
-          timerEl.textContent = `⏰ ${seconds}s`;
-          if (seconds <= 15) {
-            timerEl.classList.add('warning');
-          } else {
-            timerEl.classList.remove('warning');
+          const timeStr = `⏰ ${seconds}s`;
+          if (this._hudLast.timeStr !== timeStr && this._hudDom.timerEl) {
+            this._hudLast.timeStr = timeStr;
+            this._hudDom.timerEl.textContent = timeStr;
+            if (seconds <= 15) {
+              this._hudDom.timerEl.classList.add('warning');
+            } else {
+              this._hudDom.timerEl.classList.remove('warning');
+            }
           }
-          document.getElementById('hud-sales').innerHTML = `¥${this.sales.toLocaleString()} <span class="target-val" id="hud-target">/ ¥${this.targetSales.toLocaleString()}</span>`;
+          const salesHtml = `¥${this.sales.toLocaleString()} <span class="target-val" id="hud-target">/ ¥${this.targetSales.toLocaleString()}</span>`;
+          if (this._hudLast.salesHtml !== salesHtml && this._hudDom.salesEl) {
+            this._hudLast.salesHtml = salesHtml;
+            this._hudDom.salesEl.innerHTML = salesHtml;
+          }
         }
 
-        for (let i = 1; i <= 3; i++) {
-          const starEl = document.getElementById(`star-${i}`);
-          if (i <= this.reputation) {
-            starEl.classList.remove('lost');
-          } else {
-            starEl.classList.add('lost');
+        if (this._hudLast.rep !== this.reputation) {
+          this._hudLast.rep = this.reputation;
+          for (let i = 1; i <= 3; i++) {
+            const starEl = this._hudDom.stars[i - 1];
+            if (!starEl) continue;
+            if (i <= this.reputation) {
+              starEl.classList.remove('lost');
+            } else {
+              starEl.classList.add('lost');
+            }
           }
         }
       }
@@ -7826,7 +8660,7 @@
             ${tagsHtml}
             <div class="order-head">
               <span class="order-customer-face" id="cface-${ord.id}">${customerFace}</span>
-              <img src="${ord.recipe.img}" class="order-img" alt="${ord.recipe.name}">
+              <img src="${ord.recipe.img}" class="order-img" alt="${ord.recipe.name}" loading="lazy" decoding="async">
               <div class="order-info">
                 <div class="order-name">${ord.recipe.name}</div>
                 <div class="order-price">¥${displayPrice.toLocaleString()}</div>
@@ -7909,7 +8743,7 @@
           // 料理長が持ち場を占拠中
           if (this.bossOccupiedStation === stKey) {
             slot.innerHTML = `
-              <img src="assets/cat_boss.jpg" class="boss-working-portrait" alt="料理長">
+              <img src="assets/cat_boss.jpg" class="boss-working-portrait" alt="料理長" loading="lazy" decoding="async">
               <div style="font-size: 10px; font-weight: 800; color: #ffb300; margin-top: 3px;">料理長調理中！</div>
             `;
             return;
@@ -8074,7 +8908,7 @@
           ${tapGuideHtml}
           ${badgeHtml}
           <div class="cat-avatar-wrap${avatarExtraClass}">
-            <img src="${cat.def.img}" class="cat-avatar-img" alt="${cat.def.name}">
+            <img src="${cat.def.img}" class="cat-avatar-img" alt="${cat.def.name}" loading="lazy" decoding="async">
           </div>
           <div class="cat-name-tag">${cat.def.name}</div>
         `;
@@ -8173,7 +9007,7 @@
         clone.className = 'cat-unit flying-cat';
         clone.innerHTML = `
           <div class="cat-avatar-wrap">
-            <img src="${cat.def.img}" class="cat-avatar-img" alt="${cat.def.name}">
+            <img src="${cat.def.img}" class="cat-avatar-img" alt="${cat.def.name}" loading="lazy" decoding="async">
           </div>
           <div class="cat-name-tag">${cat.def.name}</div>
         `;
@@ -8411,7 +9245,7 @@
         rollingEl.className = 'cat-unit flying-cat cat-rolling-back';
         rollingEl.innerHTML = `
           <div class="cat-avatar-wrap">
-            <img src="${cat.def.img}" class="cat-avatar-img" alt="${cat.def.name}">
+            <img src="${cat.def.img}" class="cat-avatar-img" alt="${cat.def.name}" loading="lazy" decoding="async">
           </div>
           <div class="cat-name-tag">${cat.def.name}</div>
         `;
@@ -8463,7 +9297,7 @@
         flyingEl.className = 'cat-unit flying-cat';
         flyingEl.innerHTML = `
           <div class="cat-avatar-wrap">
-            <img src="${cat.def.img}" class="cat-avatar-img" alt="${cat.def.name}">
+            <img src="${cat.def.img}" class="cat-avatar-img" alt="${cat.def.name}" loading="lazy" decoding="async">
           </div>
           <div class="cat-name-tag">${cat.def.name}</div>
         `;
