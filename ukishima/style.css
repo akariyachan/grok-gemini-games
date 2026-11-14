@@ -203,17 +203,37 @@ html, body {
 #hud-top {
   position: absolute;
   top: calc(var(--safe-top) + 8px);
-  left: 10px;
-  right: 10px;
+  left: 8px;
+  right: 8px;
   display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   z-index: 20;
   pointer-events: none;
 }
 
-#hud-top > * {
+.hud-row-main {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+}
+
+.hud-row-main > * {
+  pointer-events: auto;
+}
+
+.hud-row-sub {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
+  pointer-events: none;
+}
+
+.hud-row-sub > * {
   pointer-events: auto;
 }
 
@@ -222,26 +242,28 @@ html, body {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--border-glass);
-  border-radius: 14px;
-  padding: 6px 11px;
+  border-radius: 13px;
+  padding: 5px 8px;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  min-width: 0;
 }
 
 .hud-light {
-  min-width: 112px;
+  flex: 0 1 auto;
+  min-width: 88px;
 }
 
 .hud-label {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--amber);
   font-weight: 700;
   line-height: 1.1;
 }
 
 .hud-value {
-  font-size: 23px;
+  font-size: 21px;
   font-weight: 800;
   line-height: 1.1;
   color: #fff8e1;
@@ -261,7 +283,7 @@ html, body {
 }
 
 .hud-sub {
-  font-size: 10.5px;
+  font-size: 10px;
   color: var(--text-sub);
   line-height: 1.2;
   margin-top: 2px;
@@ -269,16 +291,19 @@ html, body {
 }
 
 .hud-time {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   align-items: center;
   text-align: center;
+  padding: 5px 6px;
 }
 
 .hud-time-main {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-main);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .hud-time-main.timer-urgent {
@@ -294,34 +319,82 @@ html, body {
 
 .speed-badge {
   display: inline-block;
-  margin-left: 5px;
-  padding: 1px 5px;
+  margin-left: 4px;
+  padding: 1px 4px;
   border-radius: 6px;
   background: rgba(100, 223, 223, 0.25);
   color: var(--cyan);
   font-weight: 700;
-  font-size: 10px;
+  font-size: 9.5px;
 }
 
 .hud-actions {
+  flex: 0 0 auto;
   display: flex;
-  gap: 6px;
+  gap: 5px;
 }
 
 .hud-btn-pause {
-  width: 40px;
-  min-width: 40px;
-  border-radius: 14px;
+  width: 34px;
+  min-width: 34px;
+  border-radius: 12px;
   border: 1px solid var(--border-glass);
   background: var(--bg-glass);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: var(--text-main);
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.hud-btn-constellation {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  max-width: calc(100vw - 24px);
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-glass);
+  background: rgba(12, 20, 46, 0.76);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-size: 11px;
+  font-weight: 700;
+  color: #cfe8ff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.hud-btn-constellation .const-icon {
+  color: var(--cyan);
+  font-size: 12px;
+}
+
+.hud-btn-constellation.active {
+  border-color: rgba(255, 214, 102, 0.85);
+  background: rgba(255, 209, 102, 0.22);
+  color: #fff2cc;
+}
+
+.hud-btn-constellation.done {
+  border-color: rgba(255, 209, 102, 0.9);
+  background: rgba(255, 195, 65, 0.24);
+  color: #ffe89e;
+  box-shadow: 0 0 12px rgba(255, 209, 102, 0.35);
+}
+
+.hud-btn-constellation.done .const-icon {
+  color: var(--amber);
+}
+
+.hud-btn-constellation:active {
+  transform: scale(0.96);
 }
 
 .hud-btn-help {
@@ -336,7 +409,7 @@ html, body {
 /* Onboarding 3-Step Guide Bubble */
 #guide-bubble {
   position: absolute;
-  top: calc(var(--safe-top) + 74px);
+  top: calc(var(--safe-top) + 104px);
   left: 10px;
   right: 10px;
   max-width: 340px;
@@ -814,49 +887,92 @@ html, body {
   transform: scale(0.98);
 }
 
+.result-card {
+  padding: 16px 16px;
+}
+
+.result-card h2 {
+  margin: 0 0 8px;
+  font-size: 19px;
+}
+
 .result-score-wrap {
   background: rgba(255, 209, 102, 0.1);
   border: 1px solid rgba(255, 209, 102, 0.3);
-  border-radius: 16px;
-  padding: 12px;
-  margin-bottom: 12px;
+  border-radius: 14px;
+  padding: 8px 12px;
+  margin-bottom: 9px;
 }
 
 .result-score-label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--amber);
   font-weight: 700;
 }
 
 .result-score {
-  font-size: 38px;
+  font-size: 32px;
   font-weight: 900;
   color: #fff8e1;
-  line-height: 1.15;
+  line-height: 1.1;
   text-shadow: 0 0 18px rgba(255, 183, 3, 0.55);
 }
 
 .result-best {
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--cyan);
   font-weight: 700;
   margin-top: 2px;
 }
 
+.result-map-wrap {
+  background: rgba(7, 13, 34, 0.85);
+  border: 1px solid rgba(130, 175, 255, 0.24);
+  border-radius: 12px;
+  padding: 6px 8px 5px;
+  margin-bottom: 9px;
+}
+
+.result-map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.result-map-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff2cc;
+}
+
+.result-map-legend {
+  font-size: 9.5px;
+  color: var(--text-sub);
+}
+
+#result-map-canvas {
+  display: block;
+  width: 100%;
+  height: 176px;
+  border-radius: 8px;
+}
+
 .result-breakdown {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 12px;
-  padding: 10px 12px;
-  margin-bottom: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  padding: 8px 10px;
+  margin-bottom: 7px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 10px;
 }
 
 .rb-row {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  gap: 4px;
+  font-size: 11.5px;
   color: var(--text-main);
 }
 
@@ -866,8 +982,8 @@ html, body {
 }
 
 .score-formula {
-  margin: 0 0 14px;
-  font-size: 11px;
+  margin: 0 0 10px;
+  font-size: 10.5px;
   color: var(--text-sub);
 }
 

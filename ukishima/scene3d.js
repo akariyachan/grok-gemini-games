@@ -199,16 +199,22 @@ export class Scene3D {
     this.buildingsGroup = new THREE.Group();
     this.shipsGroup = new THREE.Group();
     this.previewGroup = new THREE.Group();
+    this.skyConstellationGroup = new THREE.Group();
+    this.loopPulseGroup = new THREE.Group();
     this.worldGroup.add(
       this.islandsGroup,
       this.bridgesGroup,
       this.routesGroup,
       this.buildingsGroup,
       this.shipsGroup,
-      this.previewGroup
+      this.previewGroup,
+      this.skyConstellationGroup,
+      this.loopPulseGroup
     );
 
     this._lastPreviewKey = '';
+    this._lastConstellationKey = '';
+    this.activeLoopPulses = [];
     this._tmpGlowPos = new THREE.Vector3();
 
     this.islandVisuals = new Map();
@@ -599,6 +605,28 @@ export class Scene3D {
     this.islandPulses.set(islandId, timeSec);
   }
 
+  triggerLoopPulse(cycleIslandIds, timeSec = performance.now() / 1000) {
+    if (!Array.isArray(cycleIslandIds) || cycleIslandIds.length < 3) return;
+    const orb = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: this.warmGlowTex,
+        color: 0xfff0a0,
+        transparent: true,
+        opacity: 0.98,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    );
+    orb.scale.set(2.4, 2.4, 1);
+    this.loopPulseGroup.add(orb);
+    this.activeLoopPulses.push({
+      islandIds: [...cycleIslandIds],
+      startTime: timeSec,
+      duration: 2.8,
+      orb,
+    });
+  }
+
   updateBridgePreview(sim, originId, targetId, isHigh, blockedRoutes = []) {
     const key =
       originId === null || targetId === null
@@ -681,12 +709,16 @@ export class Scene3D {
       this.buildingsGroup,
       this.shipsGroup,
       this.previewGroup,
+      this.skyConstellationGroup,
+      this.loopPulseGroup,
     ]) {
       while (g.children.length > 0) {
         g.remove(g.children[0]);
       }
     }
     this._lastPreviewKey = '';
+    this._lastConstellationKey = '';
+    this.activeLoopPulses = [];
     this._tmpGlowPos = new THREE.Vector3();
     this.islandVisuals.clear();
     this.bridgeVisuals.clear();
@@ -1129,7 +1161,8 @@ export class Scene3D {
     this.hitMeshes.push(hitBox);
 
     const particles = [];
-    for (let k = 0; k < 5; k++) {
+    const maxP = 8;
+    for (let k = 0; k < maxP; k++) {
       const pSprite = new THREE.Sprite(
         new THREE.SpriteMaterial({
           map: bridge.high ? this.cyanGlowTex : this.warmGlowTex,
@@ -1142,7 +1175,7 @@ export class Scene3D {
       pSprite.scale.set(0.85, 0.85, 1);
       pSprite.visible = false;
       group.add(pSprite);
-      particles.push({ sprite: pSprite, offset: k / 5 });
+      particles.push({ sprite: pSprite, offset: k / maxP });
     }
 
     this.bridgesGroup.add(group);
@@ -1186,7 +1219,8 @@ export class Scene3D {
     group.add(dots);
 
     const particles = [];
-    for (let k = 0; k < 4; k++) {
+    const maxP = 7;
+    for (let k = 0; k < maxP; k++) {
       const s = new THREE.Sprite(
         new THREE.SpriteMaterial({
           map: this.cyanGlowTex,
@@ -1199,7 +1233,7 @@ export class Scene3D {
       s.scale.set(0.95, 0.95, 1);
       s.visible = false;
       group.add(s);
-      particles.push({ sprite: s, offset: k / 4 });
+      particles.push({ sprite: s, offset: k / maxP });
     }
 
     this.routesGroup.add(group);
@@ -1517,6 +1551,9 @@ export class Scene3D {
       if (status === 'selected') {
         vis.ringMat.color.setHex(0xffd166);
         vis.ringMat.opacity = 0.92;
+      } else if (status === 'constellation') {
+        vis.ringMat.color.setHex(0xffe588);
+        vis.ringMat.opacity = 0.72 + Math.sin(timeSec * 5.2) * 0.24;
       } else if (status === 'candidate') {
         vis.ringMat.color.setHex(0x64dfdf);
         vis.ringMat.opacity = 0.58 + Math.sin(timeSec * 5) * 0.25;
@@ -1531,7 +1568,7 @@ export class Scene3D {
         const slot = isl.slots[i];
         const sv = vis.slotVisuals[i];
         const isSelectedSlot =
-          uiState.selectedIslandId === isl.id && uiState.selectedSlotIndex === i;
+          !isDawnOrResult && uiState.selectedIslandId === isl.id && uiState.selectedSlotIndex === i;
         if (isSelectedSlot) {
           sv.markerMat.color.setHex(0xffd166);
           sv.markerMat.opacity = 0.96;
@@ -1542,11 +1579,11 @@ export class Scene3D {
           sv.marker.scale.setScalar(1.0);
         } else if (isl.connected) {
           sv.markerMat.color.setHex(0xaef2ff);
-          sv.markerMat.opacity = 0.66;
+          sv.markerMat.opacity = 0.66 * dim;
           sv.marker.scale.setScalar(1.0);
         } else {
           sv.markerMat.color.setHex(0x8ea6c8);
-          sv.markerMat.opacity = 0.14;
+          sv.markerMat.opacity = 0.14 * dim;
           sv.marker.scale.setScalar(0.9);
         }
       }
@@ -1593,10 +1630,12 @@ export class Scene3D {
 
         if (!b.built) {
           bv.mesh.scale.set(1, 0.25 + b.progress * 0.75, 1);
-          bv.progSprite.visible = true;
-          updateProgressSprite(bv.progSprite, b.progress);
+          bv.progSprite.visible = !isDawnOrResult;
+          if (!isDawnOrResult) {
+            updateProgressSprite(bv.progSprite, b.progress);
+          }
           if (glow) {
-            this._attenuateGlowSprite(glow, wx, wy, wz, glowBase, 0.18, 0.14, 1.5);
+            this._attenuateGlowSprite(glow, wx, wy, wz, glowBase, 0.18 * dim, 0.14, 1.5);
           }
           if (bv.mesh.userData.beamPivot) bv.mesh.userData.beamPivot.visible = false;
         } else {
@@ -1654,26 +1693,40 @@ export class Scene3D {
         brVis.plankMeshes[i].visible = i < visibleCount;
       }
 
-      const isSelectedBridge = uiState.selectedBridgeId === br.id;
+      const isSelectedBridge = !isDawnOrResult && uiState.selectedBridgeId === br.id;
+      const flow = br.flow || 0;
+      const flowNorm = Math.min(1, flow / 26);
       for (const m of brVis.plankMeshes) {
         if (isSelectedBridge) {
           m.material.emissive.setHex(0x8c1d1d);
         } else {
-          m.material.emissive.setHex(br.high ? 0x382b18 : 0x291a0d);
+          const baseHex = br.high ? 0x382b18 : 0x291a0d;
+          const brightHex = br.high ? 0x628098 : 0x7c501f;
+          m.material.emissive.setHex(baseHex).lerp(new THREE.Color(brightHex), flowNorm * globalDawnDim);
         }
       }
 
+      const activePCount = br.built
+        ? isLowQuality
+          ? 3
+          : Math.max(3, Math.min(brVis.particles.length, 3 + Math.round(flowNorm * 5)))
+        : 0;
+      const flowSpeed = 0.24 + flowNorm * 0.34;
+      const pScale = 0.66 + flowNorm * 0.54;
+      const dir = br.flowDir >= 0 ? 1 : -1;
       for (let i = 0; i < brVis.particles.length; i++) {
         const p = brVis.particles[i];
-        if (!br.built || globalDawnDim <= 0.1 || (isLowQuality && i % 2 === 1)) {
+        if (!br.built || globalDawnDim <= 0.1 || i >= activePCount) {
           p.sprite.visible = false;
           continue;
         }
         p.sprite.visible = true;
-        const t = (timeSec * 0.3 + p.offset) % 1;
+        const rawT = (timeSec * flowSpeed + p.offset) % 1;
+        const t = dir > 0 ? rawT : 1 - rawT;
         p.sprite.position.lerpVectors(brVis.start, brVis.end, t);
         p.sprite.position.y += Math.sin(t * Math.PI) * brVis.peak + 0.42;
-        p.sprite.material.opacity = 0.95 * globalDawnDim;
+        p.sprite.scale.set(pScale, pScale, 1);
+        p.sprite.material.opacity = (0.68 + flowNorm * 0.3) * globalDawnDim;
       }
     }
     for (const [id, brVis] of this.bridgeVisuals.entries()) {
@@ -1697,18 +1750,30 @@ export class Scene3D {
         );
         this.routeVisuals.set(rt.id, rtVis);
       }
-      rtVis.mat.opacity = (rt.established ? 0.9 : 0.65) * (0.35 + 0.65 * globalDawnDim);
+      const rtFlowNorm = Math.min(1, (rt.flow || 0) / 22);
+      rtVis.mat.size = 0.56 + rtFlowNorm * 0.44;
+      rtVis.mat.opacity = (rt.established ? 0.72 + rtFlowNorm * 0.25 : 0.6) * (0.35 + 0.65 * globalDawnDim);
+      const activeRCount = rt.established
+        ? isLowQuality
+          ? 2
+          : Math.max(2, Math.min(rtVis.particles.length, 2 + Math.round(rtFlowNorm * 5)))
+        : 0;
+      const rtSpeed = 0.18 + rtFlowNorm * 0.26;
+      const rtScale = 0.74 + rtFlowNorm * 0.6;
+      const rtDir = rt.flowDir >= 0 ? 1 : -1;
       for (let i = 0; i < rtVis.particles.length; i++) {
         const p = rtVis.particles[i];
-        if (!rt.established || globalDawnDim <= 0.1 || (isLowQuality && i % 2 === 1)) {
+        if (!rt.established || globalDawnDim <= 0.1 || i >= activeRCount) {
           p.sprite.visible = false;
           continue;
         }
         p.sprite.visible = true;
-        const t = (timeSec * 0.22 + p.offset) % 1;
+        const rawT = (timeSec * rtSpeed + p.offset) % 1;
+        const t = rtDir > 0 ? rawT : 1 - rawT;
         p.sprite.position.lerpVectors(rtVis.start, rtVis.end, t);
         p.sprite.position.y += Math.sin(t * Math.PI) * 0.65 + 0.18;
-        p.sprite.material.opacity = 0.88 * globalDawnDim;
+        p.sprite.scale.set(rtScale, rtScale, 1);
+        p.sprite.material.opacity = (0.72 + rtFlowNorm * 0.26) * globalDawnDim;
       }
     }
     for (const [id, rtVis] of this.routeVisuals.entries()) {
@@ -1777,7 +1842,107 @@ export class Scene3D {
       }
     }
 
+    this._updateSkyConstellation(sim, timeSec, globalDawnDim);
+    this._updateLoopPulses(sim, timeSec, globalDawnDim);
+
     this.renderer.render(this.scene, this.camera);
+  }
+
+  _updateSkyConstellation(sim, timeSec, globalDawnDim) {
+    const c = sim.constellation;
+    if (!c || !Array.isArray(c.islandIds) || c.islandIds.length === 0) {
+      if (this._lastConstellationKey !== '') {
+        this._lastConstellationKey = '';
+        while (this.skyConstellationGroup.children.length > 0) {
+          this.skyConstellationGroup.remove(this.skyConstellationGroup.children[0]);
+        }
+      }
+      return;
+    }
+
+    const key = `${sim.seed || ''}:${c.islandIds.join(',')}:${c.completed ? 1 : 0}`;
+    if (key !== this._lastConstellationKey) {
+      this._lastConstellationKey = key;
+      while (this.skyConstellationGroup.children.length > 0) {
+        this.skyConstellationGroup.remove(this.skyConstellationGroup.children[0]);
+      }
+
+      const starPositions = new Map();
+      c.islandIds.forEach((id, idx) => {
+        const isl = sim.getIsland(id);
+        if (!isl) return;
+        const sx = isl.x * 0.65;
+        const sz = isl.z * 0.65 - 10;
+        const sy = 25 + (idx % 2) * 2.2;
+        const pos = new THREE.Vector3(sx, sy, sz);
+        starPositions.set(id, pos);
+
+        const starSprite = new THREE.Sprite(
+          new THREE.SpriteMaterial({
+            map: c.completed ? this.warmGlowTex : this.cyanGlowTex,
+            color: c.completed ? 0xffe699 : 0xa5e8ff,
+            transparent: true,
+            opacity: c.completed ? 0.95 : 0.55,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          })
+        );
+        starSprite.position.copy(pos);
+        const sSize = c.completed ? 2.4 : 1.3;
+        starSprite.scale.set(sSize, sSize, 1);
+        this.skyConstellationGroup.add(starSprite);
+      });
+
+      for (const [u, v] of c.edges) {
+        const pu = starPositions.get(u);
+        const pv = starPositions.get(v);
+        if (!pu || !pv) continue;
+        const geo = new THREE.BufferGeometry().setFromPoints([pu, pv]);
+        const mat = new THREE.LineBasicMaterial({
+          color: c.completed ? 0xffdf7a : 0x7ec8f2,
+          transparent: true,
+          opacity: c.completed ? 0.9 : 0.25,
+        });
+        this.skyConstellationGroup.add(new THREE.Line(geo, mat));
+      }
+    }
+
+    const pulse = 0.85 + Math.sin(timeSec * 3.0) * 0.15;
+    for (const child of this.skyConstellationGroup.children) {
+      if (child.isSprite) {
+        child.material.opacity = (c.completed ? 0.95 * pulse : 0.55) * (0.2 + 0.8 * globalDawnDim);
+      } else if (child.isLine) {
+        child.material.opacity = (c.completed ? 0.88 * pulse : 0.24) * (0.2 + 0.8 * globalDawnDim);
+      }
+    }
+  }
+
+  _updateLoopPulses(sim, timeSec, globalDawnDim) {
+    for (let i = this.activeLoopPulses.length - 1; i >= 0; i--) {
+      const lp = this.activeLoopPulses[i];
+      const elapsed = timeSec - lp.startTime;
+      if (elapsed >= lp.duration) {
+        this.loopPulseGroup.remove(lp.orb);
+        this.activeLoopPulses.splice(i, 1);
+        continue;
+      }
+      const ids = lp.islandIds;
+      const segCount = ids.length;
+      const u = ((elapsed / lp.duration) * 1.5 * segCount) % segCount;
+      const segIdx = Math.floor(u);
+      const frac = u - segIdx;
+      const islA = sim.getIsland(ids[segIdx]);
+      const islB = sim.getIsland(ids[(segIdx + 1) % segCount]);
+      if (islA && islB) {
+        lp.orb.position.set(
+          islA.x + (islB.x - islA.x) * frac,
+          islA.y + (islB.y - islA.y) * frac + 1.05 + Math.sin(frac * Math.PI) * 0.9,
+          islA.z + (islB.z - islA.z) * frac
+        );
+        const fade = Math.sin((elapsed / lp.duration) * Math.PI);
+        lp.orb.material.opacity = Math.max(0, fade * globalDawnDim);
+      }
+    }
   }
 
   projectToScreen(worldX, worldY, worldZ) {

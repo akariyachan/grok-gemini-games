@@ -15,6 +15,10 @@ export const NETWORK_BONUS_PER_ISLAND = 0.14; // 接続島数ごとの生産倍�
 export const BRIDGE_NETWORK_BONUS = 0.11;     // 橋1本ごとのネットワーク生産倍率 (+11%/本)
 export const REMOTE_ISLAND_MULT = 1.42;       // 船で届く遠い島の生産倍率
 export const WALLET_FLOW_RATE = 0.0017;       // 島の灯りの一部が所持灯りへ流れ込む割合 (/秒)
+export const LOOP_PROD_BONUS = 0.25;          // 光の環1つあたりの島生産+25%
+export const LOOP_MAX_COUNT = 3;              // 光の環ボーナスの最大数
+export const LOOP_SCORE_BONUS = 360;          // 光の環1つあたりのスコアボーナス
+export const CONSTELLATION_BONUS = 220;       // 今夜の星座達成ボーナス
 
 export const BUILDING_DEFS = {
   house: {
@@ -173,13 +177,13 @@ export function generateIslandsForSeed(seed) {
       let placed = null;
       for (let t = 0; t < 48; t++) {
         const side = (i + t) % 2 === 0 ? 1 : -1;
-        const offsetAng = side * (0.55 + rng() * 0.78);
+        const offsetAng = side * (0.48 + rng() * 0.65);
         const stepAng = parent.ang + offsetAng;
-        const stepDist = 6.2 + rng() * 3.8;
+        const stepDist = 5.6 + rng() * 3.8;
         const x = Number((parent.isl.x + Math.cos(stepAng) * stepDist).toFixed(2));
         const z = Number((parent.isl.z + Math.sin(stepAng) * stepDist).toFixed(2));
         const distFromHome = Math.hypot(x, z);
-        if (distFromHome <= BRIDGE_MAX_DIST + 0.6 || distFromHome > 16.5) continue;
+        if (distFromHome <= BRIDGE_MAX_DIST + 0.5 || distFromHome > 15.2) continue;
         const okSpacing = islands.every((other) => Math.hypot(other.x - x, other.z - z) >= 5.1);
         if (okSpacing) {
           placed = { x, z };
@@ -422,6 +426,10 @@ export class GameSimulation {
     this.dawnProgress = 0;
     this.dawnReason = '';
     this.allConnectedBonus = 0;
+    this.loopCount = 0;
+    this.loopBonus = 0;
+    this.loops = [];
+    this.constellationBonus = 0;
     this.score = 0;
     this._idCounter = 1;
 
@@ -454,6 +462,11 @@ export class GameSimulation {
         remote: bp.remote,
         trait: bp.trait ?? null,
         milestonesReached: 0,
+        hopDist: bp.id === 0 ? 0 : Infinity,
+        parentId: null,
+        parentLinkKind: null,
+        parentLinkId: null,
+        loopCount: 0,
         productionMult: bp.remote ? REMOTE_ISLAND_MULT : 1.0,
         visitorBuffTimer: 0,
         slots,
@@ -465,6 +478,76 @@ export class GameSimulation {
     this.ships = [];
     this.buildings = [];
     this.events = [];
+    this.constellation = this._generateConstellation();
+    this.recomputeConnectivity();
+  }
+
+  _generateConstellation() {
+    const rng = createSeededRng(`${this.seed || 'default'}#constellation`);
+    const names3 = ['北の三角', '星見の三角', '蛍火の三角', '宵の三角', '天の三角'];
+    const triangles = [];
+
+    for (let i = 0; i < this.islands.length; i++) {
+      const a = this.islands[i];
+      if (a.trait === 'fog') continue;
+      for (let j = i + 1; j < this.islands.length; j++) {
+        const b = this.islands[j];
+        if (b.trait === 'fog' || distance2D(a, b) > BRIDGE_MAX_DIST) continue;
+        for (let k = j + 1; k < this.islands.length; k++) {
+          const c = this.islands[k];
+          if (c.trait === 'fog') continue;
+          if (distance2D(a, c) <= BRIDGE_MAX_DIST && distance2D(b, c) <= BRIDGE_MAX_DIST) {
+            const windCount =
+              (a.trait === 'wind' ? 1 : 0) +
+              (b.trait === 'wind' ? 1 : 0) +
+              (c.trait === 'wind' ? 1 : 0);
+            triangles.push({ ids: [a.id, b.id, c.id], windCount });
+          }
+        }
+      }
+    }
+
+    // Prefer triangles without wind trait (and if generated map has non-home triangles, mix nicely)
+    triangles.sort((x, y) => x.windCount - y.windCount || x.ids[0] - y.ids[0]);
+    if (triangles.length > 0) {
+      const bestTier = triangles.filter((t) => t.windCount === triangles[0].windCount);
+      const picked = bestTier[Math.floor(rng() * bestTier.length)];
+      const [a, b, c] = picked.ids;
+      const nm = names3[Math.floor(rng() * names3.length)];
+      return {
+        name: nm,
+        desc: '3島を互いにつなぐ（輪）',
+        islandIds: [a, b, c],
+        edges: [
+          [a, b],
+          [b, c],
+          [c, a],
+        ],
+        completed: false,
+        bonus: CONSTELLATION_BONUS,
+      };
+    }
+
+    // Fallback: 3〜4島の一筆書き星座（0→近島→遠島）
+    const near1 = this.islands.find(
+      (isl) => isl.id !== 0 && !isl.remote && isl.trait !== 'fog' && distance2D(this.islands[0], isl) <= BRIDGE_MAX_DIST
+    );
+    const far1 = this.islands.find((isl) => isl.remote);
+    if (near1 && far1) {
+      const ids = [0, near1.id, far1.id];
+      return {
+        name: '天翔る矢',
+        desc: '3島を順につなぐ',
+        islandIds: ids,
+        edges: [
+          [0, near1.id],
+          [near1.id, far1.id],
+        ],
+        completed: false,
+        bonus: CONSTELLATION_BONUS,
+      };
+    }
+    return null;
   }
 
   resetToTitle() {
@@ -569,7 +652,8 @@ export class GameSimulation {
 
   _updateScore() {
     const total = this.getTotalLight();
-    this.score = Math.round(total) + this.allConnectedBonus;
+    this.score =
+      Math.round(total) + this.allConnectedBonus + this.loopBonus + this.constellationBonus;
     return this.score;
   }
 
@@ -752,6 +836,8 @@ export class GameSimulation {
       elapsed: 0,
       progress: 0,
       built: false,
+      flow: 0,
+      flowDir: 1,
     };
     this.bridges.push(bridge);
     this._updateScore();
@@ -831,6 +917,8 @@ export class GameSimulation {
       established: false,
       deliveries: 0,
       distance: distance2D(fromIsland, toIsland),
+      flow: 0,
+      flowDir: 1,
     };
     this.routes.push(route);
 
@@ -904,34 +992,207 @@ export class GameSimulation {
   }
 
   recomputeConnectivity() {
-    const visited = new Set([0]);
-    const queue = [0];
-    while (queue.length > 0) {
-      const curr = queue.shift();
-      for (const br of this.bridges) {
-        if (!br.built) continue;
-        if (br.islandA === curr && !visited.has(br.islandB)) {
-          visited.add(br.islandB);
-          queue.push(br.islandB);
-        } else if (br.islandB === curr && !visited.has(br.islandA)) {
-          visited.add(br.islandA);
-          queue.push(br.islandA);
+    const prevLoopCount = this.loopCount || 0;
+    const adj = new Map();
+    for (const isl of this.islands) adj.set(isl.id, []);
+
+    const activeEdges = [];
+    for (const br of this.bridges) {
+      if (!br.built) continue;
+      const edge = { kind: 'bridge', id: br.id, a: br.islandA, b: br.islandB, cost: 1, ref: br };
+      activeEdges.push(edge);
+      adj.get(br.islandA)?.push({ to: br.islandB, cost: 1, edge });
+      adj.get(br.islandB)?.push({ to: br.islandA, cost: 1, edge });
+    }
+    for (const rt of this.routes) {
+      if (!rt.established) continue;
+      const edge = { kind: 'route', id: rt.id, a: rt.islandA, b: rt.islandB, cost: 2, ref: rt };
+      activeEdges.push(edge);
+      adj.get(rt.islandA)?.push({ to: rt.islandB, cost: 2, edge });
+      adj.get(rt.islandB)?.push({ to: rt.islandA, cost: 2, edge });
+    }
+
+    // Dijkstra shortest weighted path from island 0 (bridge=1, route=2)
+    const dist = new Map();
+    const parent = new Map();
+    const parentEdge = new Map();
+    const settled = new Set();
+    for (const isl of this.islands) dist.set(isl.id, Infinity);
+    dist.set(0, 0);
+
+    while (settled.size < this.islands.length) {
+      let bestId = null;
+      let bestDist = Infinity;
+      for (const isl of this.islands) {
+        if (settled.has(isl.id)) continue;
+        const d = dist.get(isl.id);
+        if (d < bestDist) {
+          bestDist = d;
+          bestId = isl.id;
         }
       }
-      for (const rt of this.routes) {
-        if (!rt.established) continue;
-        if (rt.islandA === curr && !visited.has(rt.islandB)) {
-          visited.add(rt.islandB);
-          queue.push(rt.islandB);
-        } else if (rt.islandB === curr && !visited.has(rt.islandA)) {
-          visited.add(rt.islandA);
-          queue.push(rt.islandA);
+      if (bestId === null) break;
+      settled.add(bestId);
+      for (const step of adj.get(bestId) || []) {
+        const nd = bestDist + step.cost;
+        if (nd < dist.get(step.to)) {
+          dist.set(step.to, nd);
+          parent.set(step.to, bestId);
+          parentEdge.set(step.to, step.edge);
         }
       }
     }
 
     for (const isl of this.islands) {
-      isl.connected = visited.has(isl.id);
+      const d = dist.get(isl.id);
+      isl.connected = d < Infinity;
+      isl.hopDist = d;
+      isl.parentId = parent.get(isl.id) ?? null;
+      const pe = parentEdge.get(isl.id);
+      isl.parentLinkKind = pe ? pe.kind : null;
+      isl.parentLinkId = pe ? pe.id : null;
+      isl.loopCount = 0;
+    }
+
+    // Detect fundamental cycles (光の環) in the connected component of 0
+    const treeEdgeKeys = new Set();
+    for (const isl of this.islands) {
+      const pe = parentEdge.get(isl.id);
+      if (pe) treeEdgeKeys.add(`${pe.kind}:${pe.id}`);
+    }
+
+    const depth = new Map([[0, 0]]);
+    const getDepth = (id) => {
+      if (depth.has(id)) return depth.get(id);
+      const p = parent.get(id);
+      const d = p !== undefined ? getDepth(p) + 1 : 0;
+      depth.set(id, d);
+      return d;
+    };
+
+    const cycles = [];
+    for (const edge of activeEdges) {
+      if (!this.getIsland(edge.a)?.connected || !this.getIsland(edge.b)?.connected) continue;
+      if (treeEdgeKeys.has(`${edge.kind}:${edge.id}`)) continue;
+      // Trace u and v up to LCA in Dijkstra tree to get cycle node order
+      let u = edge.a;
+      let v = edge.b;
+      const pathU = [u];
+      const pathV = [v];
+      let du = getDepth(u);
+      let dv = getDepth(v);
+      while (du > dv && parent.has(u)) {
+        u = parent.get(u);
+        pathU.push(u);
+        du -= 1;
+      }
+      while (dv > du && parent.has(v)) {
+        v = parent.get(v);
+        pathV.push(v);
+        dv -= 1;
+      }
+      while (u !== v && parent.has(u) && parent.has(v)) {
+        u = parent.get(u);
+        v = parent.get(v);
+        pathU.push(u);
+        pathV.push(v);
+      }
+      pathV.pop(); // avoid duplicating LCA
+      const cycleIds = [...pathU, ...pathV.reverse()];
+      if (cycleIds.length >= 3) {
+        cycles.push(cycleIds);
+      }
+    }
+
+    const creditedCycles = cycles.slice(0, LOOP_MAX_COUNT);
+    this.loops = creditedCycles;
+    this.loopCount = creditedCycles.length;
+    this.loopBonus = this.loopCount * LOOP_SCORE_BONUS;
+    for (const cyc of creditedCycles) {
+      for (const id of cyc) {
+        const isl = this.getIsland(id);
+        if (isl && isl.loopCount < LOOP_MAX_COUNT) {
+          isl.loopCount += 1;
+        }
+      }
+    }
+
+    if (this.state === 'play' && this.loopCount > prevLoopCount) {
+      const latest = creditedCycles[this.loopCount - 1] || [];
+      this._emit('loopFormed', {
+        cycleIslandIds: latest,
+        loopCount: this.loopCount,
+        bonus: LOOP_SCORE_BONUS,
+      });
+    }
+
+    // Check constellation completion (今夜の星座)
+    if (this.constellation && !this.constellation.completed) {
+      const hasActiveLink = (u, v) =>
+        activeEdges.some((e) => (e.a === u && e.b === v) || (e.a === v && e.b === u));
+      if (this.constellation.edges.every(([u, v]) => hasActiveLink(u, v))) {
+        this.constellation.completed = true;
+        this.constellationBonus = this.constellation.bonus;
+        if (this.state === 'play') {
+          this._emit('constellationCompleted', {
+            constellation: this.constellation,
+            bonus: this.constellationBonus,
+          });
+        }
+      }
+    }
+
+    this.recomputeFlow();
+  }
+
+  recomputeFlow() {
+    const edgeByKey = new Map();
+    for (const br of this.bridges) {
+      br.flow = 0;
+      br.flowDir = 1;
+      edgeByKey.set(`bridge:${br.id}`, br);
+    }
+    for (const rt of this.routes) {
+      rt.flow = 0;
+      rt.flowDir = 1;
+      edgeByKey.set(`route:${rt.id}`, rt);
+    }
+
+    for (const isl of this.islands) {
+      if (!isl.connected || isl.id === 0 || !Number.isFinite(isl.hopDist)) continue;
+      const weightFactor =
+        isl.hopDist <= 1 ? 1.0 : 1 / (1 + 0.35 * (isl.hopDist - 1));
+      const contrib = Math.max(6, isl.light) * weightFactor;
+      let curr = isl;
+      let guard = 0;
+      while (curr && curr.id !== 0 && curr.parentLinkId && guard < this.islands.length) {
+        guard += 1;
+        const link = edgeByKey.get(`${curr.parentLinkKind}:${curr.parentLinkId}`);
+        if (link) {
+          link.flow += contrib;
+          link.flowDir = link.islandA === curr.id ? 1 : -1;
+        }
+        curr = this.getIsland(curr.parentId);
+      }
+    }
+
+    // Add gentle circulation baseline to loop edges so cycle chords visibly glow
+    if (this.loops && this.loops.length > 0) {
+      const loopNodePairs = new Set();
+      for (const cyc of this.loops) {
+        for (let i = 0; i < cyc.length; i++) {
+          const u = cyc[i];
+          const v = cyc[(i + 1) % cyc.length];
+          loopNodePairs.add(`${Math.min(u, v)}-${Math.max(u, v)}`);
+        }
+      }
+      for (const br of this.bridges) {
+        if (!br.built) continue;
+        const key = `${Math.min(br.islandA, br.islandB)}-${Math.max(br.islandA, br.islandB)}`;
+        if (loopNodePairs.has(key) && br.flow < 8) {
+          br.flow = Math.max(br.flow, 8);
+        }
+      }
     }
   }
 
@@ -1049,7 +1310,8 @@ export class GameSimulation {
         if (!isl.connected) continue;
         const def = BUILDING_DEFS[b.type];
         const { mult } = this.getBuildingMultiplier(isl, b);
-        isl.light += def.islandRate * mult * isl.productionMult * networkMult * dt;
+        const loopMult = 1 + (isl.loopCount || 0) * LOOP_PROD_BONUS;
+        isl.light += def.islandRate * mult * isl.productionMult * networkMult * loopMult * dt;
       }
     }
 
@@ -1212,7 +1474,15 @@ export class GameSimulation {
       const decayRate = (0.38 + 0.042 * isl.light) * decayFactor * earlyGrace;
       isl.light = Math.max(0, isl.light - decayRate * dt);
 
-      this.walletLight += isl.light * WALLET_FLOW_RATE * dt;
+      const pathMult =
+        isl.id === 0
+          ? 1.0
+          : isl.hopDist <= 1
+            ? 1.16
+            : isl.hopDist === 2
+              ? 1.0
+              : Math.max(0.45, 1.06 - 0.16 * isl.hopDist);
+      this.walletLight += isl.light * WALLET_FLOW_RATE * pathMult * dt;
 
       // 節目(50/100/200)到達チェック（星見の島は2倍ボーナス）
       for (const m of LIGHT_MILESTONES) {
@@ -1230,6 +1500,7 @@ export class GameSimulation {
       }
     }
 
+    this.recomputeFlow();
     this._updateScore();
 
     // 7. Time up -> Dawn

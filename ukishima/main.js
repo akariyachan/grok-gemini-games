@@ -98,6 +98,8 @@ const hudTimeLeft = document.getElementById('hud-time-left');
 const hudConnectedCount = document.getElementById('hud-connected-count');
 const hudTotalIslands = document.getElementById('hud-total-islands');
 const hudSpeedBadge = document.getElementById('hud-speed-badge');
+const btnConstellation = document.getElementById('btn-constellation');
+const constellationHudName = document.getElementById('constellation-hud-name');
 const btnPause = document.getElementById('btn-pause');
 const btnGuideHelp = document.getElementById('btn-guide-help');
 
@@ -136,10 +138,13 @@ const resultChartLabel = document.getElementById('result-chart-label');
 const resultReason = document.getElementById('result-reason');
 const resultScore = document.getElementById('result-score');
 const resultBest = document.getElementById('result-best');
+const resultMapCanvas = document.getElementById('result-map-canvas');
 const rbIslandsLight = document.getElementById('rb-islands-light');
 const rbWalletLight = document.getElementById('rb-wallet-light');
 const rbConnected = document.getElementById('rb-connected');
 const rbTimeBonus = document.getElementById('rb-time-bonus');
+const rbLoopBonus = document.getElementById('rb-loop-bonus');
+const rbConstellationBonus = document.getElementById('rb-constellation-bonus');
 
 // Simulation & Scene
 const urlParams = new URLSearchParams(window.location.search);
@@ -242,6 +247,7 @@ const uiState = {
   chartMode: urlSeed ? 'random' : 'daily',
   activeSeed: initialSeed,
   lastDescribedIslandId: null,
+  constellationHighlight: false,
   islandHighlight: new Map(),
 };
 
@@ -249,14 +255,22 @@ const scene3d = new Scene3D(canvasWrap, handleWorldTap);
 scene3d.buildIslands(sim.islands);
 
 function syncToastContainerPosition() {
+  let hudBottomY = 104;
+  if (!hudTop.classList.contains('hidden')) {
+    const hr = hudTop.getBoundingClientRect();
+    if (hr.height > 0) {
+      hudBottomY = Math.round(hr.bottom);
+    }
+  }
   if (!guideBubble.classList.contains('hidden')) {
+    guideBubble.style.top = `${hudBottomY + 8}px`;
     const r = guideBubble.getBoundingClientRect();
     if (r.height > 0) {
       toastContainer.style.top = `${Math.round(r.bottom + 8)}px`;
       return;
     }
   }
-  toastContainer.style.top = '';
+  toastContainer.style.top = `${hudBottomY + 8}px`;
 }
 
 function showToast(text, kind = 'normal') {
@@ -587,6 +601,14 @@ function updateIslandHighlights() {
   } else if (uiState.selectedIslandId !== null) {
     map.set(uiState.selectedIslandId, 'selected');
   }
+
+  if (uiState.constellationHighlight && sim.constellation) {
+    for (const cid of sim.constellation.islandIds) {
+      if (!map.has(cid)) {
+        map.set(cid, 'constellation');
+      }
+    }
+  }
 }
 
 function getTappableBounds() {
@@ -822,6 +844,7 @@ function refreshScreens() {
 
   const showTopHud = st === 'play' || st === 'paused' || st === 'dawn';
   hudTop.classList.toggle('hidden', !showTopHud);
+  btnConstellation.classList.toggle('hidden', st !== 'play' || !sim.constellation);
   btnPause.classList.toggle('hidden', st === 'dawn');
   btnGuideHelp.classList.toggle('hidden', st !== 'play');
   hudBottom.classList.toggle('hidden', st !== 'play');
@@ -869,6 +892,13 @@ function refreshUI() {
     hudSpeedBadge.classList.remove('hidden');
   } else {
     hudSpeedBadge.classList.add('hidden');
+  }
+
+  if (sim.constellation) {
+    const c = sim.constellation;
+    constellationHudName.textContent = c.completed ? `${c.name}✓` : c.name;
+    btnConstellation.classList.toggle('done', Boolean(c.completed));
+    btnConstellation.classList.toggle('active', Boolean(uiState.constellationHighlight));
   }
 
   if (sim.state !== 'play') {
@@ -1054,6 +1084,9 @@ function handleEvents() {
       const wz = ev.island.z + slot.localZ;
       spawnWorldPopup(wx, wy, wz, `${BUILDING_DEFS[ev.building.type].name} 完成！`);
       spawnFlyOrbs(wx, ev.island.y + 0.7, wz, 3, 'amber');
+      if (ev.type === 'buildingCompleted') {
+        uiSyncAcc = 1;
+      }
     } else if (ev.type === 'comboPopup') {
       const isl = sim.getIsland(ev.islandId);
       const slot = isl.slots[ev.slotIndex];
@@ -1073,6 +1106,7 @@ function handleEvents() {
       spawnWorldPopup(isl.x, isl.y + 1.9, isl.z, label, 'amber');
       spawnFlyOrbs(isl.x, isl.y + 0.8, isl.z, ev.starlight ? 4 : 2, 'amber');
     } else if (ev.type === 'bridgeCompleted') {
+      uiSyncAcc = 1;
       const r = ev.recipient;
       spawnWorldPopup(r.x, r.y + 1.9, r.z, `橋開通！ ${r.name} +${ev.bonus}`, 'cyan');
       spawnFlyOrbs(r.x, r.y + 0.6, r.z, 3, 'cyan');
@@ -1080,6 +1114,7 @@ function handleEvents() {
       const isl = ev.island;
       const wStr = ev.walletGain > 0 ? ` / 所持+${ev.walletGain}` : '';
       if (ev.firstArrival) {
+        uiSyncAcc = 1;
         spawnWorldPopup(
           isl.x,
           isl.y + 2.1,
@@ -1098,11 +1133,208 @@ function handleEvents() {
         );
       }
       spawnFlyOrbs(isl.x, isl.y + 0.7, isl.z, 3, ev.walletGain > 0 ? 'amber' : 'cyan');
+    } else if (ev.type === 'loopFormed') {
+      scene3d.triggerLoopPulse(ev.cycleIslandIds, nowSec);
+      let cx = 0;
+      let cy = 0;
+      let cz = 0;
+      let cnt = 0;
+      for (const id of ev.cycleIslandIds || []) {
+        const isl = sim.getIsland(id);
+        if (isl) {
+          scene3d.triggerIslandPulse(isl.id, nowSec);
+          cx += isl.x;
+          cy += isl.y;
+          cz += isl.z;
+          cnt += 1;
+        }
+      }
+      if (cnt > 0) {
+        spawnWorldPopup(cx / cnt, cy / cnt + 2.2, cz / cnt, `✨ 光の環ができた！ +${ev.bonus}`, 'amber');
+      }
+      showToast(`✨ 光の環が完成！（${ev.loopCount}/3・生産+25%） +${ev.bonus}`, 'good');
+    } else if (ev.type === 'constellationCompleted') {
+      const c = ev.constellation;
+      const lastId = c.islandIds[c.islandIds.length - 1];
+      const anchor = sim.getIsland(lastId) || sim.getIsland(0);
+      for (const id of c.islandIds) {
+        scene3d.triggerIslandPulse(id, nowSec);
+      }
+      if (anchor) {
+        spawnWorldPopup(anchor.x, anchor.y + 2.3, anchor.z, `✦ 星座完成「${c.name}」 +${ev.bonus}`, 'amber');
+      }
+      showToast(`✦ 今夜の星座「${c.name}」完成！ +${ev.bonus}`, 'good');
     } else if (ev.type === 'dawnStarted') {
       dawnExtinguishedIds.clear();
+      clearSelection();
+      uiState.constellationHighlight = false;
+      updateIslandHighlights();
       showToast(ev.reason, 'good');
     } else if (ev.type === 'gameEnded') {
       showResultScreen();
+    }
+  }
+}
+
+function renderResultLightMap(canvas, simState) {
+  if (!canvas || !simState?.islands?.length) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const bg = ctx.createRadialGradient(w * 0.5, h * 0.5, 8, w * 0.5, h * 0.5, Math.max(w, h) * 0.65);
+  bg.addColorStop(0, '#13224a');
+  bg.addColorStop(1, '#070d20');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  for (const isl of simState.islands) {
+    minX = Math.min(minX, isl.x);
+    maxX = Math.max(maxX, isl.x);
+    minZ = Math.min(minZ, isl.z);
+    maxZ = Math.max(maxZ, isl.z);
+  }
+  const pad = 22;
+  const spanX = Math.max(10, maxX - minX);
+  const spanZ = Math.max(10, maxZ - minZ);
+  const scale = Math.min((w - pad * 2) / spanX, (h - pad * 2) / spanZ);
+  const cx = (minX + maxX) * 0.5;
+  const cz = (minZ + maxZ) * 0.5;
+  const mapPt = (isl) => ({
+    x: w * 0.5 + (isl.x - cx) * scale,
+    y: h * 0.5 + (isl.z - cz) * scale,
+  });
+
+  // Loop halos
+  for (const cyc of simState.loops || []) {
+    if (!Array.isArray(cyc) || cyc.length < 3) continue;
+    ctx.save();
+    ctx.beginPath();
+    cyc.forEach((id, idx) => {
+      const isl = simState.getIsland(id);
+      if (!isl) return;
+      const p = mapPt(isl);
+      if (idx === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255, 209, 102, 0.13)';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Constellation guide lines
+  if (simState.constellation?.edges) {
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = simState.constellation.completed
+      ? 'rgba(255, 236, 138, 0.96)'
+      : 'rgba(145, 208, 255, 0.5)';
+    ctx.lineWidth = simState.constellation.completed ? 2.8 : 1.6;
+    for (const [uId, vId] of simState.constellation.edges) {
+      const u = simState.getIsland(uId);
+      const v = simState.getIsland(vId);
+      if (!u || !v) continue;
+      const pu = mapPt(u);
+      const pv = mapPt(v);
+      ctx.beginPath();
+      ctx.moveTo(pu.x, pu.y);
+      ctx.lineTo(pv.x, pv.y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Routes (cyan dashed, width & glow proportional to flow)
+  for (const rt of simState.routes) {
+    const a = simState.getIsland(rt.islandA);
+    const b = simState.getIsland(rt.islandB);
+    if (!a || !b) continue;
+    const pa = mapPt(a);
+    const pb = mapPt(b);
+    const flowNorm = Math.min(1, (rt.flow || 0) / 22);
+    const lw = 2.4 + flowNorm * 4.4;
+    ctx.save();
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = rt.established ? 'rgba(118, 246, 246, 0.28)' : 'rgba(118, 246, 246, 0.15)';
+    ctx.lineWidth = lw + 3;
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.stroke();
+    ctx.strokeStyle = rt.established ? 'rgba(128, 248, 248, 0.96)' : 'rgba(128, 248, 248, 0.6)';
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Bridges (amber / high-gold, width & glow proportional to flow)
+  for (const br of simState.bridges) {
+    const a = simState.getIsland(br.islandA);
+    const b = simState.getIsland(br.islandB);
+    if (!a || !b) continue;
+    const pa = mapPt(a);
+    const pb = mapPt(b);
+    const flowNorm = Math.min(1, (br.flow || 0) / 26);
+    const lw = 2.8 + flowNorm * 5.0;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = br.high ? 'rgba(165, 232, 255, 0.28)' : 'rgba(255, 200, 82, 0.3)';
+    ctx.lineWidth = lw + 3.2;
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.stroke();
+    ctx.strokeStyle = br.high
+      ? 'rgba(186, 240, 255, 0.98)'
+      : `rgba(255, 212, 102, ${0.78 + flowNorm * 0.22})`;
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Island nodes
+  const constSet = new Set(simState.constellation?.islandIds || []);
+  for (const isl of simState.islands) {
+    const p = mapPt(isl);
+    const r = isl.id === 0 ? 7.2 : isl.connected ? 4.8 + Math.min(2.6, isl.light / 200) : 3.4;
+    if (isl.connected) {
+      const halo = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, r * 2.7);
+      halo.addColorStop(0, isl.id === 0 ? 'rgba(255, 235, 148, 0.8)' : 'rgba(255, 204, 96, 0.56)');
+      halo.addColorStop(1, 'rgba(255, 196, 86, 0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r * 2.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = isl.id === 0 ? '#fff6bd' : isl.connected ? '#ffd86b' : '#5e7399';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    if (isl.id === 0) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    }
+    if (constSet.has(isl.id)) {
+      ctx.strokeStyle = simState.constellation.completed ? '#fff9cc' : '#8ce0ff';
+      ctx.lineWidth = 1.7;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r + 2.6, 0, Math.PI * 2);
+      ctx.stroke();
     }
   }
 }
@@ -1123,6 +1355,11 @@ function showResultScreen() {
   rbWalletLight.textContent = String(walletSum);
   rbConnected.textContent = `${connectedCount} / ${sim.islands.length}`;
   rbTimeBonus.textContent = `+${sim.allConnectedBonus}`;
+  rbLoopBonus.textContent = `+${sim.loopBonus || 0}（${sim.loopCount || 0}環）`;
+  rbConstellationBonus.textContent = sim.constellation?.completed
+    ? `+${sim.constellationBonus || 0}`
+    : '未達成';
+  renderResultLightMap(resultMapCanvas, sim);
   refreshScreens();
 
   cancelAnimationFrame(resultCountAnimId);
@@ -1182,6 +1419,7 @@ function startNewGame(options = {}) {
   uiState.pendingBlockedRoutes = [];
   uiState.selectedBridgeId = null;
   uiState.lastDescribedIslandId = null;
+  uiState.constellationHighlight = false;
   guideState.step1Done = false;
   guideState.step2Done = false;
   guideState.step3Done = false;
@@ -1253,6 +1491,22 @@ document.getElementById('btn-restart-pause').addEventListener('click', () => {
 
 btnCancelSelection.addEventListener('click', () => {
   clearSelection();
+  refreshUI();
+});
+
+btnConstellation.addEventListener('click', () => {
+  const c = sim.constellation;
+  if (!c) return;
+  uiState.constellationHighlight = !uiState.constellationHighlight;
+  const nowSec = performance.now() / 1000;
+  if (uiState.constellationHighlight) {
+    for (const id of c.islandIds) {
+      scene3d.triggerIslandPulse(id, nowSec);
+    }
+    const names = c.islandIds.map((id) => sim.getIsland(id)?.name || `#${id}`).join('・');
+    const stateStr = c.completed ? '達成済み✓' : `+${c.bonus}`;
+    showToast(`✦ 今夜の星座「${c.name}」: ${names}（${stateStr}）`, c.completed ? 'good' : 'normal');
+  }
   refreshUI();
 });
 
@@ -1332,6 +1586,10 @@ Object.defineProperties(gameHook, {
   speed: { get: () => sim.speed, enumerable: true },
   quality: { get: () => scene3d.quality, enumerable: true },
   seed: { get: () => sim.seed, enumerable: true },
+  constellation: { get: () => sim.constellation, enumerable: true },
+  loopCount: { get: () => sim.loopCount, enumerable: true },
+  loopBonus: { get: () => sim.loopBonus, enumerable: true },
+  constellationBonus: { get: () => sim.constellationBonus, enumerable: true },
 });
 
 gameHook.api = {
