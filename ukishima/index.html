@@ -66,6 +66,7 @@
           <span class="guide-label">「<strong>航路</strong>」で遠くの島へ船を出そう</span>
         </li>
       </ol>
+      <div class="guide-tip">※毎夜「星図」で配置が変わり、島の特性（🏮🌲⚓✨🌫🌀）は島タップで確認できます</div>
       <div class="guide-footer">
         <button id="btn-guide-dismiss" class="guide-dismiss-btn" type="button">もう表示しない</button>
       </div>
@@ -136,6 +137,14 @@
         <div class="title-badge">箱庭リアルタイム戦略</div>
         <h1 class="game-title">浮島の灯り</h1>
         <p class="title-subtitle">夜明けまでの5分間、空に浮かぶ島々を橋と航路でつなぎ、夜の街に温かい灯りをともそう。</p>
+        <div class="chart-picker" aria-label="今夜の星図">
+          <div class="chart-picker-label">今夜の星図</div>
+          <div class="chart-picker-tabs">
+            <button id="btn-chart-daily" class="chart-btn active" data-chart="daily" type="button">今日の星図</button>
+            <button id="btn-chart-random" class="chart-btn" data-chart="random" type="button">おまかせ</button>
+          </div>
+          <div class="chart-seed-note" id="title-chart-note">日付シードでみんな同じ配置</div>
+        </div>
         <div class="title-best" id="title-best-score">ベストスコア: ---</div>
         <div class="modal-actions">
           <button id="btn-start" class="primary-btn" type="button">はじめる</button>
@@ -153,7 +162,9 @@
           <li><strong>建物:</strong> つながった島に「家・街灯・屋台・灯台」を建築。隣接コンボや島を増やすネットワークボーナス（島+14%・橋+11%）で灯りが育ちます。</li>
           <li><strong>橋・高い橋:</strong> 近くの島をすぐ接続（橋17/4秒・高い橋42/8秒・撤去5）。橋どうしは光の道で灯りを分け合います。</li>
           <li><strong>航路・船:</strong> 遠くの島へ航路を引くと（灯り36）、船が「資材（建築加速）」と「お客（屋台・家UP）」を交互に運びます。</li>
-          <li><strong>交差ルール:</strong> 航路は通常の橋と交差できません（高い橋なら交差OK）。</li>
+          <li><strong>交差ルール:</strong> 航路は通常の橋と交差できません（高い橋なら交差OK）。橋はプレビュー後に再タップで確定します。</li>
+          <li><strong>今夜の星図:</strong> 「今日の星図」（日替わり共通）と「おまかせ」（毎回変化）を選べます。ベストは星図ごとに保存。</li>
+          <li><strong>島の特性:</strong> 🏮市場(屋台UP) 🌲森(減衰半減) ⚓港(高速船・荷+1) ✨星見(節目2倍) 🌫霧(航路のみ) 🌀風(高い橋のみ)。</li>
           <li><strong>夜明け:</strong> 5分経過または全島接続（残り秒×2ボーナス）で夜明け！総灯り＋ボーナスがスコアになります。</li>
         </ul>
         <div class="modal-actions">
@@ -178,6 +189,7 @@
     <section id="screen-result" class="overlay-screen hidden">
       <div class="modal-card result-card">
         <div class="result-badge" id="result-reason">夜明けが訪れました</div>
+        <div class="result-chart" id="result-chart-label">星図: 今日の星図</div>
         <h2>夜の記録</h2>
         <div class="result-score-wrap">
           <div class="result-score-label">総合スコア</div>

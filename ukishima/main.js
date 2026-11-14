@@ -6,16 +6,59 @@ import {
   GameSimulation,
   HIGH_BRIDGE_COST,
   HIGH_BRIDGE_TIME,
+  ISLAND_TRAITS,
   REMOTE_ISLAND_MULT,
   REMOVE_BRIDGE_COST,
   ROUTE_COST,
   distance2D,
+  getTodaySeedString,
   segmentsIntersect2D,
 } from './gameLogic.js';
 import { Scene3D } from './scene3d.js';
 
-const BEST_SCORE_KEY = 'ukishima_best_score';
+const BEST_SCORE_PREFIX = 'ukishima_best_';
 const GUIDE_DISMISSED_KEY = 'ukishima_guide_dismissed';
+
+function formatIslandName(isl) {
+  if (!isl) return '';
+  const tr = isl.trait ? ISLAND_TRAITS[isl.trait] : null;
+  return tr ? `${isl.name}${tr.icon}` : isl.name;
+}
+
+function getChartStorageKey(chartMode, seed) {
+  if (chartMode === 'daily') {
+    return `${BEST_SCORE_PREFIX}${seed || getTodaySeedString()}`;
+  }
+  return `${BEST_SCORE_PREFIX}random_${seed || 'latest'}`;
+}
+
+function loadBestScore(chartMode, seed) {
+  try {
+    const key = getChartStorageKey(chartMode, seed);
+    const val = Number(localStorage.getItem(key) || 0);
+    return Number.isFinite(val) ? val : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveBestScore(score, chartMode, seed) {
+  try {
+    const key = getChartStorageKey(chartMode, seed);
+    const prev = loadBestScore(chartMode, seed);
+    const next = Math.max(prev, score);
+    localStorage.setItem(key, String(next));
+    if (chartMode === 'random') {
+      const prevLatest = loadBestScore('random', 'latest');
+      const nextLatest = Math.max(prevLatest, next);
+      localStorage.setItem(getChartStorageKey('random', 'latest'), String(nextLatest));
+      return nextLatest;
+    }
+    return next;
+  } catch {
+    return score;
+  }
+}
 
 function loadGuideDismissed() {
   try {
@@ -31,26 +74,6 @@ function saveGuideDismissed(val) {
     else localStorage.removeItem(GUIDE_DISMISSED_KEY);
   } catch {
     // ignore storage errors
-  }
-}
-
-function loadBestScore() {
-  try {
-    const val = Number(localStorage.getItem(BEST_SCORE_KEY) || 0);
-    return Number.isFinite(val) ? val : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function saveBestScore(score) {
-  try {
-    const prev = loadBestScore();
-    const next = Math.max(prev, score);
-    localStorage.setItem(BEST_SCORE_KEY, String(next));
-    return next;
-  } catch {
-    return score;
   }
 }
 
@@ -106,6 +129,10 @@ const screenPause = document.getElementById('screen-pause');
 const screenResult = document.getElementById('screen-result');
 
 const titleBestScore = document.getElementById('title-best-score');
+const btnChartDaily = document.getElementById('btn-chart-daily');
+const btnChartRandom = document.getElementById('btn-chart-random');
+const titleChartNote = document.getElementById('title-chart-note');
+const resultChartLabel = document.getElementById('result-chart-label');
 const resultReason = document.getElementById('result-reason');
 const resultScore = document.getElementById('result-score');
 const resultBest = document.getElementById('result-best');
@@ -118,8 +145,10 @@ const rbTimeBonus = document.getElementById('rb-time-bonus');
 const urlParams = new URLSearchParams(window.location.search);
 const isFastMode = urlParams.get('fast') === '1';
 const isBotMode = urlParams.get('bot') === '1';
+const urlSeed = urlParams.get('seed');
 const initialSpeed = isFastMode ? 10 : 1;
-const sim = new GameSimulation(initialSpeed);
+const initialSeed = urlSeed || getTodaySeedString();
+const sim = new GameSimulation(initialSpeed, { seed: initialSeed });
 
 const guideState = {
   visible: false,
@@ -130,7 +159,6 @@ const guideState = {
   completedNotified: false,
 };
 
-const islandMilestones = new Map();
 const dawnExtinguishedIds = new Set();
 const flyOrbs = [];
 let hudBounceTimeout = null;
@@ -207,23 +235,58 @@ const uiState = {
   selectedIslandId: 0,
   selectedSlotIndex: 0,
   originIslandId: null,
+  pendingBridgeTargetId: null,
+  pendingBlockedRoutes: [],
   selectedBridgeId: null,
   howtoReturnTo: 'title',
+  chartMode: urlSeed ? 'random' : 'daily',
+  activeSeed: initialSeed,
+  lastDescribedIslandId: null,
   islandHighlight: new Map(),
 };
 
 const scene3d = new Scene3D(canvasWrap, handleWorldTap);
 scene3d.buildIslands(sim.islands);
 
+function syncToastContainerPosition() {
+  if (!guideBubble.classList.contains('hidden')) {
+    const r = guideBubble.getBoundingClientRect();
+    if (r.height > 0) {
+      toastContainer.style.top = `${Math.round(r.bottom + 8)}px`;
+      return;
+    }
+  }
+  toastContainer.style.top = '';
+}
+
 function showToast(text, kind = 'normal') {
+  syncToastContainerPosition();
+  const cls = `toast ${kind === 'warn' ? 'warn' : kind === 'good' ? 'good' : ''}`.trim();
+  for (const existing of toastContainer.children) {
+    if (existing.dataset.toastText === text) {
+      existing.className = cls;
+      existing.style.animation = 'none';
+      void existing.offsetWidth;
+      existing.style.animation = '';
+      clearTimeout(existing._removeTimer);
+      existing._removeTimer = setTimeout(() => {
+        existing.remove();
+      }, 2600);
+      return;
+    }
+  }
+
   const el = document.createElement('div');
-  el.className = `toast ${kind === 'warn' ? 'warn' : kind === 'good' ? 'good' : ''}`;
+  el.className = cls;
+  el.dataset.toastText = text;
   el.textContent = text;
   toastContainer.appendChild(el);
   while (toastContainer.children.length > 3) {
-    toastContainer.removeChild(toastContainer.firstChild);
+    const oldest = toastContainer.firstChild;
+    if (oldest) clearTimeout(oldest._removeTimer);
+    toastContainer.removeChild(oldest);
   }
-  setTimeout(() => {
+  el._removeTimer = setTimeout(() => {
     el.remove();
   }, 2600);
 }
@@ -291,12 +354,16 @@ function clearSelection() {
   uiState.selectedIslandId = null;
   uiState.selectedSlotIndex = null;
   uiState.originIslandId = null;
+  uiState.pendingBridgeTargetId = null;
+  uiState.pendingBlockedRoutes = [];
   uiState.selectedBridgeId = null;
 }
 
 function setMode(mode) {
   uiState.mode = mode;
   uiState.originIslandId = null;
+  uiState.pendingBridgeTargetId = null;
+  uiState.pendingBlockedRoutes = [];
   uiState.selectedBridgeId = null;
   if (mode !== 'build') {
     uiState.selectedSlotIndex = null;
@@ -305,6 +372,14 @@ function setMode(mode) {
     tab.classList.toggle('active', tab.dataset.mode === mode);
   }
   refreshUI();
+}
+
+function maybeNotifyIslandTrait(isl) {
+  if (!isl || !isl.trait || uiState.lastDescribedIslandId === isl.id) return;
+  const tr = ISLAND_TRAITS[isl.trait];
+  if (!tr) return;
+  uiState.lastDescribedIslandId = isl.id;
+  showToast(`${tr.icon} ${isl.name}（${tr.name}）: ${tr.desc}`, 'normal');
 }
 
 function handleWorldTap(hit) {
@@ -338,11 +413,15 @@ function handleWorldTap(hit) {
 
     if (uiState.originIslandId === null) {
       if (!isl.connected) {
+        maybeNotifyIslandTrait(isl);
         showToast('つながっている島を先に選んでください', 'warn');
         return;
       }
       uiState.originIslandId = islandId;
       uiState.selectedIslandId = islandId;
+      uiState.pendingBridgeTargetId = null;
+      uiState.pendingBlockedRoutes = [];
+      maybeNotifyIslandTrait(isl);
       refreshUI();
       return;
     }
@@ -350,8 +429,43 @@ function handleWorldTap(hit) {
     if (uiState.originIslandId === islandId) {
       uiState.originIslandId = null;
       uiState.selectedIslandId = null;
+      uiState.pendingBridgeTargetId = null;
+      uiState.pendingBlockedRoutes = [];
       refreshUI();
       return;
+    }
+
+    if (uiState.mode === 'bridge' || uiState.mode === 'highBridge') {
+      const isHigh = uiState.mode === 'highBridge';
+      if (uiState.pendingBridgeTargetId !== islandId) {
+        const check = sim.canBuildBridge(uiState.originIslandId, islandId, isHigh);
+        if (!check.ok) {
+          maybeNotifyIslandTrait(isl);
+          showToast(check.reason, 'warn');
+          uiState.pendingBridgeTargetId = null;
+          uiState.pendingBlockedRoutes = [];
+          refreshUI();
+          return;
+        }
+        uiState.pendingBridgeTargetId = islandId;
+        uiState.pendingBlockedRoutes = sim.getFutureBlockedRoutes(
+          uiState.originIslandId,
+          islandId,
+          isHigh
+        );
+        if (uiState.pendingBlockedRoutes.length > 0) {
+          const names = uiState.pendingBlockedRoutes
+            .map((b) => b.toIsland.name)
+            .join('・');
+          showToast(`この橋で ${names} への航路がふさがります（再タップで確定）`, 'warn');
+        } else {
+          const tr = isl.trait ? ISLAND_TRAITS[isl.trait] : null;
+          const trNote = tr ? ` [${tr.icon}${tr.name}: ${tr.desc}]` : '';
+          showToast(`もう1回 ${isl.name} をタップで確定${trNote}`, 'normal');
+        }
+        refreshUI();
+        return;
+      }
     }
 
     const res =
@@ -369,7 +483,10 @@ function handleWorldTap(hit) {
       showToast(msg, 'good');
       // 連続で橋/航路を引けるよう出発島の選択を維持する
       uiState.selectedIslandId = uiState.originIslandId;
+      uiState.pendingBridgeTargetId = null;
+      uiState.pendingBlockedRoutes = [];
     } else {
+      maybeNotifyIslandTrait(isl);
       showToast(res.reason, 'warn');
     }
     refreshUI();
@@ -388,6 +505,7 @@ function handleWorldTap(hit) {
     uiState.selectedBridgeId = null;
     uiState.selectedIslandId = hit.islandId;
     uiState.selectedSlotIndex = hit.slotIndex;
+    maybeNotifyIslandTrait(sim.getIsland(hit.islandId));
     refreshUI();
     return;
   }
@@ -398,6 +516,7 @@ function handleWorldTap(hit) {
     const isl = sim.getIsland(hit.islandId);
     const emptySlot = isl ? isl.slots.find((s) => s.buildingId === null) : null;
     uiState.selectedSlotIndex = emptySlot ? emptySlot.index : 0;
+    maybeNotifyIslandTrait(isl);
     refreshUI();
   }
 }
@@ -444,6 +563,14 @@ function updateIslandHighlights() {
           continue;
         }
         const isHigh = uiState.mode === 'highBridge';
+        if (origin.trait === 'fog' || isl.trait === 'fog') {
+          map.set(isl.id, 'blocked');
+          continue;
+        }
+        if (!isHigh && (origin.trait === 'wind' || isl.trait === 'wind')) {
+          map.set(isl.id, 'blocked');
+          continue;
+        }
         const blockedByRoute =
           !isHigh &&
           sim.routes.some((rt) =>
@@ -530,7 +657,15 @@ function renderModeBadges() {
         modeBadgesLayer.appendChild(badge);
         blockedBadgePool.set(isl.id, badge);
       }
-      const txt = status === 'blocked' ? '✕ ふさがれ' : '✕ 遠い';
+      let txt = status === 'blocked' ? '✕ ふさがれ' : '✕ 遠い';
+      if (status === 'blocked' && (uiState.mode === 'bridge' || uiState.mode === 'highBridge')) {
+        const orig = sim.getIsland(uiState.originIslandId);
+        if (isl.trait === 'fog' || orig?.trait === 'fog') {
+          txt = '🌫 航路のみ';
+        } else if (uiState.mode === 'bridge' && (isl.trait === 'wind' || orig?.trait === 'wind')) {
+          txt = '🌀 高い橋のみ';
+        }
+      }
       if (badge.textContent !== txt) badge.textContent = txt;
       badge.style.left = `${pt.x.toFixed(1)}px`;
       badge.style.top = `${pt.y.toFixed(1)}px`;
@@ -582,7 +717,7 @@ function renderModeBadges() {
 
       const sector = ((Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) % 8) + 8) % 8;
       const arrow = DIRECTION_ARROWS[sector];
-      const txt = `${arrow} ${isl.name}`;
+      const txt = `${arrow} ${formatIslandName(isl)}`;
 
       let badge = edgeBadgePool.get(isl.id);
       if (!badge) {
@@ -631,16 +766,17 @@ function updateGuideUI() {
     ) {
       guideState.step1Done = true;
     }
-    if (!guideState.step2Done && sim.bridges.some((b) => b.built)) {
+    if (!guideState.step2Done && sim.bridges.some((b) => b.built === true)) {
       guideState.step2Done = true;
     }
-    if (!guideState.step3Done && sim.routes.length > 0) {
+    if (!guideState.step3Done && sim.routes.some((rt) => rt.established === true)) {
       guideState.step3Done = true;
     }
   }
 
   const showGuide = sim.state === 'play' && guideState.visible;
   guideBubble.classList.toggle('hidden', !showGuide);
+  syncToastContainerPosition();
   if (!showGuide) return;
 
   const steps = [
@@ -673,6 +809,7 @@ function updateGuideUI() {
     guideHideTimer = setTimeout(() => {
       guideState.visible = false;
       guideBubble.classList.add('hidden');
+      syncToastContainerPosition();
     }, 1800);
   }
 }
@@ -691,11 +828,20 @@ function refreshScreens() {
   if (st !== 'play') {
     selectionBanner.classList.add('hidden');
     guideBubble.classList.add('hidden');
+    syncToastContainerPosition();
   }
 
   if (st === 'title') {
-    const best = loadBestScore();
+    const dailySeed = getTodaySeedString();
+    const chartSeed = uiState.chartMode === 'daily' ? dailySeed : 'latest';
+    const best = loadBestScore(uiState.chartMode, chartSeed);
     titleBestScore.textContent = best > 0 ? `ベストスコア: ${best}` : 'ベストスコア: ---';
+    btnChartDaily.classList.toggle('active', uiState.chartMode === 'daily');
+    btnChartRandom.classList.toggle('active', uiState.chartMode === 'random');
+    titleChartNote.textContent =
+      uiState.chartMode === 'daily'
+        ? `今日の星図（${dailySeed}）: 毎日同じ配置に挑戦`
+        : 'おまかせ: 遊ぶたびに新しい星図を生成';
   }
 }
 
@@ -727,6 +873,7 @@ function refreshUI() {
 
   if (sim.state !== 'play') {
     modeBadgesLayer.innerHTML = '';
+    scene3d.updateBridgePreview(sim, null, null, false, []);
     return;
   }
 
@@ -741,16 +888,18 @@ function refreshUI() {
       isl && uiState.selectedSlotIndex !== null
         ? isl.slots[uiState.selectedSlotIndex]?.buildingId !== null
         : false;
+    const tr = isl?.trait ? ISLAND_TRAITS[isl.trait] : null;
+    const traitTag = tr ? `・${tr.icon}${tr.desc}` : '';
 
     if (!isl) {
       buildHint.textContent = 'つながった島のスロットをタップして建物を選ぼう';
     } else if (!isl.connected) {
-      buildHint.textContent = `${isl.name}はまだ未接続です（橋か航路でつないでね）`;
+      buildHint.textContent = `${formatIslandName(isl)}は未接続です${traitTag}`;
     } else if (slotOccupied) {
       buildHint.textContent = 'このスロットには建物があります（別の空きスロットを選択）';
     } else {
-      const remoteTag = isl.remote ? `・遠島ボーナス×${REMOTE_ISLAND_MULT}` : '';
-      buildHint.textContent = `${isl.name} #${uiState.selectedSlotIndex + 1} に建てる${remoteTag}`;
+      const remoteTag = isl.remote ? `・遠島×${REMOTE_ISLAND_MULT}` : '';
+      buildHint.textContent = `${formatIslandName(isl)} #${uiState.selectedSlotIndex + 1} に建てる${traitTag}${remoteTag}`;
     }
 
     for (const card of buildCards) {
@@ -768,15 +917,19 @@ function refreshUI() {
     if (uiState.mode === 'bridge') {
       actionTitle.textContent = `橋を架ける（灯り${BRIDGE_COST} / ${BRIDGE_TIME}秒）`;
       actionDesc.textContent =
-        uiState.originIslandId === null
-          ? 'つながっている島をタップ → 光る近くの島をタップして接続'
-          : '光っている候補の島をタップして橋を架けます';
+        uiState.pendingBridgeTargetId !== null
+          ? '同じ候補の島をもう一度タップで確定（赤線はふさがる未来の航路）'
+          : uiState.originIslandId === null
+            ? 'つながっている島をタップ → 光る近くの島をタップして接続'
+            : '光っている候補の島をタップしてプレビュー・再タップで架橋';
     } else if (uiState.mode === 'highBridge') {
       actionTitle.textContent = `高い橋を架ける（灯り${HIGH_BRIDGE_COST} / ${HIGH_BRIDGE_TIME}秒）`;
       actionDesc.textContent =
-        uiState.originIslandId === null
-          ? '船が下をくぐれる高い橋を架けます（つながっている島から選択）'
-          : '光っている候補の島をタップして高い橋を架けます';
+        uiState.pendingBridgeTargetId !== null
+          ? '同じ候補の島をもう一度タップで高い橋を架けます'
+          : uiState.originIslandId === null
+            ? '船が下をくぐれる高い橋を架けます（つながっている島から選択）'
+            : '光っている候補の島をタップしてプレビュー・再タップで架橋';
     } else if (uiState.mode === 'route') {
       actionTitle.textContent = `船の航路を引く（灯り${ROUTE_COST}）`;
       actionDesc.textContent =
@@ -802,32 +955,53 @@ function refreshUI() {
 
   // Selection banner positioned cleanly above #hud-bottom (no overlap)
   let bannerMsg = '';
+  let warnBanner = false;
   if (uiState.selectedBridgeId) {
     const br = sim.bridges.find((b) => b.id === uiState.selectedBridgeId);
     if (br) {
       const a = sim.getIsland(br.islandA);
       const b = sim.getIsland(br.islandB);
-      bannerMsg = `${br.high ? '高い橋' : '橋'}: ${a.name} ↔ ${b.name}`;
+      bannerMsg = `${br.high ? '高い橋' : '橋'}: ${formatIslandName(a)} ↔ ${formatIslandName(b)}`;
+    }
+  } else if (
+    uiState.originIslandId !== null &&
+    uiState.pendingBridgeTargetId !== null &&
+    (uiState.mode === 'bridge' || uiState.mode === 'highBridge')
+  ) {
+    const orig = sim.getIsland(uiState.originIslandId);
+    const tgt = sim.getIsland(uiState.pendingBridgeTargetId);
+    if (uiState.pendingBlockedRoutes.length > 0) {
+      const names = uiState.pendingBlockedRoutes
+        .map((r) => formatIslandName(r.toIsland || r.island))
+        .join('・');
+      bannerMsg = `⚠️ この橋で ${names} への航路がふさがります（再タップで確定）`;
+      warnBanner = true;
+    } else if (orig && tgt) {
+      const label = uiState.mode === 'highBridge' ? '高い橋' : '橋';
+      bannerMsg = `${formatIslandName(orig)} ↔ ${formatIslandName(tgt)} に${label}（再タップで確定）`;
     }
   } else if (uiState.originIslandId !== null) {
     const orig = sim.getIsland(uiState.originIslandId);
-    bannerMsg = `出発島: ${orig.name} → 接続先の島をタップ`;
+    bannerMsg = `出発島: ${formatIslandName(orig)} → 接続先の島をタップ`;
   } else if (uiState.selectedIslandId !== null) {
     const isl = sim.getIsland(uiState.selectedIslandId);
     if (isl) {
       const lightStr = isl.connected ? `灯り ${Math.round(isl.light)}` : '未接続';
+      const tr = isl.trait ? ISLAND_TRAITS[isl.trait] : null;
+      const traitStr = tr ? `・${tr.name}` : '';
       if (uiState.selectedSlotIndex !== null && isBuild) {
         const b = sim.getBuildingAt(isl.id, uiState.selectedSlotIndex);
         const slotInfo = b
           ? `${BUILDING_DEFS[b.type].name}${b.built ? '' : '（建築中）'}`
           : `空きスロット#${uiState.selectedSlotIndex + 1}`;
-        bannerMsg = `${isl.name}（${lightStr}）・${slotInfo}`;
+        bannerMsg = `${formatIslandName(isl)}（${lightStr}${traitStr}）・${slotInfo}`;
       } else {
-        bannerMsg = `${isl.name}（${lightStr}）`;
+        bannerMsg = `${formatIslandName(isl)}（${lightStr}${traitStr}）`;
       }
     }
   }
 
+  selectionBanner.classList.toggle('warn', warnBanner);
   if (bannerMsg) {
     selectionText.textContent = bannerMsg;
     selectionBanner.classList.remove('hidden');
@@ -836,30 +1010,25 @@ function refreshUI() {
   } else {
     selectionBanner.classList.add('hidden');
   }
+
+  if (
+    (uiState.mode === 'bridge' || uiState.mode === 'highBridge') &&
+    uiState.originIslandId !== null &&
+    uiState.pendingBridgeTargetId !== null
+  ) {
+    scene3d.updateBridgePreview(
+      sim,
+      uiState.originIslandId,
+      uiState.pendingBridgeTargetId,
+      uiState.mode === 'highBridge',
+      uiState.pendingBlockedRoutes
+    );
+  } else {
+    scene3d.updateBridgePreview(sim, null, null, false, []);
+  }
+
   renderModeBadges();
   updateGuideUI();
-}
-
-const LIGHT_MILESTONES = [50, 100, 200];
-
-function checkIslandMilestones(nowSec) {
-  if (sim.state !== 'play') return;
-  for (const isl of sim.islands) {
-    if (!isl.connected) continue;
-    const prev = islandMilestones.get(isl.id) || 0;
-    let reached = prev;
-    for (const m of LIGHT_MILESTONES) {
-      if (isl.light >= m && m > reached) {
-        reached = m;
-      }
-    }
-    if (reached > prev) {
-      islandMilestones.set(isl.id, reached);
-      scene3d.triggerIslandPulse(isl.id, nowSec);
-      spawnWorldPopup(isl.x, isl.y + 1.9, isl.z, '島が灯った！', 'amber');
-      spawnFlyOrbs(isl.x, isl.y + 0.8, isl.z, 2, 'amber');
-    }
-  }
 }
 
 function updateDawnExtinguishOrbs() {
@@ -876,6 +1045,7 @@ function updateDawnExtinguishOrbs() {
 
 function handleEvents() {
   const events = sim.consumeEvents();
+  const nowSec = performance.now() / 1000;
   for (const ev of events) {
     if (ev.type === 'buildingCompleted') {
       const slot = ev.island.slots[ev.building.slotIndex];
@@ -894,6 +1064,14 @@ function handleEvents() {
         ev.text,
         'amber'
       );
+    } else if (ev.type === 'islandMilestone') {
+      const isl = ev.island;
+      scene3d.triggerIslandPulse(isl.id, nowSec);
+      const label = ev.starlight
+        ? `✨星灯の島ボーナス！ +${ev.bonus}`
+        : `島が灯った！ +${ev.bonus}`;
+      spawnWorldPopup(isl.x, isl.y + 1.9, isl.z, label, 'amber');
+      spawnFlyOrbs(isl.x, isl.y + 0.8, isl.z, ev.starlight ? 4 : 2, 'amber');
     } else if (ev.type === 'bridgeCompleted') {
       const r = ev.recipient;
       spawnWorldPopup(r.x, r.y + 1.9, r.z, `橋開通！ ${r.name} +${ev.bonus}`, 'cyan');
@@ -933,8 +1111,12 @@ function showResultScreen() {
   const islandsSum = Math.round(sim.getIslandsLightSum());
   const walletSum = Math.round(sim.walletLight);
   const connectedCount = sim.getConnectedCount();
-  const best = saveBestScore(sim.score);
+  const best = saveBestScore(sim.score, uiState.chartMode, uiState.activeSeed);
 
+  resultChartLabel.textContent =
+    uiState.chartMode === 'daily'
+      ? `今夜の星図: 今日の星図（${uiState.activeSeed}）`
+      : `今夜の星図: おまかせ（${uiState.activeSeed}）`;
   resultReason.textContent = sim.dawnReason || '夜明けが訪れました';
   resultBest.textContent = `ベスト: ${best}`;
   rbIslandsLight.textContent = String(islandsSum);
@@ -965,22 +1147,41 @@ function showResultScreen() {
   resultCountAnimId = requestAnimationFrame(stepCountUp);
 }
 
-function startNewGame() {
+let pendingUrlSeed = urlSeed;
+
+function startNewGame(options = {}) {
   cancelAnimationFrame(resultCountAnimId);
   clearTimeout(guideHideTimer);
-  islandMilestones.clear();
   dawnExtinguishedIds.clear();
   for (const o of flyOrbs) o.el.remove();
   flyOrbs.length = 0;
 
-  sim.startGame();
+  let seed;
+  if (options && options.seed !== undefined && options.seed !== null) {
+    seed = String(options.seed);
+    pendingUrlSeed = null;
+  } else if (uiState.chartMode === 'daily') {
+    seed = getTodaySeedString();
+  } else if (pendingUrlSeed) {
+    seed = pendingUrlSeed;
+    pendingUrlSeed = null;
+  } else {
+    seed = `rand-${Math.random().toString(36).slice(2, 8)}`;
+  }
+  uiState.activeSeed = seed;
+
+  sim.startGame({ seed });
   scene3d.buildIslands(sim.islands);
   scene3d.resetCameraForNewGame();
+  scene3d.updateBridgePreview(sim, null, null, false, []);
   uiState.mode = 'build';
   uiState.selectedIslandId = 0;
   uiState.selectedSlotIndex = 0;
   uiState.originIslandId = null;
+  uiState.pendingBridgeTargetId = null;
+  uiState.pendingBlockedRoutes = [];
   uiState.selectedBridgeId = null;
+  uiState.lastDescribedIslandId = null;
   guideState.step1Done = false;
   guideState.step2Done = false;
   guideState.step3Done = false;
@@ -994,6 +1195,26 @@ function startNewGame() {
 }
 
 // Button bindings
+btnChartDaily.addEventListener('click', () => {
+  uiState.chartMode = 'daily';
+  const dailySeed = getTodaySeedString();
+  sim.seed = dailySeed;
+  uiState.activeSeed = dailySeed;
+  sim.resetToTitle();
+  scene3d.buildIslands(sim.islands);
+  refreshUI();
+});
+
+btnChartRandom.addEventListener('click', () => {
+  uiState.chartMode = 'random';
+  const previewSeed = `rand-${Math.random().toString(36).slice(2, 8)}`;
+  sim.seed = previewSeed;
+  uiState.activeSeed = previewSeed;
+  sim.resetToTitle();
+  scene3d.buildIslands(sim.islands);
+  refreshUI();
+});
+
 document.getElementById('btn-start').addEventListener('click', () => {
   startNewGame();
 });
@@ -1110,6 +1331,7 @@ Object.defineProperties(gameHook, {
   score: { get: () => sim.score, enumerable: true },
   speed: { get: () => sim.speed, enumerable: true },
   quality: { get: () => scene3d.quality, enumerable: true },
+  seed: { get: () => sim.seed, enumerable: true },
 });
 
 gameHook.api = {
@@ -1133,8 +1355,8 @@ gameHook.api = {
     refreshUI();
     return res;
   },
-  startGame() {
-    return startNewGame();
+  startGame(options = {}) {
+    return startNewGame(options);
   },
   setSpeed(n) {
     const res = sim.setSpeed(n);
@@ -1174,14 +1396,15 @@ let botThinkAcc = 0;
 function stepAutoBot() {
   if (sim.state !== 'play') return;
 
-  // 1. Connect nearby islands with bridges (use highBridge once for variety)
-  for (const b of sim.islands) {
-    if (b.connected || b.remote) continue;
-    for (const a of sim.islands) {
-      if (!a.connected) continue;
-      if (distance2D(a, b) <= BRIDGE_MAX_DIST) {
-        const useHigh = sim.bridges.length === 1 && sim.walletLight >= HIGH_BRIDGE_COST;
-        if (sim.buildBridge(a.id, b.id, useHigh).ok) {
+  // 1. Starter buildings on home island first
+  const home = sim.getIsland(0);
+  if (home) {
+    const used = home.slots.filter((s) => s.buildingId !== null).length;
+    if (used < 2) {
+      const empty = home.slots.find((s) => s.buildingId === null);
+      const desired = used === 0 ? 'stall' : 'streetlight';
+      if (empty && sim.walletLight >= BUILDING_DEFS[desired].cost) {
+        if (sim.placeBuilding(0, desired, empty.index).ok) {
           refreshUI();
           return;
         }
@@ -1190,6 +1413,39 @@ function stepAutoBot() {
   }
 
   // 2. Connect distant islands with ship routes (only unconnected islands without existing route)
+  if (sim.walletLight >= ROUTE_COST) {
+    for (const b of sim.islands) {
+      if (b.connected || !b.remote) continue;
+      if (sim.routes.some((rt) => rt.islandB === b.id || rt.islandA === b.id)) continue;
+      for (const a of sim.islands) {
+        if (!a.connected) continue;
+        if (sim.buildRoute(a.id, b.id).ok) {
+          refreshUI();
+          return;
+        }
+      }
+    }
+  }
+
+  // 3. Connect nearby islands with bridges (respect fog/wind and avoid blocking future routes)
+  for (const b of sim.islands) {
+    if (b.connected || b.trait === 'fog') continue;
+    for (const a of sim.islands) {
+      if (!a.connected || a.trait === 'fog') continue;
+      if (distance2D(a, b) <= BRIDGE_MAX_DIST) {
+        const needsHigh = a.trait === 'wind' || b.trait === 'wind';
+        const futureBlocked = sim.getFutureBlockedRoutes(a.id, b.id, false);
+        const useHigh = needsHigh || futureBlocked.length > 0;
+        const cost = useHigh ? HIGH_BRIDGE_COST : BRIDGE_COST;
+        if (sim.walletLight >= cost && sim.buildBridge(a.id, b.id, useHigh).ok) {
+          refreshUI();
+          return;
+        }
+      }
+    }
+  }
+
+  // 4. Route fallback for any remaining unconnected island (e.g. fog or awkward angle)
   if (sim.walletLight >= ROUTE_COST) {
     for (const b of sim.islands) {
       if (b.connected) continue;
@@ -1204,7 +1460,7 @@ function stepAutoBot() {
     }
   }
 
-  // 3. Build balanced starter/mid-game mix on connected islands
+  // 5. Build balanced starter/mid-game mix on connected islands
   for (const isl of sim.islands) {
     if (!isl.connected) continue;
     const used = isl.slots.filter((s) => s.buildingId !== null).length;
@@ -1213,8 +1469,10 @@ function stepAutoBot() {
     if (!empty) continue;
     const order =
       isl.id === 0
-        ? ['streetlight', 'stall', 'house', 'lighthouse']
-        : ['stall', 'streetlight', 'house'];
+        ? ['stall', 'streetlight', 'house', 'lighthouse']
+        : isl.trait === 'market'
+          ? ['stall', 'house', 'streetlight']
+          : ['stall', 'streetlight', 'house'];
     const desired = order[used % order.length];
     if (sim.walletLight >= BUILDING_DEFS[desired].cost) {
       if (sim.placeBuilding(isl.id, desired, empty.index).ok) {
@@ -1284,7 +1542,6 @@ function tick(now) {
       }
     }
     handleEvents();
-    checkIslandMilestones(now / 1000);
     updateDawnExtinguishOrbs();
     uiSyncAcc += rawDt;
     if (uiSyncAcc >= 0.12 || (sim.state !== 'play' && sim.state !== 'dawn')) {

@@ -198,13 +198,18 @@ export class Scene3D {
     this.routesGroup = new THREE.Group();
     this.buildingsGroup = new THREE.Group();
     this.shipsGroup = new THREE.Group();
+    this.previewGroup = new THREE.Group();
     this.worldGroup.add(
       this.islandsGroup,
       this.bridgesGroup,
       this.routesGroup,
       this.buildingsGroup,
-      this.shipsGroup
+      this.shipsGroup,
+      this.previewGroup
     );
+
+    this._lastPreviewKey = '';
+    this._tmpGlowPos = new THREE.Vector3();
 
     this.islandVisuals = new Map();
     this.bridgeVisuals = new Map();
@@ -594,6 +599,70 @@ export class Scene3D {
     this.islandPulses.set(islandId, timeSec);
   }
 
+  updateBridgePreview(sim, originId, targetId, isHigh, blockedRoutes = []) {
+    const key =
+      originId === null || targetId === null
+        ? ''
+        : `${originId}->${targetId}:${isHigh ? 1 : 0}:${blockedRoutes.map((b) => `${b.fromIsland.id}-${b.toIsland.id}`).join(',')}`;
+    if (key === this._lastPreviewKey) return;
+    this._lastPreviewKey = key;
+
+    while (this.previewGroup.children.length > 0) {
+      this.previewGroup.remove(this.previewGroup.children[0]);
+    }
+    if (!key) return;
+
+    const a = sim.getIsland(originId);
+    const b = sim.getIsland(targetId);
+    if (!a || !b) return;
+
+    // 橋プレビュー点線
+    const bridgePts = [];
+    const peak = isHigh ? 2.1 : 0.75;
+    for (let i = 0; i <= 20; i++) {
+      const t = i / 20;
+      bridgePts.push(
+        new THREE.Vector3(
+          a.x + (b.x - a.x) * t,
+          a.y + (b.y - a.y) * t + Math.sin(t * Math.PI) * peak + 0.35,
+          a.z + (b.z - a.z) * t
+        )
+      );
+    }
+    const bridgeGeo = new THREE.BufferGeometry().setFromPoints(bridgePts);
+    const bridgeMat = new THREE.LineDashedMaterial({
+      color: blockedRoutes.length > 0 ? 0xffd166 : 0x64dfdf,
+      dashSize: 0.65,
+      gapSize: 0.35,
+      transparent: true,
+      opacity: 0.95,
+    });
+    const bridgeLine = new THREE.Line(bridgeGeo, bridgeMat);
+    bridgeLine.computeLineDistances();
+    this.previewGroup.add(bridgeLine);
+
+    // 交差してふさがれる将来航路の赤い点線プレビュー
+    for (const blk of blockedRoutes) {
+      const rA = blk.fromIsland;
+      const rB = blk.toIsland;
+      const routePts = [
+        new THREE.Vector3(rA.x, rA.y + 0.35, rA.z),
+        new THREE.Vector3(rB.x, rB.y + 0.35, rB.z),
+      ];
+      const routeGeo = new THREE.BufferGeometry().setFromPoints(routePts);
+      const routeMat = new THREE.LineDashedMaterial({
+        color: 0xff5252,
+        dashSize: 0.85,
+        gapSize: 0.45,
+        transparent: true,
+        opacity: 0.95,
+      });
+      const routeLine = new THREE.Line(routeGeo, routeMat);
+      routeLine.computeLineDistances();
+      this.previewGroup.add(routeLine);
+    }
+  }
+
   resize() {
     const w = this.container.clientWidth || window.innerWidth;
     const h = this.container.clientHeight || window.innerHeight;
@@ -611,11 +680,14 @@ export class Scene3D {
       this.routesGroup,
       this.buildingsGroup,
       this.shipsGroup,
+      this.previewGroup,
     ]) {
       while (g.children.length > 0) {
         g.remove(g.children[0]);
       }
     }
+    this._lastPreviewKey = '';
+    this._tmpGlowPos = new THREE.Vector3();
     this.islandVisuals.clear();
     this.bridgeVisuals.clear();
     this.routeVisuals.clear();
@@ -827,6 +899,7 @@ export class Scene3D {
       glow.position.y = 0.36;
       visualRoot.add(glow);
       group.userData.glow = glow;
+      group.userData.glowBaseScale = 2.4;
     } else if (type === 'streetlight') {
       const post = new THREE.Mesh(
         new THREE.CylinderGeometry(0.045, 0.065, 0.88, 6),
@@ -855,6 +928,7 @@ export class Scene3D {
       glow.position.y = 0.88;
       visualRoot.add(glow);
       group.userData.glow = glow;
+      group.userData.glowBaseScale = 2.8;
     } else if (type === 'stall') {
       const counter = new THREE.Mesh(
         new THREE.BoxGeometry(0.7, 0.3, 0.48),
@@ -897,6 +971,7 @@ export class Scene3D {
       glow.position.y = 0.44;
       visualRoot.add(glow);
       group.userData.glow = glow;
+      group.userData.glowBaseScale = 2.7;
     } else if (type === 'lighthouse') {
       const tower = new THREE.Mesh(
         new THREE.CylinderGeometry(0.2, 0.36, 1.58, 8),
@@ -931,17 +1006,15 @@ export class Scene3D {
       const beamGeo = new THREE.ConeGeometry(0.88, 3.2, 10, 1, true);
       beamGeo.rotateZ(Math.PI / 2);
       beamGeo.translate(1.6, 0, 0);
-      const beamMesh = new THREE.Mesh(
-        beamGeo,
-        new THREE.MeshBasicMaterial({
+      const beamMat = new THREE.MeshBasicMaterial({
           color: 0xffea9f,
           transparent: true,
           opacity: 0.22,
           blending: THREE.AdditiveBlending,
           side: THREE.DoubleSide,
           depthWrite: false,
-        })
-      );
+        });
+      const beamMesh = new THREE.Mesh(beamGeo, beamMat);
       beamPivot.add(beamMesh);
       visualRoot.add(beamPivot);
 
@@ -959,7 +1032,9 @@ export class Scene3D {
       visualRoot.add(glow);
 
       group.userData.glow = glow;
+      group.userData.glowBaseScale = 3.4;
       group.userData.beamPivot = beamPivot;
+      group.userData.beamMat = beamMat;
     }
 
     return group;
@@ -1206,6 +1281,27 @@ export class Scene3D {
     return { group, cargoGroup, crate, passenger, cargoGlow, glow };
   }
 
+  /**
+   * カメラに近いグロースプライトが白飛び・画面占有しないよう距離減衰と画面比率上限を適用する
+   */
+  _attenuateGlowSprite(sprite, wx, wy, wz, baseWorldScale, baseOpacity, maxScreenWFrac = 0.2, parentScale = 1) {
+    this._tmpGlowPos.set(wx, wy, wz);
+    const d = this.camera.position.distanceTo(this._tmpGlowPos);
+    const nearFade = THREE.MathUtils.clamp((d - 8.5) / 11.5, 0, 1);
+    const fovRad = THREE.MathUtils.degToRad(this.camera.fov);
+    const viewW =
+      2 *
+      Math.max(1, d) *
+      Math.tan(fovRad * 0.5) *
+      Math.max(0.38, this.camera.aspect || 0.5);
+    const maxWorldScale = viewW * maxScreenWFrac;
+    const clampedWorld = Math.min(baseWorldScale, maxWorldScale) * (0.45 + 0.55 * nearFade);
+    const localScale = clampedWorld / Math.max(0.01, parentScale);
+    sprite.scale.set(localScale, localScale, 1);
+    sprite.material.opacity = baseOpacity * nearFade;
+    return nearFade;
+  }
+
   syncAndRender(sim, uiState, timeSec) {
     // 1. 空のグラデーション＆残り60秒東の空ヒント＆夜明けの太陽演出
     const nightProgress = Math.max(0, Math.min(1, 1 - sim.timeLeft / NIGHT_DURATION));
@@ -1328,6 +1424,14 @@ export class Scene3D {
       cl.position.y = cl.userData.baseY + Math.sin(timeSec * 0.4 + cl.userData.phase) * 0.25;
     }
 
+    // グロー距離計算のため先にカメラ位置を更新する
+    if (sim.state !== 'dawn') {
+      this.orbit.theta += (this.orbit.targetTheta - this.orbit.theta) * 0.16;
+      this.orbit.phi += (this.orbit.targetPhi - this.orbit.phi) * 0.16;
+      this.orbit.radius += (this.orbit.targetRadius - this.orbit.radius) * 0.16;
+    }
+    this._updateCameraPosition();
+
     // 2. 島ごとの状態同期（夜明け時は1島ずつ灯りが消える）
     const isLowQuality = this.quality === 'low';
     const islandDimMap = new Map();
@@ -1363,12 +1467,31 @@ export class Scene3D {
         if (pulse > 0) {
           vis.topMat.emissive.lerp(new THREE.Color(0xffc952), pulse * 0.65);
         }
-        vis.glowSprite.material.opacity = (0.28 + warmth * 0.56 + pulse * 0.35) * dim;
+        const glowBaseOp = (0.28 + warmth * 0.56 + pulse * 0.35) * dim;
+        this._attenuateGlowSprite(
+          vis.glowSprite,
+          isl.x,
+          vis.group.position.y + 0.75,
+          isl.z,
+          isl.radius * 3.4,
+          glowBaseOp,
+          0.26,
+          1
+        );
 
         const haloScale = isl.radius * (2.5 + warmth * 1.7 + pulse * 1.1);
-        vis.groundGlow.scale.set(haloScale, haloScale, 1);
-        vis.groundGlow.material.opacity =
+        const groundOp =
           isLowQuality && isl.id % 2 === 1 ? 0 : (0.22 + warmth * 0.52 + pulse * 0.35) * dim;
+        this._attenuateGlowSprite(
+          vis.groundGlow,
+          isl.x,
+          vis.group.position.y + 0.45,
+          isl.z,
+          haloScale,
+          groundOp,
+          0.34,
+          1
+        );
       } else {
         vis.topMat.color.setHex(0x2d4a4b);
         vis.topMat.emissive.setHex(0x0e1d26);
@@ -1377,7 +1500,17 @@ export class Scene3D {
       }
 
       if (vis.beaconFlame) {
-        vis.beaconFlame.material.opacity = (0.85 + Math.sin(timeSec * 6) * 0.14) * dim;
+        const flameOp = (0.85 + Math.sin(timeSec * 6) * 0.14) * dim;
+        this._attenuateGlowSprite(
+          vis.beaconFlame,
+          isl.x,
+          vis.group.position.y + 0.84,
+          isl.z,
+          3.2,
+          flameOp,
+          0.16,
+          1
+        );
       }
 
       const status = uiState.islandHighlight?.get(isl.id);
@@ -1446,21 +1579,49 @@ export class Scene3D {
 
       if (bv) {
         const dim = islandDimMap.get(b.islandId) ?? 1;
+        const isl = sim.getIsland(b.islandId);
+        const islVis = this.islandVisuals.get(b.islandId);
+        const slot = isl?.slots[b.slotIndex];
+        const glow = bv.mesh.userData.glow;
+        const glowBase = (bv.mesh.userData.glowBaseScale || 2.6) * 1.5;
+        const wx = isl && slot ? isl.x + slot.localX : 0;
+        const wz = isl && slot ? isl.z + slot.localZ : 0;
+        const wy =
+          (islVis ? islVis.group.position.y : 0) +
+          0.31 +
+          (glow ? glow.position.y * 1.5 : 0.8);
+
         if (!b.built) {
           bv.mesh.scale.set(1, 0.25 + b.progress * 0.75, 1);
           bv.progSprite.visible = true;
           updateProgressSprite(bv.progSprite, b.progress);
-          if (bv.mesh.userData.glow) bv.mesh.userData.glow.material.opacity = 0.18;
+          if (glow) {
+            this._attenuateGlowSprite(glow, wx, wy, wz, glowBase, 0.18, 0.14, 1.5);
+          }
+          if (bv.mesh.userData.beamPivot) bv.mesh.userData.beamPivot.visible = false;
         } else {
           bv.mesh.scale.set(1, 1, 1);
           bv.progSprite.visible = false;
-          if (bv.mesh.userData.glow) {
+          let nearFade = 1;
+          if (glow) {
             const baseOp = b.type === 'lighthouse' ? 1.0 : 0.92;
-            bv.mesh.userData.glow.material.opacity = baseOp * dim;
+            nearFade = this._attenuateGlowSprite(
+              glow,
+              wx,
+              wy,
+              wz,
+              glowBase,
+              baseOp * dim,
+              b.type === 'lighthouse' ? 0.19 : 0.16,
+              1.5
+            );
           }
           if (bv.mesh.userData.beamPivot) {
             bv.mesh.userData.beamPivot.rotation.y = timeSec * 1.1;
-            bv.mesh.userData.beamPivot.visible = dim > 0.15;
+            bv.mesh.userData.beamPivot.visible = dim > 0.15 && nearFade > 0.05;
+            if (bv.mesh.userData.beamMat) {
+              bv.mesh.userData.beamMat.opacity = 0.22 * dim * nearFade;
+            }
           }
         }
       }
@@ -1586,6 +1747,27 @@ export class Scene3D {
         sv.cargoGlow.material.map =
           ship.cargo === 'visitors' ? this.cyanGlowTex : this.warmGlowTex;
         sv.glow.visible = !isLowQuality;
+        const shipParentScale = Math.max(0.05, distScale * 0.95);
+        this._attenuateGlowSprite(
+          sv.glow,
+          px,
+          py + 0.36 * shipParentScale,
+          pz,
+          2.1 * shipParentScale,
+          0.95 * globalDawnDim,
+          0.14,
+          shipParentScale
+        );
+        this._attenuateGlowSprite(
+          sv.cargoGlow,
+          px,
+          py + sv.cargoGroup.position.y * shipParentScale,
+          pz,
+          1.0 * shipParentScale,
+          0.92 * globalDawnDim,
+          0.09,
+          shipParentScale
+        );
       }
     }
     for (const [id, sv] of this.shipVisuals.entries()) {
@@ -1594,14 +1776,6 @@ export class Scene3D {
         this.shipVisuals.delete(id);
       }
     }
-
-    // 7. カメラ補間（dawn中は直接補間済み）
-    if (sim.state !== 'dawn') {
-      this.orbit.theta += (this.orbit.targetTheta - this.orbit.theta) * 0.16;
-      this.orbit.phi += (this.orbit.targetPhi - this.orbit.phi) * 0.16;
-      this.orbit.radius += (this.orbit.targetRadius - this.orbit.radius) * 0.16;
-    }
-    this._updateCameraPosition();
 
     this.renderer.render(this.scene, this.camera);
   }

@@ -47,6 +47,305 @@ export const BUILDING_DEFS = {
   },
 };
 
+export const ISLAND_TRAITS = {
+  market: { id: 'market', name: '市場の島', icon: '🏮', desc: '屋台の生産 +50%' },
+  forest: { id: 'forest', name: '森の島', icon: '🌲', desc: '灯りの減衰が半分' },
+  port: { id: 'port', name: '港の島', icon: '⚓', desc: '発着する船が速い・積み荷+1' },
+  starlight: { id: 'starlight', name: '星見の島', icon: '✨', desc: '灯りの節目(50/100/200)ボーナス2倍' },
+  fog: { id: 'fog', name: '霧の島', icon: '🌫', desc: '橋が架けられない（航路のみ）' },
+  wind: { id: 'wind', name: '風の島', icon: '🌀', desc: '通常の橋不可（高い橋のみ）' },
+};
+
+export const LIGHT_MILESTONES = [
+  { threshold: 50, bonus: 6 },
+  { threshold: 100, bonus: 10 },
+  { threshold: 200, bonus: 15 },
+];
+
+const PROCEDURAL_ISLAND_NAMES = [
+  '朝霧の島', '東雲の島', '宵風の島', '琥珀の島', '北極星の島',
+  '南十字の島', '彼方の島', '暁の島', '天の川の島', 'オリオンの島',
+  '月影の島', '流星群の島', '蛍火の島', '白夜の島', '彗星の島',
+  'シリウスの島', '薄明の島', '星屑の島',
+];
+
+function createSeededRng(seedInput) {
+  const str = String(seedInput);
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  let a = h >>> 0;
+  return function rng() {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function getTodaySeedString(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `daily-${y}-${m}-${d}`;
+}
+
+export function generateIslandsForSeed(seed) {
+  const baseRng = createSeededRng(seed);
+
+  for (let attempt = 0; attempt < 400; attempt++) {
+    const rng = createSeededRng(`${seed}#${attempt}`);
+    const totalCount = 18; // 始まりの島1 + 近い島9〜10 + 遠い島7〜8
+    const farCount = rng() < 0.5 ? 7 : 8; // 全体の約4割（39〜44%）を遠い島に
+    const nearCount = totalCount - 1 - farCount; // 9〜10個
+    const innerNearCount = 3; // 3個は島0から1本で届く
+    const outerNearCount = nearCount - innerNearCount; // 6〜7個は1段目を経由して架橋する
+
+    const usedNames = [...PROCEDURAL_ISLAND_NAMES];
+    for (let i = usedNames.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [usedNames[i], usedNames[j]] = [usedNames[j], usedNames[i]];
+    }
+
+    const islands = [
+      {
+        id: 0,
+        name: '始まりの島',
+        x: 0,
+        y: 0.2,
+        z: 0,
+        radius: 3.4,
+        slotCount: 6,
+        initialLight: 45,
+        connected: true,
+        remote: false,
+        trait: null,
+      },
+    ];
+
+    const baseAngle = rng() * Math.PI * 2;
+    let nearFailed = false;
+
+    // 1段目の近い島（島0から直接橋が届く）
+    const innerNear = [];
+    for (let i = 0; i < innerNearCount; i++) {
+      let placed = null;
+      for (let t = 0; t < 28; t++) {
+        const ang =
+          baseAngle + (i / innerNearCount) * Math.PI * 2 + (rng() - 0.5) * 0.55;
+        const r = 7.2 + rng() * 2.4;
+        const x = Number((Math.cos(ang) * r).toFixed(2));
+        const z = Number((Math.sin(ang) * r).toFixed(2));
+        const okSpacing = islands.every((other) => Math.hypot(other.x - x, other.z - z) >= 6.4);
+        if (okSpacing) {
+          placed = { x, z, ang };
+          break;
+        }
+      }
+      if (!placed) {
+        nearFailed = true;
+        break;
+      }
+      const isl = {
+        id: islands.length,
+        name: usedNames[islands.length - 1],
+        x: placed.x,
+        y: Number(((rng() - 0.5) * 0.9).toFixed(2)),
+        z: placed.z,
+        radius: 2.6,
+        slotCount: 5,
+        initialLight: 0,
+        connected: false,
+        remote: false,
+        trait: null,
+      };
+      islands.push(isl);
+      innerNear.push({ isl, ang: placed.ang });
+    }
+    if (nearFailed) continue;
+
+    // 2段目の近い島（島0からは直接届かず、1段目の島からの橋が横方向に伸びて航路と交差しやすい）
+    const outerBridgePairs = [];
+    for (let i = 0; i < outerNearCount; i++) {
+      const parent = innerNear[i % innerNear.length];
+      let placed = null;
+      for (let t = 0; t < 48; t++) {
+        const side = (i + t) % 2 === 0 ? 1 : -1;
+        const offsetAng = side * (0.55 + rng() * 0.78);
+        const stepAng = parent.ang + offsetAng;
+        const stepDist = 6.2 + rng() * 3.8;
+        const x = Number((parent.isl.x + Math.cos(stepAng) * stepDist).toFixed(2));
+        const z = Number((parent.isl.z + Math.sin(stepAng) * stepDist).toFixed(2));
+        const distFromHome = Math.hypot(x, z);
+        if (distFromHome <= BRIDGE_MAX_DIST + 0.6 || distFromHome > 16.5) continue;
+        const okSpacing = islands.every((other) => Math.hypot(other.x - x, other.z - z) >= 5.1);
+        if (okSpacing) {
+          placed = { x, z };
+          break;
+        }
+      }
+      if (!placed) {
+        nearFailed = true;
+        break;
+      }
+      const isl = {
+        id: islands.length,
+        name: usedNames[islands.length - 1],
+        x: placed.x,
+        y: Number(((rng() - 0.5) * 0.9).toFixed(2)),
+        z: placed.z,
+        radius: 2.55,
+        slotCount: 5,
+        initialLight: 0,
+        connected: false,
+        remote: false,
+        trait: null,
+      };
+      islands.push(isl);
+      outerBridgePairs.push([parent.isl, isl]);
+    }
+    if (nearFailed) continue;
+
+    // 遠い島を、2段目の橋または近い島ペアの中点方向のはるか外側に配置（船の往復を長くする）
+    const nearOnly = islands.slice(1);
+    const crossAngles = [];
+    for (const [u, v] of outerBridgePairs) {
+      const mx = (u.x + v.x) * 0.5;
+      const mz = (u.z + v.z) * 0.5;
+      crossAngles.push(Math.atan2(mz, mx));
+    }
+    for (let i = 0; i < nearOnly.length; i++) {
+      for (let j = i + 1; j < nearOnly.length; j++) {
+        const a = nearOnly[i];
+        const b = nearOnly[j];
+        if (distance2D(a, b) <= BRIDGE_MAX_DIST) {
+          const mx = (a.x + b.x) * 0.5;
+          const mz = (a.z + b.z) * 0.5;
+          crossAngles.push(Math.atan2(mz, mx));
+        }
+      }
+    }
+
+    let farFailed = false;
+    for (let i = 0; i < farCount; i++) {
+      let placed = null;
+      for (let t = 0; t < 56; t++) {
+        const ang =
+          i < crossAngles.length && t < 26
+            ? crossAngles[i] + (rng() - 0.5) * 0.3
+            : rng() * Math.PI * 2;
+        const r = 40.0 + rng() * 12.0;
+        const x = Number((Math.cos(ang) * r).toFixed(2));
+        const z = Number((Math.sin(ang) * r).toFixed(2));
+        const tooCloseToAny = islands.some(
+          (other) => Math.hypot(other.x - x, other.z - z) <= BRIDGE_MAX_DIST + 6.5
+        );
+        const tooCloseToFar = islands.some(
+          (other) => other.remote && Math.hypot(other.x - x, other.z - z) < 23.0
+        );
+        if (!tooCloseToAny && !tooCloseToFar) {
+          placed = { x, z };
+          break;
+        }
+      }
+      if (!placed) {
+        farFailed = true;
+        break;
+      }
+      islands.push({
+        id: islands.length,
+        name: usedNames[islands.length - 1],
+        x: placed.x,
+        y: Number(((rng() - 0.5) * 1.1).toFixed(2)),
+        z: placed.z,
+        radius: 2.5 + (i === 0 ? 0.25 : 0),
+        slotCount: i === 0 ? 5 : 4,
+        initialLight: 0,
+        connected: false,
+        remote: true,
+        trait: null,
+      });
+    }
+    if (farFailed) continue;
+
+    // 特性の割り当て（始まりの島はなし、遠い島ほど強い特性がつきやすい）
+    const nearTraitPool = ['market', 'forest', 'wind', 'port'];
+    const farTraitPool = ['starlight', 'port', 'market', 'forest', 'fog'];
+    let windCount = 0;
+    let fogCount = 0;
+    for (const isl of islands) {
+      if (isl.id === 0) continue;
+      if (!isl.remote) {
+        if (rng() < 0.62) {
+          let tr = nearTraitPool[Math.floor(rng() * nearTraitPool.length)];
+          if (tr === 'wind') {
+            if (windCount >= 1) tr = 'market';
+            else windCount += 1;
+          }
+          isl.trait = tr;
+        }
+      } else {
+        let tr = farTraitPool[Math.floor(rng() * farTraitPool.length)];
+        if (tr === 'fog') {
+          if (fogCount >= 1) tr = 'starlight';
+          else fogCount += 1;
+        }
+        isl.trait = tr;
+      }
+    }
+
+    // 条件検証1: 「その橋を架けると、ある遠い島へのまっすぐな航路(0→far)がふさがる」関係が最低3か所
+    const home = islands[0];
+    const remoteIslands = islands.filter((isl) => isl.remote);
+    const blockingBridges = new Set();
+    const blockedRemotes = new Set();
+
+    for (let i = 0; i < islands.length; i++) {
+      for (let j = i + 1; j < islands.length; j++) {
+        const u = islands[i];
+        const v = islands[j];
+        if (u.trait === 'fog' || v.trait === 'fog') continue;
+        if (u.trait === 'wind' || v.trait === 'wind') continue;
+        if (distance2D(u, v) > BRIDGE_MAX_DIST) continue;
+        for (const far of remoteIslands) {
+          if (segmentsIntersect2D(u, v, home, far)) {
+            blockingBridges.add(`${u.id}-${v.id}`);
+            blockedRemotes.add(far.id);
+          }
+        }
+      }
+    }
+
+    if (blockingBridges.size < 3 || blockedRemotes.size < 3) continue;
+
+    // 条件検証2: 全島接続が可能（高い橋＋航路で島0から全島到達可能）
+    const reachable = new Set([0]);
+    const q = [0];
+    while (q.length > 0) {
+      const curr = islands[q.shift()];
+      for (const nxt of islands) {
+        if (reachable.has(nxt.id)) continue;
+        const canHighBridge =
+          curr.trait !== 'fog' && nxt.trait !== 'fog' && distance2D(curr, nxt) <= BRIDGE_MAX_DIST;
+        const canRoute = true; // 高い橋を併用すれば航路は必ず通せる
+        if (canHighBridge || canRoute) {
+          reachable.add(nxt.id);
+          q.push(nxt.id);
+        }
+      }
+    }
+    if (reachable.size === islands.length) {
+      return islands;
+    }
+  }
+
+  // Fallback to default blueprints with randomized traits if all attempts fail
+  void baseRng;
+  return ISLAND_BLUEPRINTS.map((bp) => ({ ...bp, trait: null }));
+}
+
 export const ISLAND_BLUEPRINTS = [
   { id: 0, name: '始まりの島', x: 0, y: 0.2, z: 0, radius: 3.4, slotCount: 6, initialLight: 45, connected: true, remote: false },
   { id: 1, name: '朝霧の島', x: -5.0, y: 0.5, z: -7.2, radius: 2.6, slotCount: 5, initialLight: 0, connected: false, remote: false },
@@ -107,9 +406,11 @@ export function segmentsIntersect2D(a1, a2, b1, b2) {
 }
 
 export class GameSimulation {
-  constructor(defaultSpeed = 1) {
+  constructor(defaultSpeed = 1, options = {}) {
     this.defaultSpeed = defaultSpeed;
     this.speed = defaultSpeed;
+    this.defaultSeed = options?.seed ?? null;
+    this.seed = this.defaultSeed;
     this.events = [];
     this.resetToTitle();
   }
@@ -124,7 +425,12 @@ export class GameSimulation {
     this.score = 0;
     this._idCounter = 1;
 
-    this.islands = ISLAND_BLUEPRINTS.map((bp) => {
+    const blueprints =
+      this.seed !== null && this.seed !== undefined && this.seed !== ''
+        ? generateIslandsForSeed(this.seed)
+        : ISLAND_BLUEPRINTS.map((bp) => ({ ...bp, trait: null }));
+
+    this.islands = blueprints.map((bp) => {
       const slots = [];
       const ringRadius = bp.radius * 0.58;
       for (let i = 0; i < bp.slotCount; i++) {
@@ -146,6 +452,8 @@ export class GameSimulation {
         light: bp.initialLight,
         connected: bp.connected,
         remote: bp.remote,
+        trait: bp.trait ?? null,
+        milestonesReached: 0,
         productionMult: bp.remote ? REMOTE_ISLAND_MULT : 1.0,
         visitorBuffTimer: 0,
         slots,
@@ -166,8 +474,13 @@ export class GameSimulation {
     this._updateScore();
   }
 
-  startGame() {
+  startGame(options = {}) {
     this.speed = this.defaultSpeed;
+    if (options && 'seed' in options) {
+      this.seed = options.seed ?? null;
+    } else {
+      this.seed = this.defaultSeed;
+    }
     this._initWorld();
     this.state = 'play';
     this._updateScore();
@@ -294,6 +607,9 @@ export class GameSimulation {
     const labels = [];
 
     if (building.type === 'stall') {
+      if (island.trait === 'market') {
+        mult += 0.5;
+      }
       if (neighbors.some((nb) => nb.type === 'streetlight')) {
         mult += 0.5;
         labels.push('お客が来た！ +50%');
@@ -351,6 +667,12 @@ export class GameSimulation {
     if (!a.connected && !b.connected) {
       return { ok: false, reason: 'つながっている島から架けてください' };
     }
+    if (a.trait === 'fog' || b.trait === 'fog') {
+      return { ok: false, reason: '霧の島には橋を架けられません（航路のみ）' };
+    }
+    if (!high && (a.trait === 'wind' || b.trait === 'wind')) {
+      return { ok: false, reason: '風の島には通常の橋を架けられません（高い橋のみ）' };
+    }
     if (distance2D(a, b) > BRIDGE_MAX_DIST) {
       return { ok: false, reason: '遠すぎて橋が届きません（航路を使ってください）' };
     }
@@ -371,6 +693,43 @@ export class GameSimulation {
       return { ok: false, reason: `灯りが足りません（必要: ${cost}）` };
     }
     return { ok: true, cost };
+  }
+
+  /**
+   * この橋（通常）を架けたとき、まだ引かれていない遠い島への直線航路候補がふさがれるペアを返す
+   */
+  getFutureBlockedRoutes(islandAId, islandBId, high = false) {
+    if (high) return [];
+    const a = this.getIsland(islandAId);
+    const b = this.getIsland(islandBId);
+    if (!a || !b) return [];
+
+    const connected = this.islands.filter((isl) => isl.connected);
+    const results = [];
+    for (const target of this.islands) {
+      if (target.connected || !target.remote) continue;
+      if (this.routes.some((rt) => rt.islandA === target.id || rt.islandB === target.id)) {
+        continue;
+      }
+      // 始まりの島(0)からの直線航路を優先確認し、なければ他の接続済み島からの直線航路を確認
+      const origin0 = this.islands[0];
+      let blockedFrom = null;
+      if (segmentsIntersect2D(a, b, origin0, target)) {
+        blockedFrom = origin0;
+      } else {
+        for (const orig of connected) {
+          if (orig.id === a.id || orig.id === b.id) continue;
+          if (segmentsIntersect2D(a, b, orig, target)) {
+            blockedFrom = orig;
+            break;
+          }
+        }
+      }
+      if (blockedFrom) {
+        results.push({ fromIsland: blockedFrom, toIsland: target });
+      }
+    }
+    return results;
   }
 
   buildBridge(islandAId, islandBId, high = false) {
@@ -746,6 +1105,8 @@ export class GameSimulation {
       let speedMult = 1.0;
       if (this.hasBuiltLighthouse(ship.from)) speedMult += 0.4;
       if (this.hasBuiltLighthouse(ship.to)) speedMult += 0.3;
+      const hasPortTrait = islFrom.trait === 'port' || islTo.trait === 'port';
+      if (hasPortTrait) speedMult += 0.35;
 
       const travelStep = (SHIP_BASE_SPEED * speedMult * dt) / Math.max(1, route.distance);
       ship.progress += travelStep;
@@ -761,8 +1122,10 @@ export class GameSimulation {
           route.deliveries = 1;
           const firstTimeUnconnected = !arrivedIsland.connected;
           this.recomputeConnectivity();
-          arrivedIsland.light += 30;
-          this.walletLight += 6;
+          const islandGain = 30 + (hasPortTrait ? 6 : 0);
+          const walletGain = 6 + (hasPortTrait ? 2 : 0);
+          arrivedIsland.light += islandGain;
+          this.walletLight += walletGain;
           this._emit('shipArrived', {
             ship,
             route,
@@ -770,9 +1133,9 @@ export class GameSimulation {
             cargo,
             firstArrival: true,
             unlocked: firstTimeUnconnected,
-            islandGain: 30,
-            walletGain: 6,
-            cargoNote: '初便開通！',
+            islandGain,
+            walletGain,
+            cargoNote: hasPortTrait ? '初便開通！港+1' : '初便開通！',
           });
           this._checkAllConnected();
           if (this.dawnActive) return;
@@ -780,32 +1143,36 @@ export class GameSimulation {
           route.deliveries += 1;
           const dIdx = route.deliveries - 1;
           const baseIslandGain = arrivedIsland.remote ? 20 : 12;
-          const islandGain = Math.max(5, Math.round(baseIslandGain * Math.pow(0.86, dIdx)));
-          const walletGain = dIdx <= 6 ? Math.max(1, Math.round(5 * Math.pow(0.76, dIdx - 1))) : 0;
+          const islandGain =
+            Math.max(5, Math.round(baseIslandGain * Math.pow(0.86, dIdx))) +
+            (hasPortTrait ? 4 : 0);
+          const walletGain =
+            (dIdx <= 6 ? Math.max(1, Math.round(5 * Math.pow(0.76, dIdx - 1))) : 0) +
+            (hasPortTrait ? 1 : 0);
 
           arrivedIsland.light += islandGain;
           this.walletLight += walletGain;
 
           let cargoNote = '';
           if (cargo === 'supplies') {
-            // 資材: 到着島の建築中の建物を3.5秒分進める
+            // 資材: 到着島の建築中の建物を進める（港特性なら+1.5秒）
             const buildingInProg = this.buildings.find(
               (b) => b.islandId === arrivedIsland.id && !b.built
             );
             if (buildingInProg) {
-              buildingInProg.elapsed += 3.5;
+              buildingInProg.elapsed += 3.5 + (hasPortTrait ? 1.5 : 0);
               buildingInProg.progress = Math.min(1, buildingInProg.elapsed / buildingInProg.buildTime);
               if (buildingInProg.progress >= 1) {
                 this._completeBuilding(buildingInProg, arrivedIsland);
               }
-              cargoNote = '資材で建築加速！';
+              cargoNote = hasPortTrait ? '資材+1で加速！' : '資材で建築加速！';
             } else {
-              cargoNote = '資材到着';
+              cargoNote = hasPortTrait ? '資材+1到着' : '資材到着';
             }
           } else {
-            // お客: 到着島の屋台(+35%)・家(+20%)に14秒間バフ
-            arrivedIsland.visitorBuffTimer = 14;
-            cargoNote = 'お客が来た！生産UP';
+            // お客: 到着島の屋台・家にバフ（港特性なら+5秒）
+            arrivedIsland.visitorBuffTimer = 14 + (hasPortTrait ? 5 : 0);
+            cargoNote = hasPortTrait ? 'お客+1！生産UP' : 'お客が来た！生産UP';
           }
 
           this._emit('shipArrived', {
@@ -838,11 +1205,29 @@ export class GameSimulation {
       const lighthouseCount = this.buildings.filter(
         (b) => b.islandId === isl.id && b.type === 'lighthouse' && b.built
       ).length;
-      const decayFactor = lighthouseCount >= 2 ? 0.35 : lighthouseCount === 1 ? 0.5 : 1.0;
+      let decayFactor = lighthouseCount >= 2 ? 0.35 : lighthouseCount === 1 ? 0.5 : 1.0;
+      if (isl.trait === 'forest') {
+        decayFactor *= 0.5;
+      }
       const decayRate = (0.38 + 0.042 * isl.light) * decayFactor * earlyGrace;
       isl.light = Math.max(0, isl.light - decayRate * dt);
 
       this.walletLight += isl.light * WALLET_FLOW_RATE * dt;
+
+      // 節目(50/100/200)到達チェック（星見の島は2倍ボーナス）
+      for (const m of LIGHT_MILESTONES) {
+        if (isl.light >= m.threshold && m.threshold > (isl.milestonesReached || 0)) {
+          isl.milestonesReached = m.threshold;
+          const bonus = isl.trait === 'starlight' ? m.bonus * 2 : m.bonus;
+          isl.light += bonus;
+          this._emit('islandMilestone', {
+            island: isl,
+            threshold: m.threshold,
+            bonus,
+            starlight: isl.trait === 'starlight',
+          });
+        }
+      }
     }
 
     this._updateScore();
