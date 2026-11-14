@@ -3,6 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a1026" />
+  <meta name="description" content="夜明けまでの5分間、空に浮かぶ島々を橋と航路でつなぎ、夜の街に温かい灯りをともす箱庭リアルタイム戦略ゲーム。" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="浮島の灯り" />
+  <meta property="og:description" content="夜明けまでの5分間、空に浮かぶ島々を橋と航路でつなぎ、夜の街に温かい灯りをともす箱庭リアルタイム戦略ゲーム。" />
+  <meta property="og:image" content="https://akariyachan.github.io/grok-gemini-games/ukishima/thumbnail.png" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230b1330'/%3E%3Ccircle cx='32' cy='24' r='12' fill='%23ffd166'/%3E%3Cpath d='M16 40h32l-6 11H22z' fill='%23437f57'/%3E%3C/svg%3E" />
   <title>浮島の灯り</title>
   <link rel="stylesheet" href="style.css" />
   <script type="importmap">
@@ -155,10 +162,14 @@
           </div>
           <div class="chart-seed-note" id="title-chart-note">日付シードでみんな同じ配置</div>
         </div>
-        <div class="title-best" id="title-best-score">ベストスコア: ---</div>
+        <div class="title-records">
+          <div class="title-best" id="title-best-score">今日の星図 ベスト: ---</div>
+          <div class="title-highest-rank" id="title-highest-rank">これまでの最高称号: なし</div>
+        </div>
         <div class="modal-actions">
           <button id="btn-start" class="primary-btn" type="button">はじめる</button>
           <button id="btn-howto-title" class="secondary-btn" type="button">遊び方</button>
+          <a class="back-hub-link" href="https://akariyachan.github.io/grok-gemini-games/" target="_top" rel="noopener">← ゲーム一覧</a>
         </div>
       </div>
     </section>
@@ -191,6 +202,7 @@
         <h2>一時停止</h2>
         <div class="modal-actions">
           <button id="btn-resume" class="primary-btn" type="button">再開</button>
+          <button id="btn-sound-toggle" class="secondary-btn" type="button">音: オン</button>
           <button id="btn-howto-pause" class="secondary-btn" type="button">遊び方</button>
           <button id="btn-restart-pause" class="secondary-btn" type="button">最初から</button>
         </div>
@@ -204,16 +216,25 @@
         <div class="result-chart" id="result-chart-label">星図: 今日の星図</div>
         <h2>夜の記録</h2>
         <div class="result-score-wrap">
-          <div class="result-score-label">総合スコア</div>
-          <div class="result-score" id="result-score">0</div>
-          <div class="result-best" id="result-best">ベスト: 0</div>
+          <div class="result-score-row">
+            <div>
+              <div class="result-score-label">総合スコア</div>
+              <div class="result-score" id="result-score">0</div>
+              <div class="result-best" id="result-best">ベスト: 0</div>
+            </div>
+            <div class="result-rank-box">
+              <div class="result-rank-label">今夜の称号</div>
+              <div class="result-rank-name" id="result-rank-badge">小さな灯り</div>
+              <div class="result-next-goal" id="result-next-goal">次の称号まであと 1500</div>
+            </div>
+          </div>
         </div>
         <div class="result-map-wrap">
           <div class="result-map-header">
             <span class="result-map-title">今夜の光の道</span>
             <span class="result-map-legend">─ 橋 ／ ┈ 航路 ／ ✦ 星座</span>
           </div>
-          <canvas id="result-map-canvas" width="360" height="200"></canvas>
+          <canvas id="result-map-canvas" width="360" height="170"></canvas>
         </div>
         <div class="result-breakdown">
           <div class="rb-row"><span>島の灯り合計</span><span id="rb-islands-light">0</span></div>
@@ -224,8 +245,13 @@
           <div class="rb-row"><span>星座ボーナス</span><span id="rb-constellation-bonus">+0</span></div>
         </div>
         <p class="score-formula">※総灯り（島＋所持）＋環・星座・時間ボーナス</p>
+        <div class="result-share-row">
+          <button id="btn-copy-result" class="secondary-btn share-btn" type="button">結果をコピー</button>
+          <button id="btn-save-image" class="secondary-btn share-btn" type="button">画像を保存</button>
+        </div>
         <div class="modal-actions">
           <button id="btn-retry" class="primary-btn" type="button">もう一夜</button>
+          <a class="back-hub-link" href="https://akariyachan.github.io/grok-gemini-games/" target="_top" rel="noopener">← ゲーム一覧</a>
         </div>
       </div>
     </section>

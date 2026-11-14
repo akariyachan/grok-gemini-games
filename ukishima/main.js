@@ -8,6 +8,7 @@ import {
   HIGH_BRIDGE_COST,
   HIGH_BRIDGE_TIME,
   ISLAND_TRAITS,
+  NIGHT_DURATION,
   REMOTE_ISLAND_MULT,
   REMOVE_BRIDGE_COST,
   ROUTE_COST,
@@ -16,9 +17,60 @@ import {
   segmentsIntersect2D,
 } from './gameLogic.js';
 import { Scene3D } from './scene3d.js';
+import { SoundEngine } from './audio.js';
 
 const BEST_SCORE_PREFIX = 'ukishima_best_';
 const GUIDE_DISMISSED_KEY = 'ukishima_guide_dismissed';
+const HIGHEST_RANK_KEY = 'ukishima_highest_rank';
+const SHARE_URL = 'https://akariyachan.github.io/grok-gemini-games/ukishima/';
+
+const RANKS = [
+  { name: '小さな灯り', icon: '🕯', minScore: 0 },
+  { name: '夜の街', icon: '🏮', minScore: 1500 },
+  { name: '光の群島', icon: '✨', minScore: 3500 },
+  { name: '星座の守り人', icon: '✦', minScore: 6000 },
+];
+
+function getRankInfo(score) {
+  let idx = 0;
+  for (let i = 0; i < RANKS.length; i++) {
+    if (score >= RANKS[i].minScore) idx = i;
+  }
+  const current = RANKS[idx];
+  const next = idx + 1 < RANKS.length ? RANKS[idx + 1] : null;
+  const remaining = next ? Math.max(0, next.minScore - Math.floor(score)) : 0;
+  return { idx, current, next, remaining };
+}
+
+function loadHighestRankIndex() {
+  try {
+    const raw = localStorage.getItem(HIGHEST_RANK_KEY);
+    if (raw === null) return -1;
+    const n = Number(raw);
+    return Number.isInteger(n) && n >= 0 && n < RANKS.length ? n : -1;
+  } catch {
+    return -1;
+  }
+}
+
+function saveHighestRankForScore(score) {
+  const { idx } = getRankInfo(score);
+  try {
+    const prev = loadHighestRankIndex();
+    const next = Math.max(prev, idx);
+    localStorage.setItem(HIGHEST_RANK_KEY, String(next));
+    return next;
+  } catch {
+    return idx;
+  }
+}
+
+const soundEngine = new SoundEngine();
+function unlockAudioOnce() {
+  soundEngine.unlock();
+}
+window.addEventListener('pointerdown', unlockAudioOnce, { passive: true });
+window.addEventListener('keydown', unlockAudioOnce, { passive: true });
 
 function formatIslandName(isl) {
   if (!isl) return '';
@@ -134,13 +186,19 @@ const screenPause = document.getElementById('screen-pause');
 const screenResult = document.getElementById('screen-result');
 
 const titleBestScore = document.getElementById('title-best-score');
+const titleHighestRank = document.getElementById('title-highest-rank');
 const btnChartDaily = document.getElementById('btn-chart-daily');
 const btnChartRandom = document.getElementById('btn-chart-random');
 const titleChartNote = document.getElementById('title-chart-note');
+const btnSoundToggle = document.getElementById('btn-sound-toggle');
 const resultChartLabel = document.getElementById('result-chart-label');
 const resultReason = document.getElementById('result-reason');
 const resultScore = document.getElementById('result-score');
 const resultBest = document.getElementById('result-best');
+const resultRankBadge = document.getElementById('result-rank-badge');
+const resultNextGoal = document.getElementById('result-next-goal');
+const btnCopyResult = document.getElementById('btn-copy-result');
+const btnSaveImage = document.getElementById('btn-save-image');
 const resultMapCanvas = document.getElementById('result-map-canvas');
 const rbIslandsLight = document.getElementById('rb-islands-light');
 const rbWalletLight = document.getElementById('rb-wallet-light');
@@ -297,7 +355,8 @@ function clearPopups() {
 
 function showToast(text, kind = 'normal', options = null) {
   const isDawnToast = Boolean(options?.dawn);
-  if ((sim.state === 'dawn' || sim.state === 'result') && !isDawnToast) {
+  const isResultToast = Boolean(options?.result) && sim.state === 'result';
+  if ((sim.state === 'dawn' || sim.state === 'result') && !isDawnToast && !isResultToast) {
     return;
   }
   syncToastContainerPosition();
@@ -775,7 +834,13 @@ function renderModeBadges() {
   const cy = (bounds.top + bounds.bottom) * 0.5;
   const minX = 64;
   const maxX = Math.max(minX, bounds.w - 64);
-  const minY = bounds.top + 16;
+  let minY = bounds.top + 16;
+  if (!guideBubble.classList.contains('hidden')) {
+    const gr = guideBubble.getBoundingClientRect();
+    if (gr.height > 0) {
+      minY = Math.max(minY, Math.round(gr.bottom) + 14);
+    }
+  }
   const maxY = Math.max(minY, bounds.bottom - 16);
 
   const sideCounts = { left: 0, right: 0 };
@@ -952,11 +1017,18 @@ function updateGuideUI() {
   }
 }
 
+function syncSoundToggleLabel() {
+  if (btnSoundToggle) {
+    btnSoundToggle.textContent = `音: ${soundEngine.enabled ? 'オン' : 'オフ'}`;
+  }
+}
+
 function refreshScreens() {
   const st = sim.state;
   screenTitle.classList.toggle('hidden', st !== 'title');
   screenPause.classList.toggle('hidden', st !== 'paused');
   screenResult.classList.toggle('hidden', st !== 'result');
+  syncSoundToggleLabel();
 
   const showTopHud = st === 'play' || st === 'paused' || st === 'dawn';
   hudTop.classList.toggle('hidden', !showTopHud);
@@ -974,9 +1046,24 @@ function refreshScreens() {
 
   if (st === 'title') {
     const dailySeed = getTodaySeedString();
-    const chartSeed = uiState.chartMode === 'daily' ? dailySeed : 'latest';
-    const best = loadBestScore(uiState.chartMode, chartSeed);
-    titleBestScore.textContent = best > 0 ? `ベストスコア: ${best}` : 'ベストスコア: ---';
+    const dailyBest = loadBestScore('daily', dailySeed);
+    const randBest = loadBestScore('random', 'latest');
+    const dailyStr = dailyBest > 0 ? `${dailyBest}` : '---';
+    titleBestScore.textContent =
+      uiState.chartMode === 'random' && randBest > 0
+        ? `今日の星図 ベスト: ${dailyStr}（おまかせ: ${randBest}）`
+        : `今日の星図 ベスト: ${dailyStr}`;
+    const bestOverallScore = Math.max(dailyBest, randBest);
+    let highestIdx = loadHighestRankIndex();
+    if (bestOverallScore > 0) {
+      highestIdx = Math.max(highestIdx, getRankInfo(bestOverallScore).idx);
+    }
+    const highestRank = highestIdx >= 0 ? RANKS[highestIdx] : null;
+    if (titleHighestRank) {
+      titleHighestRank.textContent = highestRank
+        ? `これまでの最高称号: ${highestRank.icon} ${highestRank.name}`
+        : 'これまでの最高称号: なし';
+    }
     btnChartDaily.classList.toggle('active', uiState.chartMode === 'daily');
     btnChartRandom.classList.toggle('active', uiState.chartMode === 'random');
     titleChartNote.textContent =
@@ -1244,6 +1331,7 @@ function handleEvents() {
   const nowSec = performance.now() / 1000;
   for (const ev of events) {
     if (ev.type === 'buildingCompleted') {
+      soundEngine.playSfx('build');
       const slot = ev.island.slots[ev.building.slotIndex];
       const wx = ev.island.x + slot.localX;
       const wy = ev.island.y + 1.6;
@@ -1272,12 +1360,14 @@ function handleEvents() {
       spawnWorldPopup(isl.x, isl.y + 1.9, isl.z, label, 'amber');
       spawnFlyOrbs(isl.x, isl.y + 0.8, isl.z, ev.starlight ? 4 : 2, 'amber');
     } else if (ev.type === 'bridgeCompleted') {
+      soundEngine.playSfx('bridge');
       uiSyncAcc = 1;
       const r = ev.recipient;
       spawnWorldPopup(r.x, r.y + 1.9, r.z, `橋開通！ ${r.name} +${ev.bonus}`, 'cyan');
       spawnFlyOrbs(r.x, r.y + 0.6, r.z, 3, 'cyan');
     } else if (ev.type === 'shipArrived') {
       if (sim.state === 'dawn' || sim.state === 'result') continue;
+      soundEngine.playSfx('ship');
       const isl = ev.island;
       const wStr = ev.walletGain > 0 ? ` / 所持+${ev.walletGain}` : '';
       if (ev.firstArrival) {
@@ -1301,6 +1391,7 @@ function handleEvents() {
       }
       spawnFlyOrbs(isl.x, isl.y + 0.7, isl.z, 3, ev.walletGain > 0 ? 'amber' : 'cyan');
     } else if (ev.type === 'loopFormed') {
+      soundEngine.playSfx('loop');
       scene3d.triggerLoopPulse(ev.cycleIslandIds, nowSec);
       let cx = 0;
       let cy = 0;
@@ -1321,6 +1412,7 @@ function handleEvents() {
       }
       showToast(`✨ 光の環が完成！（${ev.loopCount}/3・生産+25%） +${ev.bonus}`, 'good');
     } else if (ev.type === 'constellationCompleted') {
+      soundEngine.playSfx('constellation');
       const c = ev.constellation;
       const lastId = c.islandIds[c.islandIds.length - 1];
       const anchor = sim.getIsland(lastId) || sim.getIsland(0);
@@ -1348,6 +1440,7 @@ function handleEvents() {
       }
       uiSyncAcc = 1;
     } else if (ev.type === 'meteorCaught') {
+      soundEngine.playSfx('meteor');
       const mPos = scene3d.getMeteorWorldPosition(ev.progress, ev.dirSeed);
       spawnFlyOrbs(mPos.x, mPos.y, mPos.z, 5, 'amber');
       spawnWorldPopup(mPos.x, mPos.y, mPos.z, `🌠 +${ev.reward}`, 'amber');
@@ -1403,16 +1496,89 @@ function renderResultLightMap(canvas, simState) {
     minZ = Math.min(minZ, isl.z);
     maxZ = Math.max(maxZ, isl.z);
   }
-  const pad = 22;
-  const spanX = Math.max(10, maxX - minX);
-  const spanZ = Math.max(10, maxZ - minZ);
-  const scale = Math.min((w - pad * 2) / spanX, (h - pad * 2) / spanZ);
+  const pad = Math.max(14, Math.round(Math.min(w, h) * 0.085));
   const cx = (minX + maxX) * 0.5;
   const cz = (minZ + maxZ) * 0.5;
-  const mapPt = (isl) => ({
-    x: w * 0.5 + (isl.x - cx) * scale,
-    y: h * 0.5 + (isl.z - cz) * scale,
+  // Gentle power-curve radial expansion from center so dense inner islands breathe
+  const maxRawR = Math.max(
+    1,
+    ...simState.islands.map((isl) => Math.hypot(isl.x - cx, isl.z - cz))
+  );
+  const spreadPos = (isl) => {
+    const dx = isl.x - cx;
+    const dz = isl.z - cz;
+    const d = Math.hypot(dx, dz);
+    if (d < 1e-4) return { sx: cx, sz: cz };
+    const ratio = Math.pow(d / maxRawR, 0.68) * (maxRawR / d);
+    return { sx: cx + dx * ratio, sz: cz + dz * ratio };
+  };
+  let sMinX = Infinity;
+  let sMaxX = -Infinity;
+  let sMinZ = Infinity;
+  let sMaxZ = -Infinity;
+  const spreadMap = new Map();
+  for (const isl of simState.islands) {
+    const sp = spreadPos(isl);
+    spreadMap.set(isl.id, sp);
+    sMinX = Math.min(sMinX, sp.sx);
+    sMaxX = Math.max(sMaxX, sp.sx);
+    sMinZ = Math.min(sMinZ, sp.sz);
+    sMaxZ = Math.max(sMaxZ, sp.sz);
+  }
+  const sSpanX = Math.max(8, sMaxX - sMinX);
+  const sSpanZ = Math.max(8, sMaxZ - sMinZ);
+  const sCx = (sMinX + sMaxX) * 0.5;
+  const sCz = (sMinZ + sMaxZ) * 0.5;
+  const baseScale = Math.min((w - pad * 2) / sSpanX, (h - pad * 2) / sSpanZ);
+  const scaleX = Math.min(baseScale * 1.28, (w - pad * 2) / sSpanX);
+  const scaleZ = baseScale;
+
+  // Build initial projected positions, then spread crowded islands apart so dots never clump
+  const layoutPts = simState.islands.map((isl) => {
+    const sp = spreadMap.get(isl.id);
+    const x = w * 0.5 + (sp.sx - sCx) * scaleX;
+    const y = h * 0.5 + (sp.sz - sCz) * scaleZ;
+    return { id: isl.id, x, y, ox: x, oy: y };
   });
+  const minDist = Math.max(21, Math.min(38, Math.min(w, h) * 0.125));
+  for (let pass = 0; pass < 42; pass++) {
+    const useSpring = pass < 36;
+    for (let i = 0; i < layoutPts.length; i++) {
+      const a = layoutPts[i];
+      for (let j = i + 1; j < layoutPts.length; j++) {
+        const b = layoutPts[j];
+        let dx = b.x - a.x;
+        let dy = b.y - a.y;
+        let d = Math.hypot(dx, dy);
+        if (d < minDist) {
+          if (d < 0.01) {
+            const ang = ((a.id * 1.7 + b.id * 2.3) % (Math.PI * 2));
+            dx = Math.cos(ang);
+            dy = Math.sin(ang);
+            d = 1;
+          }
+          const push = (minDist - d) * 0.52;
+          const ux = (dx / d) * push;
+          const uy = (dy / d) * push;
+          a.x -= ux;
+          a.y -= uy;
+          b.x += ux;
+          b.y += uy;
+        }
+      }
+    }
+    for (const p of layoutPts) {
+      if (useSpring) {
+        p.x += (p.ox - p.x) * 0.04;
+        p.y += (p.oy - p.y) * 0.04;
+      }
+      p.x = Math.max(pad, Math.min(w - pad, p.x));
+      p.y = Math.max(pad, Math.min(h - pad, p.y));
+    }
+  }
+  const ptById = new Map(layoutPts.map((p) => [p.id, p]));
+  const mapPt = (isl) => ptById.get(isl.id) || { x: w * 0.5, y: h * 0.5 };
+  const dotScale = Math.max(0.76, Math.min(1.25, h / 215));
 
   // Loop halos
   for (const cyc of simState.loops || []) {
@@ -1462,16 +1628,16 @@ function renderResultLightMap(canvas, simState) {
     const pa = mapPt(a);
     const pb = mapPt(b);
     const flowNorm = Math.min(1, (rt.flow || 0) / 22);
-    const lw = 2.4 + flowNorm * 4.4;
+    const lw = (1.6 + flowNorm * 2.2) * dotScale;
     ctx.save();
-    ctx.setLineDash([6, 4]);
-    ctx.strokeStyle = rt.established ? 'rgba(118, 246, 246, 0.28)' : 'rgba(118, 246, 246, 0.15)';
-    ctx.lineWidth = lw + 3;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = rt.established ? 'rgba(118, 246, 246, 0.24)' : 'rgba(118, 246, 246, 0.14)';
+    ctx.lineWidth = lw + 2;
     ctx.beginPath();
     ctx.moveTo(pa.x, pa.y);
     ctx.lineTo(pb.x, pb.y);
     ctx.stroke();
-    ctx.strokeStyle = rt.established ? 'rgba(128, 248, 248, 0.96)' : 'rgba(128, 248, 248, 0.6)';
+    ctx.strokeStyle = rt.established ? 'rgba(128, 248, 248, 0.92)' : 'rgba(128, 248, 248, 0.58)';
     ctx.lineWidth = lw;
     ctx.beginPath();
     ctx.moveTo(pa.x, pa.y);
@@ -1488,11 +1654,11 @@ function renderResultLightMap(canvas, simState) {
     const pa = mapPt(a);
     const pb = mapPt(b);
     const flowNorm = Math.min(1, (br.flow || 0) / 26);
-    const lw = 2.8 + flowNorm * 5.0;
+    const lw = (2.0 + flowNorm * 2.8) * dotScale;
     ctx.save();
     ctx.lineCap = 'round';
-    ctx.strokeStyle = br.high ? 'rgba(165, 232, 255, 0.28)' : 'rgba(255, 200, 82, 0.3)';
-    ctx.lineWidth = lw + 3.2;
+    ctx.strokeStyle = br.high ? 'rgba(165, 232, 255, 0.26)' : 'rgba(255, 200, 82, 0.28)';
+    ctx.lineWidth = lw + 2.2;
     ctx.beginPath();
     ctx.moveTo(pa.x, pa.y);
     ctx.lineTo(pb.x, pb.y);
@@ -1512,7 +1678,8 @@ function renderResultLightMap(canvas, simState) {
   const constSet = new Set(simState.constellation?.islandIds || []);
   for (const isl of simState.islands) {
     const p = mapPt(isl);
-    const r = isl.id === 0 ? 7.2 : isl.connected ? 4.8 + Math.min(2.6, isl.light / 200) : 3.4;
+    const baseR = isl.id === 0 ? 7.0 : isl.connected ? 4.6 + Math.min(2.2, isl.light / 200) : 3.2;
+    const r = baseR * dotScale;
     if (isl.connected) {
       const halo = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, r * 2.7);
       halo.addColorStop(0, isl.id === 0 ? 'rgba(255, 235, 148, 0.8)' : 'rgba(255, 204, 96, 0.56)');
@@ -1541,6 +1708,161 @@ function renderResultLightMap(canvas, simState) {
   }
 }
 
+function buildShareText() {
+  const connectedCount = sim.getConnectedCount();
+  const seedStr = String(uiState.activeSeed || '');
+  const chartText =
+    uiState.chartMode === 'daily'
+      ? `今日の星図 ${seedStr.replace(/^daily-/, '')}`
+      : `おまかせ星図 ${seedStr}`;
+  const constText = sim.constellation?.completed ? '達成' : '未達成';
+  return `浮島の灯り ${chartText}｜スコア ${sim.score}｜つないだ島 ${connectedCount}/${sim.islands.length}｜光の環 ${sim.loopCount || 0}｜星座 ${constText} #浮島の灯り ${SHARE_URL}`;
+}
+
+async function copyResultToClipboard() {
+  const text = buildShareText();
+  let ok = false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    }
+  } catch {
+    ok = false;
+  }
+  if (!ok) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      ok = document.execCommand('copy');
+      ta.remove();
+    } catch {
+      ok = false;
+    }
+  }
+  showToast(
+    ok ? '結果をクリップボードにコピーしました' : 'コピーできませんでした',
+    ok ? 'good' : 'warn',
+    { result: true }
+  );
+  return { ok, text };
+}
+
+function exportResultPng() {
+  const card = document.createElement('canvas');
+  const w = 720;
+  const h = 900;
+  card.width = w;
+  card.height = h;
+  const ctx = card.getContext('2d');
+  if (!ctx) return;
+
+  const bg = ctx.createLinearGradient(0, 0, 0, h);
+  bg.addColorStop(0, '#09112b');
+  bg.addColorStop(0.55, '#13214a');
+  bg.addColorStop(1, '#1a2448');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+
+  // Decorative subtle stars
+  for (let i = 0; i < 48; i++) {
+    const sx = ((i * 173 + 31) % 690) + 15;
+    const sy = ((i * 97 + 19) % 240) + 12;
+    ctx.fillStyle = i % 3 === 0 ? 'rgba(255,235,175,0.55)' : 'rgba(210,230,255,0.4)';
+    ctx.beginPath();
+    ctx.arc(sx, sy, i % 4 === 0 ? 1.8 : 1.1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Border frame
+  ctx.strokeStyle = 'rgba(255, 209, 102, 0.45)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(16, 16, w - 32, h - 32);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffd166';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.fillText(sim.dawnReason || '夜明けが訪れました', w * 0.5, 62);
+
+  ctx.fillStyle = '#fff8e1';
+  ctx.font = '900 40px sans-serif';
+  ctx.fillText('浮島の灯り', w * 0.5, 114);
+
+  const seedStr = String(uiState.activeSeed || '');
+  const chartLabel =
+    uiState.chartMode === 'daily'
+      ? `今日の星図 ${seedStr.replace(/^daily-/, '')}`
+      : `おまかせ（${seedStr}）`;
+  ctx.fillStyle = '#64dfdf';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.fillText(chartLabel, w * 0.5, 150);
+
+  const rank = getRankInfo(sim.score);
+  ctx.fillStyle = '#fff2cc';
+  ctx.font = 'bold 22px sans-serif';
+  ctx.fillText(`称号: ${rank.current.icon} ${rank.current.name}`, w * 0.5, 192);
+
+  ctx.fillStyle = '#fff8e1';
+  ctx.font = '900 68px sans-serif';
+  ctx.fillText(String(sim.score), w * 0.5, 266);
+
+  // High-res light map
+  const mapCanvas = document.createElement('canvas');
+  mapCanvas.width = 640;
+  mapCanvas.height = 350;
+  renderResultLightMap(mapCanvas, sim);
+  ctx.drawImage(mapCanvas, 40, 298);
+  ctx.strokeStyle = 'rgba(130, 175, 255, 0.35)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(40, 298, 640, 350);
+
+  // Breakdown stats
+  const islandsSum = Math.round(sim.getIslandsLightSum());
+  const walletSum = Math.round(sim.walletLight);
+  const connCount = sim.getConnectedCount();
+  const constText = sim.constellation?.completed ? `+${sim.constellationBonus}` : '未達成';
+  const rows = [
+    [`つないだ島: ${connCount} / ${sim.islands.length}`, `光の環: +${sim.loopBonus || 0}（${sim.loopCount || 0}環）`],
+    [`島の灯り: ${islandsSum} / 所持: ${walletSum}`, `星座: ${constText}`],
+    [`残り時間ボーナス: +${sim.allConnectedBonus}`, rank.next ? `次の称号まであと ${rank.remaining}` : '最高称号達成！'],
+  ];
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 21px sans-serif';
+  for (let i = 0; i < rows.length; i++) {
+    const y = 702 + i * 44;
+    ctx.fillStyle = '#eef4ff';
+    ctx.fillText(rows[i][0], 54, y);
+    ctx.fillStyle = '#ffd166';
+    ctx.textAlign = 'right';
+    ctx.fillText(rows[i][1], w - 54, y);
+    ctx.textAlign = 'left';
+  }
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(205, 222, 255, 0.72)';
+  ctx.font = '16px sans-serif';
+  ctx.fillText(SHARE_URL, w * 0.5, 856);
+
+  const fileName = `ukishima-${seedStr || 'night'}-${sim.score}.png`;
+  try {
+    const dataUrl = card.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    showToast('結果画像を保存しました', 'good', { result: true });
+  } catch {
+    showToast('画像を保存できませんでした', 'warn', { result: true });
+  }
+}
+
 function showResultScreen() {
   clearToasts();
   clearPopups();
@@ -1548,6 +1870,17 @@ function showResultScreen() {
   const walletSum = Math.round(sim.walletLight);
   const connectedCount = sim.getConnectedCount();
   const best = saveBestScore(sim.score, uiState.chartMode, uiState.activeSeed);
+  saveHighestRankForScore(sim.score);
+
+  const rank = getRankInfo(sim.score);
+  if (resultRankBadge) {
+    resultRankBadge.textContent = `${rank.current.icon} ${rank.current.name}`;
+  }
+  if (resultNextGoal) {
+    resultNextGoal.textContent = rank.next
+      ? `次の称号「${rank.next.name}」まであと ${rank.remaining}`
+      : '✦ 最高称号を達成！';
+  }
 
   resultChartLabel.textContent =
     uiState.chartMode === 'daily'
@@ -1704,6 +2037,26 @@ document.getElementById('btn-restart-pause').addEventListener('click', () => {
   startNewGame();
 });
 
+if (btnSoundToggle) {
+  btnSoundToggle.addEventListener('click', () => {
+    soundEngine.unlock();
+    soundEngine.toggle();
+    syncSoundToggleLabel();
+  });
+}
+
+if (btnCopyResult) {
+  btnCopyResult.addEventListener('click', () => {
+    copyResultToClipboard();
+  });
+}
+
+if (btnSaveImage) {
+  btnSaveImage.addEventListener('click', () => {
+    exportResultPng();
+  });
+}
+
 btnCancelSelection.addEventListener('click', () => {
   clearSelection();
   refreshUI();
@@ -1800,6 +2153,7 @@ Object.defineProperties(gameHook, {
   score: { get: () => sim.score, enumerable: true },
   speed: { get: () => sim.speed, enumerable: true },
   quality: { get: () => scene3d.quality, enumerable: true },
+  soundEnabled: { get: () => soundEngine.enabled, enumerable: true },
   seed: { get: () => sim.seed, enumerable: true },
   constellation: { get: () => sim.constellation, enumerable: true },
   loopCount: { get: () => sim.loopCount, enumerable: true },
@@ -1845,6 +2199,14 @@ gameHook.api = {
     const res = sim.setSpeed(n);
     refreshUI();
     return res;
+  },
+  toggleSound() {
+    const next = soundEngine.toggle();
+    syncSoundToggleLabel();
+    return next;
+  },
+  getShareText() {
+    return buildShareText();
   },
   screenPos(islandId, slotIndex) {
     const bounds = getTappableBounds();
@@ -2024,7 +2386,7 @@ function updatePerformanceMonitor(frameMs) {
     fpsAccMs = 0;
     if (fps < 40) {
       lowFpsStreak += 1;
-      if (lowFpsStreak >= 3) {
+      if (lowFpsStreak >= 2) {
         scene3d.setQuality('low');
       }
     } else {
@@ -2046,7 +2408,10 @@ function tick(now) {
   updatePerformanceMonitor(frameMs);
 
   if (sim.state === 'title') {
+    const aspect = window.innerWidth / Math.max(1, window.innerHeight);
     scene3d.orbit.targetTheta += rawDt * 0.08;
+    scene3d.orbit.targetPhi = 0.74;
+    scene3d.orbit.targetRadius = aspect < 0.75 ? 36 : 28;
   } else if (sim.state === 'play' || sim.state === 'dawn') {
     const freezeTimer =
       sim.state === 'play' &&
@@ -2077,6 +2442,8 @@ function tick(now) {
   }
 
   updateFlyOrbs(rawDt);
+  const nightProgress = Math.max(0, Math.min(1, 1 - sim.timeLeft / NIGHT_DURATION));
+  soundEngine.updateBgm(now, sim.state, nightProgress);
   scene3d.syncAndRender(sim, uiState, now / 1000);
   renderModeBadges();
 }

@@ -1582,8 +1582,12 @@ export class Scene3D {
     }
     this.scene.fog.color.copy(this.skyUniforms.uHorizonColor.value);
 
+    const isLowQuality = this.quality === 'low';
     const windCloudMult = 1 + (isDawnOrResult ? 0 : this._windBoost * 3.2);
-    for (const cl of this.clouds) {
+    for (let i = 0; i < this.clouds.length; i++) {
+      const cl = this.clouds[i];
+      cl.visible = !isLowQuality || i % 2 === 0;
+      if (!cl.visible) continue;
       cl.position.x += cl.userData.speed * 0.008 * windCloudMult;
       if (cl.position.x > 46) cl.position.x = -46;
       cl.position.y = cl.userData.baseY + Math.sin(timeSec * 0.4 + cl.userData.phase) * 0.25;
@@ -1598,7 +1602,6 @@ export class Scene3D {
     this._updateCameraPosition();
 
     // 2. 島ごとの状態同期（夜明け時は1島ずつ灯りが消える）
-    const isLowQuality = this.quality === 'low';
     const islandDimMap = new Map();
     for (const isl of sim.islands) {
       let dim = 1;
@@ -1657,6 +1660,20 @@ export class Scene3D {
           0.34,
           1
         );
+      } else if (sim.state === 'title') {
+        vis.topMat.color.setHex(0x3a645a);
+        vis.topMat.emissive.setHex(0x1a3038);
+        this._attenuateGlowSprite(
+          vis.glowSprite,
+          isl.x,
+          vis.group.position.y + 0.75,
+          isl.z,
+          isl.radius * 3.0,
+          isl.remote ? 0.18 : 0.34,
+          0.22,
+          1
+        );
+        vis.groundGlow.material.opacity = 0;
       } else {
         vis.topMat.color.setHex(0x2d4a4b);
         vis.topMat.emissive.setHex(0x0e1d26);
