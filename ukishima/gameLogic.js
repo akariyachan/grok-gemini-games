@@ -430,6 +430,13 @@ export class GameSimulation {
     if (!a.connected && !b.connected) {
       return { ok: false, reason: 'つながっている島から航路を引いてください' };
     }
+    if (a.connected && b.connected) {
+      return { ok: false, reason: 'この島はもうつながっています' };
+    }
+    const toIsland = a.connected ? b : a;
+    if (this.routes.some((rt) => rt.islandB === toIsland.id || rt.islandA === toIsland.id)) {
+      return { ok: false, reason: 'この島へはすでに航路があります' };
+    }
     if (this.hasDirectConnection(a.id, b.id)) {
       return { ok: false, reason: 'すでに橋または航路があります' };
     }

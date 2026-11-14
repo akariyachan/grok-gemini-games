@@ -18,6 +18,57 @@ function createGlowTexture(innerColor, midColor) {
   return tex;
 }
 
+function createSunDiskTexture() {
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cx = size / 2;
+  const grad = ctx.createRadialGradient(cx, cx, 4, cx, cx, cx);
+  grad.addColorStop(0, 'rgba(255, 250, 224, 1)');
+  grad.addColorStop(0.32, 'rgba(255, 224, 120, 0.98)');
+  grad.addColorStop(0.45, 'rgba(255, 166, 62, 0.86)');
+  grad.addColorStop(0.62, 'rgba(255, 118, 42, 0.24)');
+  grad.addColorStop(1, 'rgba(255, 90, 20, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function createSunRaysTexture() {
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cx = size / 2;
+  ctx.translate(cx, cx);
+  const rayCount = 12;
+  for (let i = 0; i < rayCount; i++) {
+    ctx.save();
+    ctx.rotate((i / rayCount) * Math.PI * 2);
+    const width = i % 2 === 0 ? 0.14 : 0.08;
+    const len = i % 2 === 0 ? cx * 0.98 : cx * 0.82;
+    const grad = ctx.createRadialGradient(0, 0, cx * 0.12, 0, 0, len);
+    grad.addColorStop(0, 'rgba(255, 235, 155, 0.52)');
+    grad.addColorStop(0.5, 'rgba(255, 178, 72, 0.22)');
+    grad.addColorStop(1, 'rgba(255, 130, 40, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, len, -width, width);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 function createProgressSprite() {
   const canvas = document.createElement('canvas');
   canvas.width = 96;
@@ -95,7 +146,9 @@ export class Scene3D {
     const h = container.clientHeight || window.innerHeight;
     const aspect = w / Math.max(1, h);
 
-    this.camera = new THREE.PerspectiveCamera(aspect < 0.75 ? 54 : 46, aspect, 0.5, 260);
+    this.camera = new THREE.PerspectiveCamera(aspect < 0.75 ? 54 : 46, aspect, 0.9, 260);
+    this.quality = 'high';
+    this.islandPulses = new Map();
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -125,7 +178,8 @@ export class Scene3D {
     this.warmGlowTex = createGlowTexture('rgba(255, 242, 185, 0.98)', 'rgba(255, 175, 50, 0.42)');
     this.groundGlowTex = createGlowTexture('rgba(255, 224, 140, 0.65)', 'rgba(255, 168, 48, 0.22)');
     this.cyanGlowTex = createGlowTexture('rgba(200, 255, 255, 0.95)', 'rgba(80, 235, 235, 0.4)');
-    this.sunGlowTex = createGlowTexture('rgba(255, 248, 210, 1)', 'rgba(255, 145, 68, 0.55)');
+    this.sunGlowTex = createSunDiskTexture();
+    this.sunRaysTex = createSunRaysTexture();
 
     // Lightweight Lights
     this.hemiLight = new THREE.HemisphereLight(0x8faeff, 0x22294a, 1.25);
@@ -257,24 +311,59 @@ export class Scene3D {
 
     // Rising Sun (on the East horizon: z = -68, centered when camera swings toward theta=0)
     this.sunGroup = new THREE.Group();
-    const sunMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(6.2, 20, 14),
-      new THREE.MeshBasicMaterial({ color: 0xfff6d6, toneMapped: false })
-    );
-    this.sunHalo = new THREE.Sprite(
+    this.sunCore = new THREE.Sprite(
       new THREE.SpriteMaterial({
         map: this.sunGlowTex,
         transparent: true,
-        opacity: 0.96,
+        opacity: 1,
+        blending: THREE.NormalBlending,
+        depthWrite: false,
+      })
+    );
+    this.sunCore.scale.set(15.5, 15.5, 1);
+
+    this.sunHalo = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: this.sunGlowTex,
+        color: 0xff9f45,
+        transparent: true,
+        opacity: 0.32,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       })
     );
-    this.sunHalo.scale.set(46, 46, 1);
-    this.sunGroup.add(sunMesh, this.sunHalo);
+    this.sunHalo.scale.set(34, 34, 1);
+
+    this.sunRays = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: this.sunRaysTex,
+        transparent: true,
+        opacity: 0.3,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    );
+    this.sunRays.scale.set(46, 46, 1);
+
+    this.sunGroup.add(this.sunHalo, this.sunRays, this.sunCore);
     this.sunGroup.position.set(0, -14, -68);
     this.sunGroup.visible = false;
     this.scene.add(this.sunGroup);
+
+    // Golden rim glow along the sea of clouds at dawn
+    this.cloudHorizonGlow = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: this.sunGlowTex,
+        color: 0xffa840,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    );
+    this.cloudHorizonGlow.position.set(0, -8.2, -44);
+    this.cloudHorizonGlow.scale.set(86, 15, 1);
+    this.scene.add(this.cloudHorizonGlow);
 
     // Sea of Clouds
     this.clouds = [];
@@ -385,7 +474,7 @@ export class Scene3D {
         const delta = dist - pinchLastDist;
         pinchLastDist = dist;
         this.orbit.targetRadius = Math.max(
-          14,
+          18,
           Math.min(68, this.orbit.targetRadius - delta * 0.09)
         );
       }
@@ -421,7 +510,7 @@ export class Scene3D {
       (e) => {
         e.preventDefault();
         this.orbit.targetRadius = Math.max(
-          14,
+          18,
           Math.min(68, this.orbit.targetRadius + e.deltaY * 0.025)
         );
       },
@@ -481,11 +570,28 @@ export class Scene3D {
     this._updateCameraPosition();
   }
 
-  focusOn(x, y, z, radius = 20) {
+  focusOn(x, y, z, radius = 22) {
+    const safeRadius = Math.max(18, Math.min(68, radius));
     this.target.set(x, y + 0.2, z);
-    this.orbit.radius = radius;
-    this.orbit.targetRadius = radius;
+    this.orbit.radius = safeRadius;
+    this.orbit.targetRadius = safeRadius;
     this._updateCameraPosition();
+  }
+
+  setQuality(quality) {
+    const next = quality === 'low' ? 'low' : 'high';
+    if (this.quality === next) return;
+    this.quality = next;
+    const w = this.container.clientWidth || window.innerWidth;
+    const h = this.container.clientHeight || window.innerHeight;
+    this.renderer.setPixelRatio(
+      next === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, 2)
+    );
+    this.renderer.setSize(w, h);
+  }
+
+  triggerIslandPulse(islandId, timeSec = performance.now() / 1000) {
+    this.islandPulses.set(islandId, timeSec);
   }
 
   resize() {
@@ -1028,7 +1134,7 @@ export class Scene3D {
   _createShipVisual() {
     const group = new THREE.Group();
     const visualRoot = new THREE.Group();
-    visualRoot.scale.setScalar(1.75);
+    visualRoot.scale.setScalar(0.95);
     group.add(visualRoot);
 
     const hull = new THREE.Mesh(
@@ -1097,7 +1203,7 @@ export class Scene3D {
     visualRoot.add(glow);
 
     this.shipsGroup.add(group);
-    return { group, cargoGroup, crate, passenger, cargoGlow };
+    return { group, cargoGroup, crate, passenger, cargoGlow, glow };
   }
 
   syncAndRender(sim, uiState, timeSec) {
@@ -1118,10 +1224,10 @@ export class Scene3D {
     const mPreDawn = new THREE.Color(0x5e4d82);
     const hPreDawn = new THREE.Color(0x88648c);
 
-    // 朝焼けグラデーション（水色 → 薄桃 → 橙）
-    const zDawn = new THREE.Color(0x7cc6f2);
-    const mDawn = new THREE.Color(0xf6b0b8);
-    const hDawn = new THREE.Color(0xffa96e);
+    // 朝焼けグラデーション（橙 → 桃 → 水色）
+    const zDawn = new THREE.Color(0x6ec3f5);
+    const mDawn = new THREE.Color(0xf7b0c0);
+    const hDawn = new THREE.Color(0xff9b52);
 
     if (nightProgress < 0.6) {
       const k = nightProgress / 0.6;
@@ -1142,14 +1248,19 @@ export class Scene3D {
       this.skyUniforms.uZenithColor.value.lerp(zDawn, dawnProg);
       this.skyUniforms.uMidColor.value.lerp(mDawn, dawnProg);
       this.skyUniforms.uHorizonColor.value.lerp(hDawn, dawnProg);
-      this.skyUniforms.uEastColor.value.setHex(0xffc978);
-      this.skyUniforms.uEastIntensity.value = Math.max(eastHint, 0.58 + dawnProg * 0.75);
+      this.skyUniforms.uEastColor.value.setHex(0xffb86c);
+      this.skyUniforms.uEastIntensity.value = Math.max(eastHint, 0.36 + dawnProg * 0.45);
 
       this.bgColor.copy(this.skyUniforms.uMidColor.value);
       this.sunGroup.visible = true;
-      // 雲海の向こう（y=-10）から画面上部〜中央（y=+17）へゆっくり昇る
-      this.sunGroup.position.set(0, -10 + easeOutCubic(dawnProg) * 27, -68);
-      this.sunHalo.material.opacity = 0.72 + dawnProg * 0.28;
+      // 雲海の向こう（y=-11）から画面上部〜中央（y=+16）へゆっくり昇る（白飛び抑止のため初動フェード）
+      const sunFade = Math.min(1, dawnProg / 0.24);
+      this.sunGroup.position.set(0, -11 + easeOutCubic(dawnProg) * 27, -68);
+      this.sunCore.material.opacity = 0.25 + sunFade * 0.75;
+      this.sunHalo.material.opacity = 0.06 + dawnProg * 0.32;
+      this.sunRays.visible = this.quality === 'high';
+      this.sunRays.material.rotation = timeSec * 0.14;
+      this.sunRays.material.opacity = 0.05 + dawnProg * 0.28;
 
       this.starMat.opacity = Math.max(0, 0.92 * (1 - dawnProg * 1.4));
       this.moonMat.color.setHex(0xfff6d8).lerp(new THREE.Color(0xd4dcf0), dawnProg);
@@ -1160,10 +1271,11 @@ export class Scene3D {
       this.hemiLight.color.setHex(0x8faeff).lerp(new THREE.Color(0xffd8c2), dawnProg);
       this.hemiLight.intensity = 1.25 + dawnProg * 0.45;
 
-      // 雲海が朝日に照らされて明るく色づく
-      this.cloudMat.color.setHex(0x2a3966).lerp(new THREE.Color(0xf7b8a8), dawnProg);
-      this.cloudMat.emissive.setHex(0x101836).lerp(new THREE.Color(0x632e26), dawnProg);
-      this.mistMat.color.setHex(0x182447).lerp(new THREE.Color(0xd6968e), dawnProg);
+      // 雲海の縁が金色に輝き、朝日に照らされて色づく
+      this.cloudMat.color.setHex(0x2a3966).lerp(new THREE.Color(0xffcf9e), dawnProg);
+      this.cloudMat.emissive.setHex(0x101836).lerp(new THREE.Color(0xa65422), dawnProg);
+      this.mistMat.color.setHex(0x182447).lerp(new THREE.Color(0xf2a57a), dawnProg);
+      this.cloudHorizonGlow.material.opacity = dawnProg * 0.28;
 
       // カメラを2〜3秒かけて少し引きつつ水平寄りに起こして太陽を画面内に収める
       if (sim.state === 'dawn') {
@@ -1206,6 +1318,7 @@ export class Scene3D {
       this.cloudMat.color.setHex(0x2a3966).lerp(new THREE.Color(0x4a3d70), nightProgress);
       this.cloudMat.emissive.setHex(0x101836).lerp(new THREE.Color(0x22193d), nightProgress);
       this.mistMat.color.setHex(0x182447).lerp(new THREE.Color(0x362d59), nightProgress);
+      this.cloudHorizonGlow.material.opacity = eastHint * 0.32;
     }
     this.scene.fog.color.copy(this.skyUniforms.uHorizonColor.value);
 
@@ -1216,6 +1329,7 @@ export class Scene3D {
     }
 
     // 2. 島ごとの状態同期（夜明け時は1島ずつ灯りが消える）
+    const isLowQuality = this.quality === 'low';
     const islandDimMap = new Map();
     for (const isl of sim.islands) {
       let dim = 1;
@@ -1231,15 +1345,30 @@ export class Scene3D {
       const bob = Math.sin(timeSec * 0.8 + vis.bobPhase) * 0.08;
       vis.group.position.y = vis.baseY + bob;
 
+      const pulseStart = this.islandPulses.get(isl.id);
+      let pulse = 0;
+      if (pulseStart !== undefined) {
+        const elapsed = timeSec - pulseStart;
+        if (elapsed >= 1.1) {
+          this.islandPulses.delete(isl.id);
+        } else if (elapsed >= 0) {
+          pulse = Math.sin((elapsed / 1.1) * Math.PI);
+        }
+      }
+
       if (isl.connected) {
         const warmth = Math.min(1, isl.light / 140);
         vis.topMat.color.setHex(0x3b7a4f).lerp(new THREE.Color(0x64b05e), warmth);
         vis.topMat.emissive.setHex(0x1a3a22).lerp(new THREE.Color(0x3d4d18), warmth * dim);
-        vis.glowSprite.material.opacity = (0.28 + warmth * 0.56) * dim;
+        if (pulse > 0) {
+          vis.topMat.emissive.lerp(new THREE.Color(0xffc952), pulse * 0.65);
+        }
+        vis.glowSprite.material.opacity = (0.28 + warmth * 0.56 + pulse * 0.35) * dim;
 
-        const haloScale = isl.radius * (2.5 + warmth * 1.7);
+        const haloScale = isl.radius * (2.5 + warmth * 1.7 + pulse * 1.1);
         vis.groundGlow.scale.set(haloScale, haloScale, 1);
-        vis.groundGlow.material.opacity = (0.22 + warmth * 0.52) * dim;
+        vis.groundGlow.material.opacity =
+          isLowQuality && isl.id % 2 === 1 ? 0 : (0.22 + warmth * 0.52 + pulse * 0.35) * dim;
       } else {
         vis.topMat.color.setHex(0x2d4a4b);
         vis.topMat.emissive.setHex(0x0e1d26);
@@ -1373,8 +1502,9 @@ export class Scene3D {
         }
       }
 
-      for (const p of brVis.particles) {
-        if (!br.built || globalDawnDim <= 0.1) {
+      for (let i = 0; i < brVis.particles.length; i++) {
+        const p = brVis.particles[i];
+        if (!br.built || globalDawnDim <= 0.1 || (isLowQuality && i % 2 === 1)) {
           p.sprite.visible = false;
           continue;
         }
@@ -1407,8 +1537,9 @@ export class Scene3D {
         this.routeVisuals.set(rt.id, rtVis);
       }
       rtVis.mat.opacity = (rt.established ? 0.9 : 0.65) * (0.35 + 0.65 * globalDawnDim);
-      for (const p of rtVis.particles) {
-        if (!rt.established || globalDawnDim <= 0.1) {
+      for (let i = 0; i < rtVis.particles.length; i++) {
+        const p = rtVis.particles[i];
+        if (!rt.established || globalDawnDim <= 0.1 || (isLowQuality && i % 2 === 1)) {
           p.sprite.visible = false;
           continue;
         }
@@ -1444,6 +1575,9 @@ export class Scene3D {
         const py =
           fromIsl.y + (toIsl.y - fromIsl.y) * t + 0.72 + Math.sin(t * Math.PI) * 0.65;
         sv.group.position.set(px, py, pz);
+        const camDist = this.camera.position.distanceTo(sv.group.position);
+        const distScale = Math.max(0.55, Math.min(1.08, camDist / 24));
+        sv.group.scale.setScalar(distScale);
         sv.group.lookAt(toIsl.x, py, toIsl.z);
         sv.group.rotation.z = Math.sin(timeSec * 3.5 + t * 6) * 0.06;
         sv.cargoGroup.position.y = 1.04 + Math.sin(timeSec * 4.5 + t * 5) * 0.06;
@@ -1451,6 +1585,7 @@ export class Scene3D {
         sv.passenger.visible = ship.cargo === 'visitors';
         sv.cargoGlow.material.map =
           ship.cargo === 'visitors' ? this.cyanGlowTex : this.warmGlowTex;
+        sv.glow.visible = !isLowQuality;
       }
     }
     for (const [id, sv] of this.shipVisuals.entries()) {

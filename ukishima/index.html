@@ -37,10 +37,39 @@
         <div class="hud-sub">つないだ島 <span id="hud-connected-count">1</span>/<span id="hud-total-islands">9</span><span id="hud-speed-badge" class="speed-badge hidden">10x</span></div>
       </div>
 
-      <button id="btn-pause" class="hud-btn-pause" type="button" aria-label="一時停止">
-        <span>❚❚</span>
-      </button>
+      <div class="hud-actions">
+        <button id="btn-guide-help" class="hud-btn-pause hud-btn-help" type="button" aria-label="ガイド表示">?</button>
+        <button id="btn-pause" class="hud-btn-pause" type="button" aria-label="一時停止">
+          <span>❚❚</span>
+        </button>
+      </div>
     </header>
+
+    <!-- 3-step onboarding guide bubble -->
+    <aside id="guide-bubble" class="hidden" aria-label="序盤ガイド">
+      <div class="guide-header">
+        <span class="guide-title">はじめの3ステップ</span>
+        <span id="guide-timer-note" class="guide-timer-note">※ステップ1までタイマー停止中</span>
+        <button id="btn-guide-close" class="pill-close" type="button" aria-label="ガイドを閉じる">✕</button>
+      </div>
+      <ol class="guide-steps">
+        <li id="guide-step-1" class="guide-step active">
+          <span class="guide-check">1</span>
+          <span class="guide-label">空きスロットをタップして<strong>街灯</strong>と<strong>屋台</strong>を建てよう</span>
+        </li>
+        <li id="guide-step-2" class="guide-step">
+          <span class="guide-check">2</span>
+          <span class="guide-label">「<strong>橋</strong>」で近くの島をつなごう</span>
+        </li>
+        <li id="guide-step-3" class="guide-step">
+          <span class="guide-check">3</span>
+          <span class="guide-label">「<strong>航路</strong>」で遠くの島へ船を出そう</span>
+        </li>
+      </ol>
+      <div class="guide-footer">
+        <button id="btn-guide-dismiss" class="guide-dismiss-btn" type="button">もう表示しない</button>
+      </div>
+    </aside>
 
     <!-- Selection pill above bottom panel -->
     <div id="selection-banner" class="hidden">
