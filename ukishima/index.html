@@ -1,262 +1,1769 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#0a1026" />
-  <meta name="description" content="夜明けまでの5分間、空に浮かぶ島々を橋と航路でつなぎ、夜の街に温かい灯りをともす箱庭リアルタイム戦略ゲーム。" />
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="浮島の灯り" />
-  <meta property="og:description" content="夜明けまでの5分間、空に浮かぶ島々を橋と航路でつなぎ、夜の街に温かい灯りをともす箱庭リアルタイム戦略ゲーム。" />
-  <meta property="og:image" content="https://akariyachan.github.io/grok-gemini-games/ukishima/thumbnail.png" />
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230b1330'/%3E%3Ccircle cx='32' cy='24' r='12' fill='%23ffd166'/%3E%3Cpath d='M16 40h32l-6 11H22z' fill='%23437f57'/%3E%3C/svg%3E" />
-  <title>浮島の灯り</title>
-  <link rel="stylesheet" href="style.css" />
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>浮島の灯り - バージョン選択 | Grok × Gemini Games</title>
+  <meta name="description" content="浮島の灯りの初回版から完成版まで、全6バージョンを遊び比べ。Grok Botの改善指示とバグ修正の全記録。">
+  <meta name="theme-color" content="#0b0f19">
+
+  <!-- OGP -->
+  <meta property="og:title" content="浮島の灯り - バージョン選択 | Grok × Gemini Games">
+  <meta property="og:description" content="初回版から完成版まで、全6バージョンを遊び比べ。Grok Botの改善指示とバグ修正の全記録。">
+  <meta property="og:image" content="https://akariyachan.github.io/grok-gemini-games/ukishima/thumbnail.png">
+  <meta property="og:url" content="https://akariyachan.github.io/grok-gemini-games/ukishima/">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <!-- Favicon (Inline SVG to avoid 404) -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2338bdf8'/%3E%3Cstop offset='50%25' stop-color='%23818cf8'/%3E%3Cstop offset='100%25' stop-color='%23c084fc'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='7' fill='%23111827'/%3E%3Cpath d='M6 10h20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z' stroke='url(%23g)' stroke-width='2' fill='none'/%3E%3Cpath d='M9 16h4M11 14v4M21 16h.01M18 16h.01' stroke='url(%23g)' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+
+  <style>
+    :root {
+      --bg-base: #0b0f19;
+      --bg-surface: #111827;
+      --bg-card: #1a2234;
+      --bg-card-hover: #222d44;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(96, 165, 250, 0.4);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-sub: #64748b;
+      --accent-cyan: #38bdf8;
+      --accent-indigo: #818cf8;
+      --accent-purple: #c084fc;
+      --accent-green: #4ade80;
+      --accent-red: #f87171;
+      --accent-yellow: #fbbf24;
+      --gradient-brand: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+      --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-stack);
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      background-image: 
+        radial-gradient(ellipse at 50% -10%, rgba(56, 189, 248, 0.15), transparent 60%),
+        radial-gradient(circle at 90% 20%, rgba(129, 140, 248, 0.08), transparent 40%);
+      background-repeat: no-repeat;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 1.25rem;
+    }
+
+    /* Top Nav Bar */
+    .top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.25rem 0 0.5rem;
+      gap: 0.75rem;
+    }
+
+    .back-link, .doc-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 0.4rem 0.85rem;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      transition: all 0.2s ease;
+    }
+
+    .back-link:hover, .doc-link:hover {
+      color: var(--accent-cyan);
+      border-color: var(--border-hover);
+      background: rgba(56, 189, 248, 0.08);
+      transform: translateY(-1px);
+    }
+
+    .back-link svg, .doc-link svg {
+      width: 16px;
+      height: 16px;
+      transition: transform 0.2s ease;
+    }
+
+    .back-link:hover svg {
+      transform: translateX(-3px);
+    }
+
+    .doc-link:hover svg {
+      transform: translateY(-1px) translateX(1px);
+    }
+
+    /* Header */
+    header {
+      padding: 1.75rem 0 2rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .badge-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 0.85rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 9999px;
+      text-transform: uppercase;
+    }
+
+    .badge-icon {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+
+    h1.site-title {
+      font-size: clamp(2rem, 4.5vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+      margin-bottom: 0.75rem;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: inline-block;
+    }
+
+    .subtitle {
+      font-size: clamp(0.95rem, 2.2vw, 1.15rem);
+      color: var(--text-muted);
+      max-width: 640px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+
+    /* Grok self review */
+    .self-review-section { margin-bottom: 2rem; }
+    .self-review-card { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 1.25rem; }
+    .sr-head { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .sr-title { font-size: 1.1rem; font-weight: 700; margin: 0; }
+    .sr-score { font-size: 2rem; font-weight: 800; color: #ffd166; line-height: 1; }
+    .sr-score small { font-size: 0.9rem; color: #c9d1e0; font-weight: 500; margin-left: 2px; }
+    .sr-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .sr-col h3 { font-size: 0.95rem; margin: 0 0 0.5rem; }
+    .sr-col.good h3 { color: #6ee7b7; }
+    .sr-col.bad h3 { color: #fca5a5; }
+    .sr-col ul { margin: 0; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.6; }
+    .sr-col li { margin-bottom: 0.35rem; }
+    .sr-comment { margin: 1rem 0 0; padding-top: 0.75rem; border-top: 1px solid var(--border-subtle); font-size: 0.92rem; }
+    @media (max-width: 640px) { .sr-cols { grid-template-columns: 1fr; } }
+
+    /* Timeline Section */
+    .timeline-section {
+      margin-bottom: 2rem;
+    }
+
+    .timeline-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 1.25rem 0.75rem;
+      position: relative;
+    }
+
+    .timeline-container {
+      position: relative;
+      padding: 0.25rem 0;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .timeline-container::-webkit-scrollbar {
+      display: none;
+    }
+
+    .timeline-track-wrapper {
+      position: relative;
+      min-width: 320px;
+    }
+
+    .timeline-track-bg {
+      position: absolute;
+      top: 17px;
+      left: calc(100% / 12);
+      right: calc(100% / 12);
+      height: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      z-index: 0;
+    }
+
+    .timeline-track-fill {
+      position: absolute;
+      top: 17px;
+      left: calc(100% / 12);
+      height: 3px;
+      background: var(--gradient-brand);
+      border-radius: 2px;
+      z-index: 1;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      width: 0%;
+    }
+
+    .timeline-list {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .timeline-item {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .timeline-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-sub);
+      padding: 2px;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+
+    .timeline-btn:focus-visible {
+      outline: 2px solid var(--accent-cyan);
+      outline-offset: 4px;
+    }
+
+    .timeline-node {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--bg-card);
+      border: 2px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .timeline-btn:hover .timeline-node {
+      border-color: var(--accent-cyan);
+      color: var(--text-main);
+      transform: translateY(-2px);
+    }
+
+    .timeline-btn[aria-selected="true"] .timeline-node {
+      background: var(--gradient-brand);
+      border-color: #fff;
+      color: #fff;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.6);
+      transform: scale(1.12);
+    }
+
+    .timeline-label {
+      margin-top: 0.45rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-sub);
+      text-align: center;
+      line-height: 1.25;
+      transition: color 0.2s ease;
+    }
+
+    .timeline-label-short {
+      display: inline;
+    }
+
+    .timeline-label-full {
+      display: none;
+    }
+
+    @media (min-width: 680px) {
+      .timeline-card {
+        padding: 1.5rem 1.25rem;
+      }
+      .timeline-label-short {
+        display: none;
+      }
+      .timeline-label-full {
+        display: inline;
+      }
+      .timeline-label {
+        font-size: 0.8rem;
+      }
+      .timeline-node {
+        width: 38px;
+        height: 38px;
+        font-size: 0.85rem;
+      }
+      .timeline-track-bg, .timeline-track-fill {
+        top: 20px;
       }
     }
-  </script>
+
+    .timeline-btn[aria-selected="true"] .timeline-label {
+      color: var(--accent-cyan);
+      font-weight: 700;
+    }
+
+    /* Main Section / Version Panel */
+    main {
+      flex: 1;
+      padding-bottom: 4rem;
+    }
+
+    .version-panel-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 1.75rem;
+      box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.4);
+    }
+
+    @media (max-width: 600px) {
+      .version-panel-card {
+        padding: 1.25rem 1rem;
+      }
+    }
+
+    /* Hero Grid: Screenshot & Info (2 columns on desktop) */
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.75rem;
+      margin-bottom: 2rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    @media (min-width: 860px) {
+      .hero-grid {
+        grid-template-columns: 440px 1fr;
+        gap: 2.25rem;
+        align-items: start;
+      }
+    }
+
+    /* Media Column */
+    .media-col {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .screenshot-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #0d121f;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      display: block;
+      text-decoration: none;
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .screenshot-wrapper:hover, .screenshot-wrapper:focus-visible {
+      transform: translateY(-3px);
+      border-color: var(--border-hover);
+      box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.2);
+      outline: none;
+    }
+
+    .screenshot-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      z-index: 1;
+      transition: transform 0.3s ease;
+    }
+
+    .screenshot-wrapper:hover .screenshot-img {
+      transform: scale(1.03);
+    }
+
+    .screenshot-fallback {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #111827 0%, #1e293b 100%);
+      color: var(--text-sub);
+      z-index: 0;
+    }
+
+    .screenshot-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(11, 15, 25, 0.6);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      color: #fff;
+      font-weight: 700;
+      font-size: 1rem;
+      opacity: 0;
+      z-index: 2;
+      transition: opacity 0.2s ease;
+    }
+
+    .screenshot-wrapper:hover .screenshot-overlay,
+    .screenshot-wrapper:focus-visible .screenshot-overlay {
+      opacity: 1;
+    }
+
+    .play-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      width: 100%;
+      padding: 0.9rem 1.5rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+      background: var(--gradient-brand);
+      border-radius: 12px;
+      text-decoration: none;
+      box-shadow: 0 4px 16px rgba(56, 189, 248, 0.25);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+      cursor: pointer;
+    }
+
+    .play-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(56, 189, 248, 0.4);
+      filter: brightness(1.08);
+    }
+
+    .play-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
+    /* Info Column */
+    .info-col {
+      display: flex;
+      flex-direction: column;
+      gap: 1.15rem;
+    }
+
+    .version-title-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .version-label-title {
+      font-size: clamp(1.35rem, 3vw, 1.85rem);
+      font-weight: 800;
+      color: var(--text-main);
+      line-height: 1.25;
+    }
+
+    .commit-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: var(--text-sub);
+      text-decoration: none;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      transition: all 0.2s ease;
+    }
+
+    .commit-link:hover {
+      color: var(--accent-cyan);
+      border-color: var(--border-hover);
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+
+    .tag-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.22rem 0.65rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 9999px;
+    }
+
+    .version-summary {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    /* Known Issues Box */
+    .known-issues-card {
+      border-radius: 12px;
+      padding: 1.1rem 1.25rem;
+      background: rgba(245, 158, 11, 0.06);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+
+    .known-issues-card.no-issues {
+      background: rgba(34, 197, 94, 0.06);
+      border-color: rgba(34, 197, 94, 0.25);
+    }
+
+    .known-issues-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.92rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--accent-yellow);
+    }
+
+    .known-issues-card.no-issues .known-issues-header {
+      color: var(--accent-green);
+      margin-bottom: 0.25rem;
+    }
+
+    .known-issues-header svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .known-issues-list {
+      list-style-type: none;
+      padding-left: 0;
+      margin: 0.5rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .known-issues-list li {
+      font-size: 0.875rem;
+      color: #fde68a;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.45rem;
+      line-height: 1.5;
+    }
+
+    .known-issues-list li::before {
+      content: "•";
+      color: var(--accent-yellow);
+      font-size: 1.1rem;
+      line-height: 1.2;
+    }
+
+    .known-issues-note {
+      font-size: 0.76rem;
+      color: var(--text-sub);
+      margin-top: 0.5rem;
+      line-height: 1.4;
+    }
+
+    /* Detailed Sections Grid */
+    .sections-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.75rem;
+    }
+
+    @media (min-width: 900px) {
+      .sections-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 1.75rem;
+      }
+    }
+
+    .section-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 1.4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+    }
+
+    .section-card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-main);
+      padding-bottom: 0.6rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .section-card-header svg {
+      width: 20px;
+      height: 20px;
+      color: var(--accent-cyan);
+    }
+
+    /* Grok Instructions List */
+    .instructions-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .instructions-list li {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.55rem;
+    }
+
+    .instructions-list li svg {
+      width: 15px;
+      height: 15px;
+      color: var(--accent-cyan);
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+
+    /* Bugfixes List */
+    .bugfixes-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .bugfix-item {
+      background: rgba(11, 15, 25, 0.5);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .bugfix-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    .badge-symptom, .badge-fix {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.15rem 0.5rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .badge-symptom {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--accent-red);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .badge-fix {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    .symptom-text {
+      color: #cbd5e1;
+    }
+
+    .fix-text {
+      color: #e2e8f0;
+      font-weight: 500;
+    }
+
+    .bugfix-note {
+      font-size: 0.8rem;
+      color: var(--text-sub);
+      background: rgba(56, 189, 248, 0.05);
+      border: 1px solid rgba(56, 189, 248, 0.15);
+      border-radius: 8px;
+      padding: 0.6rem 0.85rem;
+      line-height: 1.45;
+    }
+
+    /* Details Accordion */
+    details.full-accordion {
+      background: rgba(11, 15, 25, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: auto;
+    }
+
+    details.full-accordion summary {
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background 0.2s ease;
+    }
+
+    details.full-accordion summary:hover {
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    details.full-accordion summary svg {
+      transition: transform 0.2s ease;
+    }
+
+    details.full-accordion[open] summary svg {
+      transform: rotate(180deg);
+    }
+
+    details.full-accordion[open] summary {
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .accordion-body {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .full-doc-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .doc-item-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .doc-item-aim {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      background: rgba(129, 140, 248, 0.08);
+      border-left: 3px solid var(--accent-indigo);
+      padding: 0.5rem 0.75rem;
+      border-radius: 0 6px 6px 0;
+      line-height: 1.45;
+    }
+
+    .doc-item-aim strong {
+      color: #c7d2fe;
+    }
+
+    .doc-item-text {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #090d16;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      color: #94a3b8;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+
+    /* Bottom Navigation (Prev / Next) */
+    .panel-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border-subtle);
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.25rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-main);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .nav-btn:hover:not(:disabled) {
+      border-color: var(--border-hover);
+      background: var(--bg-card-hover);
+      color: var(--accent-cyan);
+      transform: translateY(-1px);
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      border-color: var(--border-subtle);
+    }
+
+    .nav-btn svg {
+      width: 16px;
+      height: 16px;
+      stroke-width: 2.5;
+    }
+
+    .nav-indicator {
+      font-size: 0.85rem;
+      color: var(--text-sub);
+      font-weight: 600;
+    }
+
+    /* Loading & Error States */
+    .loading-state {
+      padding: 5rem 1rem;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--accent-cyan);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1.25rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .message-box {
+      padding: 3rem 2rem;
+      text-align: center;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+    }
+
+    .message-box.error-box {
+      border-color: rgba(239, 68, 68, 0.3);
+      background: rgba(239, 68, 68, 0.05);
+    }
+
+    .message-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 1rem;
+      color: #ef4444;
+    }
+
+    .message-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--text-main);
+    }
+
+    .message-desc {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      max-width: 460px;
+      margin: 0 auto 1.5rem;
+    }
+
+    .retry-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.25rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #fff;
+      background: #2563eb;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .retry-btn:hover {
+      background: #1d4ed8;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 2.5rem 0;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-sub);
+    }
+
+    footer p {
+      margin-bottom: 0.5rem;
+    }
+
+    footer a {
+      color: var(--text-muted);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    footer a:hover {
+      color: var(--accent-cyan);
+    }
+  </style>
 </head>
 <body>
-  <div id="app">
-    <!-- 3D Canvas Container -->
-    <div id="canvas-wrap"></div>
-
-    <!-- Floating 3D-projected popups, mode badges & toasts -->
-    <div id="mode-badges-layer" aria-hidden="true"></div>
-    <div id="popups-layer" aria-hidden="true"></div>
-    <div id="toast-container" aria-live="polite"></div>
-
-    <!-- Top HUD (visible in play / paused) -->
-    <header id="hud-top" class="hidden">
-      <div class="hud-row-main">
-        <div class="hud-card hud-light">
-          <div class="hud-label">灯り</div>
-          <div class="hud-value" id="hud-total-light">105</div>
-          <div class="hud-sub" id="hud-light-breakdown">所持 60 / 島 45</div>
-        </div>
-
-        <div class="hud-card hud-time">
-          <div class="hud-time-main" id="hud-time-left">夜明けまで 5:00</div>
-          <div class="hud-sub">つないだ島 <span id="hud-connected-count">1</span>/<span id="hud-total-islands">9</span><span id="hud-speed-badge" class="speed-badge hidden">10x</span></div>
-        </div>
-
-        <div class="hud-actions">
-          <button id="btn-guide-help" class="hud-btn-pause hud-btn-help" type="button" aria-label="ガイド表示">?</button>
-          <button id="btn-fast-forward" class="hud-btn-pause hud-btn-ff" type="button" aria-label="2倍速早送り">▶▶</button>
-          <button id="btn-pause" class="hud-btn-pause" type="button" aria-label="一時停止">
-            <span>❚❚</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="hud-row-sub">
-        <button id="btn-constellation" class="hud-btn-constellation" type="button" aria-label="今夜の星座">
-          <span class="const-icon">✦</span><span id="constellation-hud-name">星座</span>
-        </button>
-        <div id="event-banner" class="hud-event-pill hidden" role="status"></div>
-      </div>
-    </header>
-
-    <!-- 3-step onboarding guide bubble -->
-    <aside id="guide-bubble" class="hidden" aria-label="序盤ガイド">
-      <div class="guide-header">
-        <span class="guide-title">はじめの3ステップ</span>
-        <span id="guide-timer-note" class="guide-timer-note">※ステップ1までタイマー停止中</span>
-        <button id="btn-guide-close" class="pill-close" type="button" aria-label="ガイドを閉じる">✕</button>
-      </div>
-      <ol class="guide-steps">
-        <li id="guide-step-1" class="guide-step active">
-          <span class="guide-check">1</span>
-          <span class="guide-label">空きスロットをタップして<strong>街灯</strong>と<strong>屋台</strong>を建てよう</span>
-        </li>
-        <li id="guide-step-2" class="guide-step">
-          <span class="guide-check">2</span>
-          <span class="guide-label">「<strong>橋</strong>」で近くの島をつなごう</span>
-        </li>
-        <li id="guide-step-3" class="guide-step">
-          <span class="guide-check">3</span>
-          <span class="guide-label">「<strong>航路</strong>」で遠くの島へ船を出そう</span>
-        </li>
-      </ol>
-      <div class="guide-tip">※毎夜「星図」で配置が変わり、島の特性（🏮🌲⚓✨🌫🌀）は島タップで確認できます</div>
-      <div class="guide-footer">
-        <button id="btn-guide-dismiss" class="guide-dismiss-btn" type="button">もう表示しない</button>
-      </div>
-    </aside>
-
-    <!-- Selection pill above bottom panel -->
-    <div id="selection-banner" class="hidden">
-      <span id="selection-text"></span>
-      <button id="btn-cancel-selection" type="button" class="pill-close" aria-label="選択解除">✕</button>
+  <div class="container">
+    <div class="top-nav">
+      <a href="../" class="back-link" aria-label="ゲーム一覧へ戻る">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        ゲーム一覧
+      </a>
+      <a href="https://github.com/akariyachan/grok-gemini-games/blob/main/ukishima/DIRECTION.md" target="_blank" rel="noopener noreferrer" class="doc-link" aria-label="DIRECTION.md を開く（新しいタブ）">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        DIRECTION.md
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px; opacity: 0.7;">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
+        </svg>
+      </a>
     </div>
 
-    <!-- Bottom Action Panel -->
-    <footer id="hud-bottom" class="hidden">
-      <div class="mode-tabs" role="tablist">
-        <button class="mode-tab active" data-mode="build" type="button">建てる</button>
-        <button class="mode-tab" data-mode="bridge" type="button">橋</button>
-        <button class="mode-tab" data-mode="highBridge" type="button">高い橋</button>
-        <button class="mode-tab" data-mode="route" type="button">航路</button>
-        <button class="mode-tab" data-mode="remove" type="button">撤去</button>
+    <header>
+      <div class="badge-container">
+        <div class="badge">
+          <svg class="badge-icon" viewBox="0 0 24 24">
+            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+          </svg>
+          Version Archive
+        </div>
       </div>
+      <h1 class="site-title">浮島の灯り</h1>
+      <p class="subtitle">初回版から完成版まで、全6バージョンを遊び比べ</p>
+    </header>
 
-      <!-- Build Menu -->
-      <div id="panel-build" class="panel-content">
-        <div class="panel-hint" id="build-hint">光る島のスロットをタップして建物を選ぼう</div>
-        <div class="building-grid">
-          <button class="build-card" data-type="house" type="button">
-            <div class="b-icon">🏠</div>
-            <div class="b-name">家</div>
-            <div class="b-meta">灯り10 / 6秒</div>
-            <div class="b-desc">安定生産・家隣接+30%</div>
-          </button>
-          <button class="build-card" data-type="streetlight" type="button">
-            <div class="b-icon">🏮</div>
-            <div class="b-name">街灯</div>
-            <div class="b-meta">灯り6 / 3秒</div>
-            <div class="b-desc">隣を照らし生産UP</div>
-          </button>
-          <button class="build-card" data-type="stall" type="button">
-            <div class="b-icon">🎪</div>
-            <div class="b-name">屋台</div>
-            <div class="b-meta">灯り15 / 8秒</div>
-            <div class="b-desc">街灯隣で+50%</div>
-          </button>
-          <button class="build-card" data-type="lighthouse" type="button">
-            <div class="b-icon">🗼</div>
-            <div class="b-name">灯台</div>
-            <div class="b-meta">灯り25 / 12秒</div>
-            <div class="b-desc">減衰半減・船速+40%</div>
-          </button>
-        </div>
-      </div>
+    <section id="self-review" class="self-review-section" aria-label="Grokの自己評価" hidden></section>
 
-      <!-- Bridge / HighBridge / Route / Remove Context Panel -->
-      <div id="panel-action" class="panel-content hidden">
-        <div class="action-info-box">
-          <div class="action-title" id="action-title">橋を架ける</div>
-          <div class="action-desc" id="action-desc">つながっている島から近くの島を順にタップ（灯り17 / 4秒）</div>
-        </div>
-        <div id="selected-bridge-actions" class="hidden">
-          <button id="btn-remove-selected-bridge" class="danger-btn" type="button">この橋を撤去（灯り5）</button>
+    <section class="timeline-section" aria-label="バージョンタイムライン">
+      <div class="timeline-card">
+        <div class="timeline-container">
+          <div class="timeline-track-wrapper">
+            <div class="timeline-track-bg"></div>
+            <div id="timeline-track-fill" class="timeline-track-fill"></div>
+            <ul id="timeline-list" class="timeline-list" role="tablist" aria-label="バージョン選択">
+              <!-- Timeline buttons generated by JS -->
+            </ul>
+          </div>
         </div>
       </div>
+    </section>
+
+    <main>
+      <div id="main-content">
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>バージョンデータを読み込んでいます...</p>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <p>&copy; 2026 Grok × Gemini Games</p>
+      <p>企画・監修: Grok Bot / 実装: agy (Gemini 4 Hydrogen High)</p>
     </footer>
-
-    <!-- Title Screen -->
-    <section id="screen-title" class="overlay-screen">
-      <div class="modal-card title-card">
-        <div class="title-badge">箱庭リアルタイム戦略</div>
-        <h1 class="game-title">浮島の灯り</h1>
-        <p class="title-subtitle">夜明けまでの5分間、空に浮かぶ島々を橋と航路でつなぎ、夜の街に温かい灯りをともそう。</p>
-        <div class="chart-picker" aria-label="今夜の星図">
-          <div class="chart-picker-label">今夜の星図</div>
-          <div class="chart-picker-tabs">
-            <button id="btn-chart-daily" class="chart-btn active" data-chart="daily" type="button">今日の星図</button>
-            <button id="btn-chart-random" class="chart-btn" data-chart="random" type="button">おまかせ</button>
-          </div>
-          <div class="chart-seed-note" id="title-chart-note">日付シードでみんな同じ配置</div>
-        </div>
-        <div class="title-records">
-          <div class="title-best" id="title-best-score">今日の星図 ベスト: ---</div>
-          <div class="title-highest-rank" id="title-highest-rank">これまでの最高称号: なし</div>
-        </div>
-        <div class="modal-actions">
-          <button id="btn-start" class="primary-btn" type="button">はじめる</button>
-          <button id="btn-howto-title" class="secondary-btn" type="button">遊び方</button>
-          <a class="back-hub-link" href="https://akariyachan.github.io/grok-gemini-games/" target="_top" rel="noopener">← ゲーム一覧</a>
-        </div>
-      </div>
-    </section>
-
-    <!-- How-to-Play Overlay -->
-    <section id="screen-howto" class="overlay-screen hidden">
-      <div class="modal-card howto-card">
-        <h2>遊び方</h2>
-        <ul class="howto-list">
-          <li><strong>操作:</strong> ドラッグで視点回転、ピンチ（ホイール）で拡大縮小、タップで島・スロットを選択します。</li>
-          <li><strong>建物:</strong> つながった島に「家・街灯・屋台・灯台」を建築。隣接コンボや島を増やすネットワークボーナス（島+14%・橋+11%）で灯りが育ちます。</li>
-          <li><strong>橋・高い橋:</strong> 近くの島をすぐ接続（橋17/4秒・高い橋42/8秒・撤去5）。橋どうしは光の道で灯りを分け合います。</li>
-          <li><strong>航路・船:</strong> 遠くの島へ航路を引くと（灯り36）、船が「資材（建築加速）」と「お客（屋台・家UP）」を交互に運びます。</li>
-          <li><strong>交差ルール:</strong> 航路は通常の橋と交差できません（高い橋なら交差OK）。橋はプレビュー後に再タップで確定します。</li>
-          <li><strong>今夜の星図:</strong> 「今日の星図」（日替わり共通）と「おまかせ」（毎回変化）を選べます。ベストは星図ごとに保存。</li>
-          <li><strong>島の特性:</strong> 🏮市場(屋台UP) 🌲森(減衰半減) ⚓港(高速船・荷+1) ✨星見(節目2倍) 🌫霧(航路のみ) 🌀風(高い橋のみ)。</li>
-          <li><strong>光の道・環・星座:</strong> 灯りは始まりの島へ流れ（近い道ほど所持灯り増）、光の環を作ると生産+25%＆ボーナス。右上の✦星座を結ぶと達成ボーナス！</li>
-          <li><strong>夜の出来事・早送り:</strong> 🌠流れ星(タップで灯り+20〜40) 🌬夜風(船半速) 🌕満月(生産2倍) ⛵迷い船(航路半額)が発生。▶▶で2倍速、残り60秒は建築時間半分！</li>
-          <li><strong>夜明け:</strong> 5分経過または全島接続（残り秒×2ボーナス）で夜明け！総灯り＋ボーナスがスコアになります。</li>
-        </ul>
-        <div class="modal-actions">
-          <button id="btn-howto-close" class="primary-btn" type="button">とじる</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Pause Overlay -->
-    <section id="screen-pause" class="overlay-screen hidden">
-      <div class="modal-card pause-card">
-        <h2>一時停止</h2>
-        <div class="modal-actions">
-          <button id="btn-resume" class="primary-btn" type="button">再開</button>
-          <button id="btn-sound-toggle" class="secondary-btn" type="button">音: オン</button>
-          <button id="btn-howto-pause" class="secondary-btn" type="button">遊び方</button>
-          <button id="btn-restart-pause" class="secondary-btn" type="button">最初から</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Result Overlay -->
-    <section id="screen-result" class="overlay-screen hidden">
-      <div class="modal-card result-card">
-        <div class="result-badge" id="result-reason">夜明けが訪れました</div>
-        <div class="result-chart" id="result-chart-label">星図: 今日の星図</div>
-        <h2>夜の記録</h2>
-        <div class="result-score-wrap">
-          <div class="result-score-row">
-            <div>
-              <div class="result-score-label">総合スコア</div>
-              <div class="result-score" id="result-score">0</div>
-              <div class="result-best" id="result-best">ベスト: 0</div>
-            </div>
-            <div class="result-rank-box">
-              <div class="result-rank-label">今夜の称号</div>
-              <div class="result-rank-name" id="result-rank-badge">小さな灯り</div>
-              <div class="result-next-goal" id="result-next-goal">次の称号まであと 1500</div>
-            </div>
-          </div>
-        </div>
-        <div class="result-map-wrap">
-          <div class="result-map-header">
-            <span class="result-map-title">今夜の光の道</span>
-            <span class="result-map-legend">─ 橋 ／ ┈ 航路 ／ ✦ 星座</span>
-          </div>
-          <canvas id="result-map-canvas" width="360" height="170"></canvas>
-        </div>
-        <div class="result-breakdown">
-          <div class="rb-row"><span>島の灯り合計</span><span id="rb-islands-light">0</span></div>
-          <div class="rb-row"><span>所持灯り</span><span id="rb-wallet-light">0</span></div>
-          <div class="rb-row"><span>つないだ島数</span><span id="rb-connected">1 / 9</span></div>
-          <div class="rb-row"><span>残り時間ボーナス</span><span id="rb-time-bonus">+0</span></div>
-          <div class="rb-row"><span>環ボーナス</span><span id="rb-loop-bonus">+0</span></div>
-          <div class="rb-row"><span>星座ボーナス</span><span id="rb-constellation-bonus">+0</span></div>
-        </div>
-        <p class="score-formula">※総灯り（島＋所持）＋環・星座・時間ボーナス</p>
-        <div class="result-share-row">
-          <button id="btn-copy-result" class="secondary-btn share-btn" type="button">結果をコピー</button>
-          <button id="btn-save-image" class="secondary-btn share-btn" type="button">画像を保存</button>
-        </div>
-        <div class="modal-actions">
-          <button id="btn-retry" class="primary-btn" type="button">もう一夜</button>
-          <a class="back-hub-link" href="https://akariyachan.github.io/grok-gemini-games/" target="_top" rel="noopener">← ゲーム一覧</a>
-        </div>
-      </div>
-    </section>
   </div>
 
-  <script type="module" src="main.js"></script>
+  <script>
+    let gGameData = null;
+    let gCurrentVersionIndex = 0;
+
+    function escapeHtml(str) {
+      if (typeof str !== 'string') return '';
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function getTimelineLabels(id, label) {
+      if (id === 'v0') return { short: '初回版', full: '初回版' };
+      if (id === 'v5') return { short: '完成版', full: '第5回 完成版' };
+      const m = id.match(/\d+/);
+      const numStr = m ? `第${m[0]}回` : label;
+      return { short: numStr, full: numStr };
+    }
+
+    function getVersionIdFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get('v');
+      if (!v) return null;
+      const clean = v.trim().toLowerCase();
+      return clean.startsWith('v') ? clean : 'v' + clean;
+    }
+
+    function updateUrl(versionId) {
+      const num = versionId.replace(/^v/i, '');
+      const url = new URL(window.location);
+      url.searchParams.set('v', num);
+      window.history.replaceState({ versionId }, '', url.toString());
+    }
+
+    function updateTrackFill() {
+      const fillEl = document.getElementById('timeline-track-fill');
+      if (!fillEl || !gGameData || gGameData.versions.length <= 1) return;
+      const pct = (gCurrentVersionIndex / (gGameData.versions.length - 1)) * 100;
+      fillEl.style.width = `calc(${pct}% * 10 / 12)`;
+    }
+
+    function renderTimeline() {
+      const listEl = document.getElementById('timeline-list');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+
+      gGameData.versions.forEach((ver, index) => {
+        const isSelected = index === gCurrentVersionIndex;
+        const li = document.createElement('li');
+        li.className = 'timeline-item';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'timeline-btn';
+        btn.id = `tab-${ver.id}`;
+        btn.setAttribute('role', 'tab');
+        btn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+        btn.setAttribute('aria-controls', 'version-panel');
+        btn.setAttribute('tabindex', isSelected ? '0' : '-1');
+
+        const node = document.createElement('span');
+        node.className = 'timeline-node';
+        node.textContent = ver.id;
+
+        const label = document.createElement('span');
+        label.className = 'timeline-label';
+
+        const labels = getTimelineLabels(ver.id, ver.label);
+
+        const shortLabel = document.createElement('span');
+        shortLabel.className = 'timeline-label-short';
+        shortLabel.textContent = labels.short;
+
+        const fullLabel = document.createElement('span');
+        fullLabel.className = 'timeline-label-full';
+        fullLabel.textContent = labels.full;
+
+        label.appendChild(shortLabel);
+        label.appendChild(fullLabel);
+
+        btn.appendChild(node);
+        btn.appendChild(label);
+
+        if (isSelected) {
+          btn.setAttribute('aria-current', 'step');
+        }
+
+        btn.addEventListener('click', () => {
+          selectVersion(index, true);
+        });
+
+        li.appendChild(btn);
+        listEl.appendChild(li);
+      });
+
+      updateTrackFill();
+    }
+
+    function renderVersionPanel() {
+      const mainEl = document.getElementById('main-content');
+      if (!mainEl || !gGameData) return;
+
+      const ver = gGameData.versions[gCurrentVersionIndex];
+      const isLatest = ver.id === gGameData.latest;
+      const playBtnText = isLatest ? '完成版で遊ぶ' : `${ver.label}で遊ぶ`;
+      const playHref = encodeURI(ver.path);
+      const commitUrl = `https://github.com/akariyachan/grok-gemini-games/commit/${encodeURIComponent(ver.commit)}`;
+
+      // Update timeline tabs state
+      gGameData.versions.forEach((v, idx) => {
+        const tabBtn = document.getElementById(`tab-${v.id}`);
+        if (tabBtn) {
+          const selected = idx === gCurrentVersionIndex;
+          tabBtn.setAttribute('aria-selected', selected ? 'true' : 'false');
+          tabBtn.setAttribute('tabindex', selected ? '0' : '-1');
+          if (selected) {
+            tabBtn.setAttribute('aria-current', 'step');
+          } else {
+            tabBtn.removeAttribute('aria-current');
+          }
+        }
+      });
+      updateTrackFill();
+
+      // Ensure active timeline button is visible in small screens
+      const activeBtn = document.getElementById(`tab-${ver.id}`);
+      if (activeBtn) {
+        activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+
+      // Root Card
+      const card = document.createElement('div');
+      card.className = 'version-panel-card';
+      card.id = 'version-panel';
+      card.setAttribute('role', 'tabpanel');
+      card.setAttribute('aria-labelledby', `tab-${ver.id}`);
+
+      // 1. Hero Grid (Screenshot & Meta Info)
+      const heroGrid = document.createElement('div');
+      heroGrid.className = 'hero-grid';
+
+      // Left: Media Col
+      const mediaCol = document.createElement('div');
+      mediaCol.className = 'media-col';
+
+      const screenWrapper = document.createElement('a');
+      screenWrapper.href = playHref;
+      screenWrapper.className = 'screenshot-wrapper';
+      screenWrapper.setAttribute('aria-label', `${ver.label} をプレイする`);
+
+      const screenFallback = document.createElement('div');
+      screenFallback.className = 'screenshot-fallback';
+      screenFallback.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+          <rect x="2" y="6" width="20" height="12" rx="2"/>
+          <path d="M6 12h4m-2-2v4m10-2h.01m-3 0h.01"/>
+        </svg>
+      `;
+      screenWrapper.appendChild(screenFallback);
+
+      const screenImg = document.createElement('img');
+      screenImg.src = encodeURI(ver.thumb);
+      screenImg.alt = `${ver.label} のゲーム画面`;
+      screenImg.className = 'screenshot-img';
+      screenImg.onerror = function() { this.style.display = 'none'; };
+      screenWrapper.appendChild(screenImg);
+
+      const screenOverlay = document.createElement('div');
+      screenOverlay.className = 'screenshot-overlay';
+      screenOverlay.innerHTML = `
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+        クリックでプレイ
+      `;
+      screenWrapper.appendChild(screenOverlay);
+
+      const playBtn = document.createElement('a');
+      playBtn.href = playHref;
+      playBtn.className = 'play-btn';
+      playBtn.innerHTML = `
+        <svg viewBox="0 0 24 24">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+        ${escapeHtml(playBtnText)}
+      `;
+
+      mediaCol.appendChild(screenWrapper);
+      mediaCol.appendChild(playBtn);
+
+      // Right: Info Col
+      const infoCol = document.createElement('div');
+      infoCol.className = 'info-col';
+
+      // Title & Commit row
+      const titleRow = document.createElement('div');
+      titleRow.className = 'version-title-row';
+
+      const labelTitle = document.createElement('h2');
+      labelTitle.className = 'version-label-title';
+      labelTitle.textContent = ver.label;
+
+      const commitLink = document.createElement('a');
+      commitLink.href = commitUrl;
+      commitLink.target = '_blank';
+      commitLink.rel = 'noopener noreferrer';
+      commitLink.className = 'commit-link';
+      commitLink.title = 'GitHubでコミットを確認';
+      commitLink.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <circle cx="12" cy="12" r="3"/>
+          <line x1="3" y1="12" x2="9" y2="12"/>
+          <line x1="15" y1="12" x2="21" y2="12"/>
+        </svg>
+        ${escapeHtml(ver.commit)}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/>
+          <line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+      `;
+
+      titleRow.appendChild(labelTitle);
+      titleRow.appendChild(commitLink);
+      infoCol.appendChild(titleRow);
+
+      // Tags
+      if (Array.isArray(ver.tags) && ver.tags.length > 0) {
+        const tagList = document.createElement('div');
+        tagList.className = 'tag-list';
+        ver.tags.forEach(tag => {
+          const tagSpan = document.createElement('span');
+          tagSpan.className = 'tag-badge';
+          tagSpan.textContent = tag;
+          tagList.appendChild(tagSpan);
+        });
+        infoCol.appendChild(tagList);
+      }
+
+      // Summary
+      const summaryP = document.createElement('p');
+      summaryP.className = 'version-summary';
+      summaryP.textContent = ver.summary;
+      infoCol.appendChild(summaryP);
+
+      // Known Issues
+      const hasIssues = Array.isArray(ver.knownIssues) && ver.knownIssues.length > 0;
+      const issuesCard = document.createElement('div');
+      issuesCard.className = `known-issues-card ${hasIssues ? '' : 'no-issues'}`;
+
+      const issuesHeader = document.createElement('div');
+      issuesHeader.className = 'known-issues-header';
+
+      if (hasIssues) {
+        issuesHeader.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          この版に残っているバグ（${ver.knownIssues.length}件）
+        `;
+        issuesCard.appendChild(issuesHeader);
+
+        const ul = document.createElement('ul');
+        ul.className = 'known-issues-list';
+        ver.knownIssues.forEach(issue => {
+          const li = document.createElement('li');
+          li.textContent = issue;
+          ul.appendChild(li);
+        });
+        issuesCard.appendChild(ul);
+      } else {
+        issuesHeader.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          既知のバグはありません
+        `;
+        issuesCard.appendChild(issuesHeader);
+      }
+
+      const noteP = document.createElement('p');
+      noteP.className = 'known-issues-note';
+      noteP.textContent = '当時のコードをそのまま残しているため、後の版で直したバグもこの版では再現します。';
+      issuesCard.appendChild(noteP);
+
+      infoCol.appendChild(issuesCard);
+
+      heroGrid.appendChild(mediaCol);
+      heroGrid.appendChild(infoCol);
+      card.appendChild(heroGrid);
+
+      // 2. Sections Grid (Instructions & Bugfixes)
+      const sectionsGrid = document.createElement('div');
+      sectionsGrid.className = 'sections-grid';
+
+      // Section 1: Grok's Instructions
+      const instSection = document.createElement('div');
+      instSection.className = 'section-card';
+
+      const instHeader = document.createElement('h3');
+      instHeader.className = 'section-card-header';
+      instHeader.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+        Grokの改善指示
+      `;
+      instSection.appendChild(instHeader);
+
+      if (Array.isArray(ver.grokInstructions) && ver.grokInstructions.length > 0) {
+        const instList = document.createElement('ul');
+        instList.className = 'instructions-list';
+        ver.grokInstructions.forEach(text => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          `;
+          const span = document.createElement('span');
+          span.textContent = text;
+          li.appendChild(span);
+          instList.appendChild(li);
+        });
+        instSection.appendChild(instList);
+      }
+
+      // Details: Grok Instructions Full
+      if (Array.isArray(ver.grokInstructionsFull) && ver.grokInstructionsFull.length > 0) {
+        const details = document.createElement('details');
+        details.className = 'full-accordion';
+
+        const summary = document.createElement('summary');
+        summary.innerHTML = `
+          <span>ディレクション指示の原文を見る (${ver.grokInstructionsFull.length}件)</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        `;
+        details.appendChild(summary);
+
+        const body = document.createElement('div');
+        body.className = 'accordion-body';
+
+        ver.grokInstructionsFull.forEach(item => {
+          const docItem = document.createElement('div');
+          docItem.className = 'full-doc-item';
+
+          if (item.title) {
+            const h4 = document.createElement('h4');
+            h4.className = 'doc-item-title';
+            h4.textContent = item.title;
+            docItem.appendChild(h4);
+          }
+
+          if (item.aim) {
+            const aimDiv = document.createElement('div');
+            aimDiv.className = 'doc-item-aim';
+            aimDiv.innerHTML = `<strong>狙い:</strong> `;
+            const aimText = document.createTextNode(item.aim);
+            aimDiv.appendChild(aimText);
+            docItem.appendChild(aimDiv);
+          }
+
+          if (item.text) {
+            const pre = document.createElement('pre');
+            pre.className = 'doc-item-text';
+            pre.textContent = item.text;
+            docItem.appendChild(pre);
+          }
+
+          body.appendChild(docItem);
+        });
+
+        details.appendChild(body);
+        instSection.appendChild(details);
+      }
+
+      sectionsGrid.appendChild(instSection);
+
+      // Section 2: Bugfixes
+      const bugSection = document.createElement('div');
+      bugSection.className = 'section-card';
+
+      const bugHeader = document.createElement('h3');
+      bugHeader.className = 'section-card-header';
+      bugHeader.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+        </svg>
+        バグ修正
+      `;
+      bugSection.appendChild(bugHeader);
+
+      if (Array.isArray(ver.bugfixes) && ver.bugfixes.length > 0) {
+        const bugList = document.createElement('div');
+        bugList.className = 'bugfixes-list';
+
+        ver.bugfixes.forEach(bf => {
+          const item = document.createElement('div');
+          item.className = 'bugfix-item';
+
+          const sympRow = document.createElement('div');
+          sympRow.className = 'bugfix-row';
+          const sympBadge = document.createElement('span');
+          sympBadge.className = 'badge-symptom';
+          sympBadge.textContent = '症状';
+          const sympText = document.createElement('span');
+          sympText.className = 'symptom-text';
+          sympText.textContent = bf.symptom;
+          sympRow.appendChild(sympBadge);
+          sympRow.appendChild(sympText);
+
+          const fixRow = document.createElement('div');
+          fixRow.className = 'bugfix-row';
+          const fixBadge = document.createElement('span');
+          fixBadge.className = 'badge-fix';
+          fixBadge.textContent = '修正';
+          const fixText = document.createElement('span');
+          fixText.className = 'fix-text';
+          fixText.textContent = bf.fix;
+          fixRow.appendChild(fixBadge);
+          fixRow.appendChild(fixText);
+
+          item.appendChild(sympRow);
+          item.appendChild(fixRow);
+          bugList.appendChild(item);
+        });
+
+        bugSection.appendChild(bugList);
+      }
+
+      if (ver.bugfixNote) {
+        const noteDiv = document.createElement('div');
+        noteDiv.className = 'bugfix-note';
+        noteDiv.textContent = ver.bugfixNote;
+        bugSection.appendChild(noteDiv);
+      }
+
+      // Details: Bugfix Full
+      if (Array.isArray(ver.bugfixFull) && ver.bugfixFull.length > 0) {
+        const details = document.createElement('details');
+        details.className = 'full-accordion';
+
+        const summary = document.createElement('summary');
+        summary.innerHTML = `
+          <span>修正指示の原文を見る (${ver.bugfixFull.length}件)</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        `;
+        details.appendChild(summary);
+
+        const body = document.createElement('div');
+        body.className = 'accordion-body';
+
+        ver.bugfixFull.forEach(item => {
+          const docItem = document.createElement('div');
+          docItem.className = 'full-doc-item';
+
+          if (item.title) {
+            const h4 = document.createElement('h4');
+            h4.className = 'doc-item-title';
+            h4.textContent = item.title;
+            docItem.appendChild(h4);
+          }
+
+          if (item.aim) {
+            const aimDiv = document.createElement('div');
+            aimDiv.className = 'doc-item-aim';
+            aimDiv.innerHTML = `<strong>狙い:</strong> `;
+            const aimText = document.createTextNode(item.aim);
+            aimDiv.appendChild(aimText);
+            docItem.appendChild(aimDiv);
+          }
+
+          if (item.text) {
+            const pre = document.createElement('pre');
+            pre.className = 'doc-item-text';
+            pre.textContent = item.text;
+            docItem.appendChild(pre);
+          }
+
+          body.appendChild(docItem);
+        });
+
+        details.appendChild(body);
+        bugSection.appendChild(details);
+      }
+
+      sectionsGrid.appendChild(bugSection);
+      card.appendChild(sectionsGrid);
+
+      // 3. Bottom Navigation (Prev / Next Buttons)
+      const navDiv = document.createElement('div');
+      navDiv.className = 'panel-nav';
+
+      const prevBtn = document.createElement('button');
+      prevBtn.type = 'button';
+      prevBtn.className = 'nav-btn';
+      prevBtn.disabled = gCurrentVersionIndex <= 0;
+      prevBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        前の版
+      `;
+      prevBtn.addEventListener('click', () => {
+        if (gCurrentVersionIndex > 0) {
+          selectVersion(gCurrentVersionIndex - 1, true);
+        }
+      });
+
+      const indicator = document.createElement('div');
+      indicator.className = 'nav-indicator';
+      indicator.textContent = `${ver.id} (${gCurrentVersionIndex + 1} / ${gGameData.versions.length})`;
+
+      const nextBtn = document.createElement('button');
+      nextBtn.type = 'button';
+      nextBtn.className = 'nav-btn';
+      nextBtn.disabled = gCurrentVersionIndex >= gGameData.versions.length - 1;
+      nextBtn.innerHTML = `
+        次の版
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      `;
+      nextBtn.addEventListener('click', () => {
+        if (gCurrentVersionIndex < gGameData.versions.length - 1) {
+          selectVersion(gCurrentVersionIndex + 1, true);
+        }
+      });
+
+      navDiv.appendChild(prevBtn);
+      navDiv.appendChild(indicator);
+      navDiv.appendChild(nextBtn);
+
+      card.appendChild(navDiv);
+
+      mainEl.innerHTML = '';
+      mainEl.appendChild(card);
+    }
+
+    function selectVersion(index, updateHistory) {
+      if (!gGameData || index < 0 || index >= gGameData.versions.length) return;
+      gCurrentVersionIndex = index;
+      const ver = gGameData.versions[index];
+
+      if (updateHistory) {
+        updateUrl(ver.id);
+      }
+
+      renderVersionPanel();
+    }
+
+    function setupKeyboardNavigation() {
+      window.addEventListener('keydown', (e) => {
+        // Form controls or editable areas check
+        const tag = (e.target.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+
+        // If focus is within timeline or general window navigation
+        if (e.key === 'ArrowLeft') {
+          if (gCurrentVersionIndex > 0) {
+            e.preventDefault();
+            selectVersion(gCurrentVersionIndex - 1, true);
+            const activeTab = document.getElementById(`tab-${gGameData.versions[gCurrentVersionIndex].id}`);
+            if (activeTab) activeTab.focus();
+          }
+        } else if (e.key === 'ArrowRight') {
+          if (gCurrentVersionIndex < gGameData.versions.length - 1) {
+            e.preventDefault();
+            selectVersion(gCurrentVersionIndex + 1, true);
+            const activeTab = document.getElementById(`tab-${gGameData.versions[gCurrentVersionIndex].id}`);
+            if (activeTab) activeTab.focus();
+          }
+        }
+      });
+    }
+
+    function showError(err) {
+      console.error('Failed to load version data:', err);
+      const mainEl = document.getElementById('main-content');
+      if (!mainEl) return;
+      mainEl.innerHTML = `
+        <div class="message-box error-box" role="alert">
+          <svg class="message-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <h3 class="message-title">バージョンデータの読み込みに失敗しました</h3>
+          <p class="message-desc">${escapeHtml(err.message || 'データを受信できませんでした。')}</p>
+          <button type="button" class="retry-btn" onclick="init()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+            </svg>
+            再読み込み
+          </button>
+        </div>
+      `;
+    }
+
+
+    async function renderSelfReview() {
+      const el = document.getElementById('self-review');
+      if (!el) return;
+      try {
+        const res = await fetch('../games.json');
+        if (!res.ok) return;
+        const games = await res.json();
+        const id = location.pathname.split('/').filter(Boolean).pop();
+        const g = games.find(x => x.id === id || x.folder === id);
+        const sr = g && g.selfReview;
+        if (!sr) return;
+        const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const li = a => (a || []).map(x => `<li>${esc(x)}</li>`).join('');
+        el.innerHTML = `
+          <div class="self-review-card">
+            <div class="sr-head"><h2 class="sr-title">Grokの自己評価</h2><div class="sr-score">${esc(sr.score)}<small>/100</small></div></div>
+            <div class="sr-cols">
+              <div class="sr-col good"><h3>よかったところ</h3><ul>${li(sr.strengths)}</ul></div>
+              <div class="sr-col bad"><h3>物足りないところ</h3><ul>${li(sr.weaknesses)}</ul></div>
+            </div>
+            <p class="sr-comment"><strong>ひとこと：</strong>${esc(sr.comment)}</p>
+          </div>`;
+        el.hidden = false;
+      } catch (e) { /* 自己評価が読めなくてもページは動かす */ }
+    }
+
+    async function init() {
+      const mainEl = document.getElementById('main-content');
+      if (mainEl) {
+        mainEl.innerHTML = `
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <p>バージョンデータを読み込んでいます...</p>
+          </div>
+        `;
+      }
+
+      try {
+        const res = await fetch('versions.json');
+        if (!res.ok) {
+          throw new Error(`versions.json の取得に失敗しました (HTTP ${res.status})`);
+        }
+        gGameData = await res.json();
+        if (!gGameData || !Array.isArray(gGameData.versions) || gGameData.versions.length === 0) {
+          throw new Error('versions.json のデータ形式が不正です');
+        }
+
+        const urlVersionId = getVersionIdFromUrl();
+        const latestId = gGameData.latest || gGameData.versions[gGameData.versions.length - 1].id;
+        const targetId = urlVersionId || latestId;
+
+        let foundIdx = gGameData.versions.findIndex(v => v.id.toLowerCase() === targetId.toLowerCase());
+        if (foundIdx === -1) {
+          foundIdx = gGameData.versions.findIndex(v => v.id.toLowerCase() === latestId.toLowerCase());
+        }
+        if (foundIdx === -1) {
+          foundIdx = gGameData.versions.length - 1;
+        }
+
+        gCurrentVersionIndex = foundIdx;
+        renderTimeline();
+        renderVersionPanel();
+
+      } catch (err) {
+        showError(err);
+      }
+    }
+
+    window.addEventListener('popstate', () => {
+      if (!gGameData) return;
+      const urlVersionId = getVersionIdFromUrl();
+      const latestId = gGameData.latest || gGameData.versions[gGameData.versions.length - 1].id;
+      const targetId = urlVersionId || latestId;
+      let foundIdx = gGameData.versions.findIndex(v => v.id.toLowerCase() === targetId.toLowerCase());
+      if (foundIdx === -1) {
+        foundIdx = gGameData.versions.findIndex(v => v.id.toLowerCase() === latestId.toLowerCase());
+      }
+      if (foundIdx >= 0 && foundIdx !== gCurrentVersionIndex) {
+        selectVersion(foundIdx, false);
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      init();
+      renderSelfReview();
+      setupKeyboardNavigation();
+    });
+  </script>
 </body>
 </html>

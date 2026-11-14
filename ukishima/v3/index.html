@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>浮島の灯り</title>
+  <link rel="stylesheet" href="style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <!-- 3D Canvas Container -->
+    <div id="canvas-wrap"></div>
+
+    <!-- Floating 3D-projected popups, mode badges & toasts -->
+    <div id="mode-badges-layer" aria-hidden="true"></div>
+    <div id="popups-layer" aria-hidden="true"></div>
+    <div id="toast-container" aria-live="polite"></div>
+
+    <!-- Top HUD (visible in play / paused) -->
+    <header id="hud-top" class="hidden">
+      <div class="hud-row-main">
+        <div class="hud-card hud-light">
+          <div class="hud-label">灯り</div>
+          <div class="hud-value" id="hud-total-light">105</div>
+          <div class="hud-sub" id="hud-light-breakdown">所持 60 / 島 45</div>
+        </div>
+
+        <div class="hud-card hud-time">
+          <div class="hud-time-main" id="hud-time-left">夜明けまで 5:00</div>
+          <div class="hud-sub">つないだ島 <span id="hud-connected-count">1</span>/<span id="hud-total-islands">9</span><span id="hud-speed-badge" class="speed-badge hidden">10x</span></div>
+        </div>
+
+        <div class="hud-actions">
+          <button id="btn-guide-help" class="hud-btn-pause hud-btn-help" type="button" aria-label="ガイド表示">?</button>
+          <button id="btn-pause" class="hud-btn-pause" type="button" aria-label="一時停止">
+            <span>❚❚</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="hud-row-sub">
+        <button id="btn-constellation" class="hud-btn-constellation" type="button" aria-label="今夜の星座">
+          <span class="const-icon">✦</span><span id="constellation-hud-name">星座</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 3-step onboarding guide bubble -->
+    <aside id="guide-bubble" class="hidden" aria-label="序盤ガイド">
+      <div class="guide-header">
+        <span class="guide-title">はじめの3ステップ</span>
+        <span id="guide-timer-note" class="guide-timer-note">※ステップ1までタイマー停止中</span>
+        <button id="btn-guide-close" class="pill-close" type="button" aria-label="ガイドを閉じる">✕</button>
+      </div>
+      <ol class="guide-steps">
+        <li id="guide-step-1" class="guide-step active">
+          <span class="guide-check">1</span>
+          <span class="guide-label">空きスロットをタップして<strong>街灯</strong>と<strong>屋台</strong>を建てよう</span>
+        </li>
+        <li id="guide-step-2" class="guide-step">
+          <span class="guide-check">2</span>
+          <span class="guide-label">「<strong>橋</strong>」で近くの島をつなごう</span>
+        </li>
+        <li id="guide-step-3" class="guide-step">
+          <span class="guide-check">3</span>
+          <span class="guide-label">「<strong>航路</strong>」で遠くの島へ船を出そう</span>
+        </li>
+      </ol>
+      <div class="guide-tip">※毎夜「星図」で配置が変わり、島の特性（🏮🌲⚓✨🌫🌀）は島タップで確認できます</div>
+      <div class="guide-footer">
+        <button id="btn-guide-dismiss" class="guide-dismiss-btn" type="button">もう表示しない</button>
+      </div>
+    </aside>
+
+    <!-- Selection pill above bottom panel -->
+    <div id="selection-banner" class="hidden">
+      <span id="selection-text"></span>
+      <button id="btn-cancel-selection" type="button" class="pill-close" aria-label="選択解除">✕</button>
+    </div>
+
+    <!-- Bottom Action Panel -->
+    <footer id="hud-bottom" class="hidden">
+      <div class="mode-tabs" role="tablist">
+        <button class="mode-tab active" data-mode="build" type="button">建てる</button>
+        <button class="mode-tab" data-mode="bridge" type="button">橋</button>
+        <button class="mode-tab" data-mode="highBridge" type="button">高い橋</button>
+        <button class="mode-tab" data-mode="route" type="button">航路</button>
+        <button class="mode-tab" data-mode="remove" type="button">撤去</button>
+      </div>
+
+      <!-- Build Menu -->
+      <div id="panel-build" class="panel-content">
+        <div class="panel-hint" id="build-hint">光る島のスロットをタップして建物を選ぼう</div>
+        <div class="building-grid">
+          <button class="build-card" data-type="house" type="button">
+            <div class="b-icon">🏠</div>
+            <div class="b-name">家</div>
+            <div class="b-meta">灯り10 / 6秒</div>
+            <div class="b-desc">安定生産・家隣接+30%</div>
+          </button>
+          <button class="build-card" data-type="streetlight" type="button">
+            <div class="b-icon">🏮</div>
+            <div class="b-name">街灯</div>
+            <div class="b-meta">灯り6 / 3秒</div>
+            <div class="b-desc">隣を照らし生産UP</div>
+          </button>
+          <button class="build-card" data-type="stall" type="button">
+            <div class="b-icon">🎪</div>
+            <div class="b-name">屋台</div>
+            <div class="b-meta">灯り15 / 8秒</div>
+            <div class="b-desc">街灯隣で+50%</div>
+          </button>
+          <button class="build-card" data-type="lighthouse" type="button">
+            <div class="b-icon">🗼</div>
+            <div class="b-name">灯台</div>
+            <div class="b-meta">灯り25 / 12秒</div>
+            <div class="b-desc">減衰半減・船速+40%</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Bridge / HighBridge / Route / Remove Context Panel -->
+      <div id="panel-action" class="panel-content hidden">
+        <div class="action-info-box">
+          <div class="action-title" id="action-title">橋を架ける</div>
+          <div class="action-desc" id="action-desc">つながっている島から近くの島を順にタップ（灯り17 / 4秒）</div>
+        </div>
+        <div id="selected-bridge-actions" class="hidden">
+          <button id="btn-remove-selected-bridge" class="danger-btn" type="button">この橋を撤去（灯り5）</button>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Title Screen -->
+    <section id="screen-title" class="overlay-screen">
+      <div class="modal-card title-card">
+        <div class="title-badge">箱庭リアルタイム戦略</div>
+        <h1 class="game-title">浮島の灯り</h1>
+        <p class="title-subtitle">夜明けまでの5分間、空に浮かぶ島々を橋と航路でつなぎ、夜の街に温かい灯りをともそう。</p>
+        <div class="chart-picker" aria-label="今夜の星図">
+          <div class="chart-picker-label">今夜の星図</div>
+          <div class="chart-picker-tabs">
+            <button id="btn-chart-daily" class="chart-btn active" data-chart="daily" type="button">今日の星図</button>
+            <button id="btn-chart-random" class="chart-btn" data-chart="random" type="button">おまかせ</button>
+          </div>
+          <div class="chart-seed-note" id="title-chart-note">日付シードでみんな同じ配置</div>
+        </div>
+        <div class="title-best" id="title-best-score">ベストスコア: ---</div>
+        <div class="modal-actions">
+          <button id="btn-start" class="primary-btn" type="button">はじめる</button>
+          <button id="btn-howto-title" class="secondary-btn" type="button">遊び方</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- How-to-Play Overlay -->
+    <section id="screen-howto" class="overlay-screen hidden">
+      <div class="modal-card howto-card">
+        <h2>遊び方</h2>
+        <ul class="howto-list">
+          <li><strong>操作:</strong> ドラッグで視点回転、ピンチ（ホイール）で拡大縮小、タップで島・スロットを選択します。</li>
+          <li><strong>建物:</strong> つながった島に「家・街灯・屋台・灯台」を建築。隣接コンボや島を増やすネットワークボーナス（島+14%・橋+11%）で灯りが育ちます。</li>
+          <li><strong>橋・高い橋:</strong> 近くの島をすぐ接続（橋17/4秒・高い橋42/8秒・撤去5）。橋どうしは光の道で灯りを分け合います。</li>
+          <li><strong>航路・船:</strong> 遠くの島へ航路を引くと（灯り36）、船が「資材（建築加速）」と「お客（屋台・家UP）」を交互に運びます。</li>
+          <li><strong>交差ルール:</strong> 航路は通常の橋と交差できません（高い橋なら交差OK）。橋はプレビュー後に再タップで確定します。</li>
+          <li><strong>今夜の星図:</strong> 「今日の星図」（日替わり共通）と「おまかせ」（毎回変化）を選べます。ベストは星図ごとに保存。</li>
+          <li><strong>島の特性:</strong> 🏮市場(屋台UP) 🌲森(減衰半減) ⚓港(高速船・荷+1) ✨星見(節目2倍) 🌫霧(航路のみ) 🌀風(高い橋のみ)。</li>
+          <li><strong>光の道・環・星座:</strong> 灯りは始まりの島へ流れ（近い道ほど所持灯り増）、光の環を作ると生産+25%＆ボーナス。右上の✦星座を結ぶと達成ボーナス！</li>
+          <li><strong>夜明け:</strong> 5分経過または全島接続（残り秒×2ボーナス）で夜明け！総灯り＋ボーナスがスコアになります。</li>
+        </ul>
+        <div class="modal-actions">
+          <button id="btn-howto-close" class="primary-btn" type="button">とじる</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pause Overlay -->
+    <section id="screen-pause" class="overlay-screen hidden">
+      <div class="modal-card pause-card">
+        <h2>一時停止</h2>
+        <div class="modal-actions">
+          <button id="btn-resume" class="primary-btn" type="button">再開</button>
+          <button id="btn-howto-pause" class="secondary-btn" type="button">遊び方</button>
+          <button id="btn-restart-pause" class="secondary-btn" type="button">最初から</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Result Overlay -->
+    <section id="screen-result" class="overlay-screen hidden">
+      <div class="modal-card result-card">
+        <div class="result-badge" id="result-reason">夜明けが訪れました</div>
+        <div class="result-chart" id="result-chart-label">星図: 今日の星図</div>
+        <h2>夜の記録</h2>
+        <div class="result-score-wrap">
+          <div class="result-score-label">総合スコア</div>
+          <div class="result-score" id="result-score">0</div>
+          <div class="result-best" id="result-best">ベスト: 0</div>
+        </div>
+        <div class="result-map-wrap">
+          <div class="result-map-header">
+            <span class="result-map-title">今夜の光の道</span>
+            <span class="result-map-legend">─ 橋 ／ ┈ 航路 ／ ✦ 星座</span>
+          </div>
+          <canvas id="result-map-canvas" width="360" height="200"></canvas>
+        </div>
+        <div class="result-breakdown">
+          <div class="rb-row"><span>島の灯り合計</span><span id="rb-islands-light">0</span></div>
+          <div class="rb-row"><span>所持灯り</span><span id="rb-wallet-light">0</span></div>
+          <div class="rb-row"><span>つないだ島数</span><span id="rb-connected">1 / 9</span></div>
+          <div class="rb-row"><span>残り時間ボーナス</span><span id="rb-time-bonus">+0</span></div>
+          <div class="rb-row"><span>環ボーナス</span><span id="rb-loop-bonus">+0</span></div>
+          <div class="rb-row"><span>星座ボーナス</span><span id="rb-constellation-bonus">+0</span></div>
+        </div>
+        <p class="score-formula">※総灯り（島＋所持）＋環・星座・時間ボーナス</p>
+        <div class="modal-actions">
+          <button id="btn-retry" class="primary-btn" type="button">もう一夜</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
