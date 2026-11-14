@@ -9,6 +9,8 @@ export const HIGH_BRIDGE_COST = 42;
 export const HIGH_BRIDGE_TIME = 8;
 export const REMOVE_BRIDGE_COST = 5;
 export const ROUTE_COST = 36;
+export const HALF_ROUTE_COST = Math.floor(ROUTE_COST / 2);
+export const CLIMAX_TIME_LEFT = 60;
 export const SHIP_BASE_SPEED = 1.25;
 
 export const NETWORK_BONUS_PER_ISLAND = 0.14; // 接続島数ごとの生産倍率 (+14%/島)
@@ -478,8 +480,61 @@ export class GameSimulation {
     this.ships = [];
     this.buildings = [];
     this.events = [];
+    this.climaxActive = false;
+    this.nightWindActive = false;
+    this.fullMoonActive = false;
+    this.strayShip = null;
+    this.activeEvent = null;
+    this.eventSchedule = this._generateEventSchedule();
     this.constellation = this._generateConstellation();
     this.recomputeConnectivity();
+  }
+
+  _generateEventSchedule() {
+    if (!this.seed) return [];
+    const rng = createSeededRng(`${this.seed}#events`);
+    const extrasPool = ['meteor', 'strayShip', 'nightWind'];
+    for (let i = extrasPool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [extrasPool[i], extrasPool[j]] = [extrasPool[j], extrasPool[i]];
+    }
+    const extraCount = rng() < 0.65 ? 3 : 2;
+    const picked = extrasPool.slice(0, extraCount);
+    const slotWindows = [
+      [42, 62],
+      [92, 114],
+      [190, 218],
+    ];
+    const schedule = [];
+    for (let i = 0; i < picked.length; i++) {
+      const [lo, hi] = slotWindows[i];
+      const startElapsed = Math.round(lo + rng() * (hi - lo));
+      const type = picked[i];
+      const duration = type === 'meteor' ? 3 : 20;
+      schedule.push({
+        id: `ev-${i + 1}`,
+        type,
+        warnAt: startElapsed - 10,
+        startElapsed,
+        duration,
+        reward: type === 'meteor' ? 20 + Math.floor(rng() * 21) : 0,
+        dirSeed: rng(),
+        triggered: false,
+      });
+    }
+    const moonStart = Math.round(145 + rng() * 10);
+    schedule.push({
+      id: 'ev-moon',
+      type: 'fullMoon',
+      warnAt: moonStart - 10,
+      startElapsed: moonStart,
+      duration: 15,
+      reward: 0,
+      dirSeed: rng(),
+      triggered: false,
+    });
+    schedule.sort((a, b) => a.warnAt - b.warnAt);
+    return schedule;
   }
 
   _generateConstellation() {
@@ -893,10 +948,45 @@ export class GameSimulation {
         return { ok: false, reason: '橋が航路をふさいでいます' };
       }
     }
-    if (this.walletLight < ROUTE_COST) {
-      return { ok: false, reason: `灯りが足りません（必要: ${ROUTE_COST}）` };
+    const cost = this.getRouteCost(toIsland.id);
+    if (this.walletLight < cost) {
+      return { ok: false, reason: `灯りが足りません（必要: ${cost}）` };
     }
-    return { ok: true, cost: ROUTE_COST };
+    return { ok: true, cost, isStrayDiscount: cost < ROUTE_COST };
+  }
+
+  getRouteCost(toIslandId) {
+    if (
+      this.strayShip &&
+      !this.strayShip.claimed &&
+      this.strayShip.timeLeft > 0 &&
+      this.strayShip.islandId === toIslandId
+    ) {
+      return HALF_ROUTE_COST;
+    }
+    return ROUTE_COST;
+  }
+
+  catchMeteor() {
+    if (this.state !== 'play') {
+      return { ok: false, reason: 'ゲーム中ではありません' };
+    }
+    const ev = this.activeEvent;
+    if (!ev || ev.type !== 'meteor' || ev.phase !== 'active' || ev.caught) {
+      return { ok: false, reason: 'いま捕まえられる流れ星はありません' };
+    }
+    ev.caught = true;
+    const reward = ev.reward || 30;
+    this.walletLight += reward;
+    const progress = Math.max(0, Math.min(1, 1 - ev.timeLeft / Math.max(0.1, ev.duration)));
+    this.activeEvent = null;
+    this._updateScore();
+    this._emit('meteorCaught', {
+      reward,
+      progress,
+      dirSeed: ev.dirSeed ?? 0.5,
+    });
+    return { ok: true, reward };
   }
 
   buildRoute(islandAId, islandBId) {
@@ -934,9 +1024,28 @@ export class GameSimulation {
     };
     this.ships.push(ship);
 
+    if (check.isStrayDiscount && this.strayShip && this.strayShip.islandId === toIsland.id) {
+      this.strayShip.claimed = true;
+      if (this.activeEvent && this.activeEvent.type === 'strayShip') {
+        this.activeEvent = null;
+      }
+      const escortId = this._nextId('ship');
+      const escortShip = {
+        id: escortId,
+        routeId,
+        from: fromIsland.id,
+        to: toIsland.id,
+        cargo: 'visitors',
+        progress: 0.45,
+        waitTimer: 0,
+      };
+      this.ships.push(escortShip);
+      this._emit('strayShipJoined', { island: toIsland, route, cost: check.cost });
+    }
+
     this._updateScore();
     this._emit('routeBuilt', { route, ship });
-    return { ok: true, routeId, shipId };
+    return { ok: true, routeId, shipId, strayDiscount: Boolean(check.isStrayDiscount) };
   }
 
   canPlaceBuilding(islandId, type, slotIndex) {
@@ -1258,6 +1367,96 @@ export class GameSimulation {
     }
   }
 
+  _pickStrayShipTargetId() {
+    const cand = this.islands.find(
+      (isl) =>
+        isl.remote &&
+        !isl.connected &&
+        !this.routes.some((rt) => rt.islandA === isl.id || rt.islandB === isl.id)
+    );
+    return cand ? cand.id : null;
+  }
+
+  _updateNightEvents(elapsedNight, dt) {
+    if (this.strayShip && !this.strayShip.claimed) {
+      this.strayShip.timeLeft = Math.max(0, this.strayShip.timeLeft - dt);
+      if (this.strayShip.timeLeft <= 0) {
+        this.strayShip = null;
+      }
+    }
+
+    if (this.activeEvent) {
+      const ev = this.activeEvent;
+      ev.timeLeft -= dt;
+      if (ev.phase === 'warning' && ev.timeLeft <= 0) {
+        ev.phase = 'active';
+        if (ev.type === 'strayShip') {
+          let target = ev.targetIslandId !== null ? this.getIsland(ev.targetIslandId) : null;
+          if (
+            !target ||
+            target.connected ||
+            this.routes.some((rt) => rt.islandA === target.id || rt.islandB === target.id)
+          ) {
+            const nextId = this._pickStrayShipTargetId();
+            target = nextId !== null ? this.getIsland(nextId) : null;
+          }
+          if (!target) {
+            ev.type = 'meteor';
+            ev.duration = 3;
+            ev.reward = ev.reward || 30;
+            ev.targetIslandId = null;
+          } else {
+            ev.targetIslandId = target.id;
+            this.strayShip = {
+              islandId: target.id,
+              timeLeft: ev.duration,
+              maxTime: ev.duration,
+              claimed: false,
+            };
+          }
+        }
+        ev.timeLeft = ev.duration;
+        this.nightWindActive = ev.type === 'nightWind';
+        this.fullMoonActive = ev.type === 'fullMoon';
+        this._emit('nightEventStarted', { event: { ...ev } });
+      } else if (ev.phase === 'active' && ev.timeLeft <= 0) {
+        this.nightWindActive = false;
+        this.fullMoonActive = false;
+        this._emit('nightEventEnded', { event: { ...ev } });
+        this.activeEvent = null;
+      }
+    }
+
+    if (!this.activeEvent && this.eventSchedule && this.eventSchedule.length > 0) {
+      const next = this.eventSchedule.find((s) => !s.triggered && elapsedNight >= s.warnAt);
+      if (next) {
+        next.triggered = true;
+        let evType = next.type;
+        let targetIslandId = null;
+        if (evType === 'strayShip') {
+          targetIslandId = this._pickStrayShipTargetId();
+          if (targetIslandId === null) {
+            evType = 'meteor';
+          }
+        }
+        const duration = evType === 'meteor' ? 3 : next.duration;
+        this.activeEvent = {
+          id: next.id,
+          type: evType,
+          phase: 'warning',
+          timeLeft: 10,
+          warnDuration: 10,
+          duration,
+          reward: next.reward || 28,
+          dirSeed: next.dirSeed,
+          targetIslandId,
+          caught: false,
+        };
+        this._emit('nightEventWarning', { event: { ...this.activeEvent } });
+      }
+    }
+  }
+
   step(rawDt) {
     if (this.state === 'dawn') {
       const realDt = Math.min(rawDt, 0.5);
@@ -1279,9 +1478,16 @@ export class GameSimulation {
     const dt = Math.min(rawDt, 0.5) * this.speed;
     if (dt <= 0) return;
 
-    // 1. Night countdown
+    // 1. Night countdown & climax + night events
     const elapsedNight = NIGHT_DURATION - this.timeLeft;
     this.timeLeft = Math.max(0, this.timeLeft - dt);
+
+    if (!this.climaxActive && this.timeLeft <= CLIMAX_TIME_LEFT) {
+      this.climaxActive = true;
+      this._emit('climaxStarted', { timeLeft: this.timeLeft });
+    }
+
+    this._updateNightEvents(elapsedNight, dt);
 
     // 2. Central beacon trickle + recovery floor so early overspending doesn't soft-lock
     const baseTrickle = this.walletLight < 32 ? 0.55 : 0.08;
@@ -1298,9 +1504,11 @@ export class GameSimulation {
     }
 
     // 3. Buildings progress & production
+    const buildDt = this.climaxActive ? dt * 2 : dt;
+    const moonProdMult = this.fullMoonActive ? 2.0 : 1.0;
     for (const b of this.buildings) {
       if (!b.built) {
-        b.elapsed += dt;
+        b.elapsed += buildDt;
         b.progress = Math.min(1, b.elapsed / b.buildTime);
         if (b.progress >= 1) {
           this._completeBuilding(b, this.getIsland(b.islandId));
@@ -1311,7 +1519,8 @@ export class GameSimulation {
         const def = BUILDING_DEFS[b.type];
         const { mult } = this.getBuildingMultiplier(isl, b);
         const loopMult = 1 + (isl.loopCount || 0) * LOOP_PROD_BONUS;
-        isl.light += def.islandRate * mult * isl.productionMult * networkMult * loopMult * dt;
+        isl.light +=
+          def.islandRate * mult * isl.productionMult * networkMult * loopMult * moonProdMult * dt;
       }
     }
 
@@ -1369,6 +1578,7 @@ export class GameSimulation {
       if (this.hasBuiltLighthouse(ship.to)) speedMult += 0.3;
       const hasPortTrait = islFrom.trait === 'port' || islTo.trait === 'port';
       if (hasPortTrait) speedMult += 0.35;
+      if (this.nightWindActive) speedMult *= 0.5;
 
       const travelStep = (SHIP_BASE_SPEED * speedMult * dt) / Math.max(1, route.distance);
       ship.progress += travelStep;

@@ -4,6 +4,7 @@ import {
   BRIDGE_TIME,
   BUILDING_DEFS,
   GameSimulation,
+  HALF_ROUTE_COST,
   HIGH_BRIDGE_COST,
   HIGH_BRIDGE_TIME,
   ISLAND_TRAITS,
@@ -100,6 +101,8 @@ const hudTotalIslands = document.getElementById('hud-total-islands');
 const hudSpeedBadge = document.getElementById('hud-speed-badge');
 const btnConstellation = document.getElementById('btn-constellation');
 const constellationHudName = document.getElementById('constellation-hud-name');
+const eventBanner = document.getElementById('event-banner');
+const btnFastForward = document.getElementById('btn-fast-forward');
 const btnPause = document.getElementById('btn-pause');
 const btnGuideHelp = document.getElementById('btn-guide-help');
 
@@ -182,6 +185,7 @@ function bounceHudLight() {
 }
 
 function spawnFlyOrbs(worldX, worldY, worldZ, count = 3, tone = 'amber') {
+  if (sim.state === 'dawn' || sim.state === 'result') return;
   const pt = scene3d.projectToScreen(worldX, worldY, worldZ);
   if (!pt.inFront) return;
   const maxOrbs = scene3d.quality === 'low' ? 6 : 18;
@@ -248,6 +252,7 @@ const uiState = {
   activeSeed: initialSeed,
   lastDescribedIslandId: null,
   constellationHighlight: false,
+  fastForward: false,
   islandHighlight: new Map(),
 };
 
@@ -273,8 +278,39 @@ function syncToastContainerPosition() {
   toastContainer.style.top = `${hudBottomY + 8}px`;
 }
 
-function showToast(text, kind = 'normal') {
+function clearToasts() {
+  for (const el of toastContainer.children) {
+    if (el._removeTimer) clearTimeout(el._removeTimer);
+  }
+  toastContainer.innerHTML = '';
+}
+
+function clearPopups() {
+  for (const entry of activePopups) {
+    if (entry?.el) entry.el.remove();
+  }
+  activePopups.length = 0;
+  for (const el of popupsLayer.querySelectorAll('.float-popup')) {
+    el.remove();
+  }
+}
+
+function showToast(text, kind = 'normal', options = null) {
+  const isDawnToast = Boolean(options?.dawn);
+  if ((sim.state === 'dawn' || sim.state === 'result') && !isDawnToast) {
+    return;
+  }
   syncToastContainerPosition();
+  if (isDawnToast) {
+    clearToasts();
+    const el = document.createElement('div');
+    el.className = 'toast good toast-dawn';
+    el.dataset.toastText = text;
+    el.textContent = text;
+    toastContainer.appendChild(el);
+    return;
+  }
+
   const cls = `toast ${kind === 'warn' ? 'warn' : kind === 'good' ? 'good' : ''}`.trim();
   for (const existing of toastContainer.children) {
     if (existing.dataset.toastText === text) {
@@ -308,6 +344,7 @@ function showToast(text, kind = 'normal') {
 const activePopups = [];
 
 function spawnWorldPopup(worldX, worldY, worldZ, text, tone = 'amber') {
+  if (sim.state === 'dawn' || sim.state === 'result') return;
   const pt = scene3d.projectToScreen(worldX, worldY, worldZ);
   if (!pt.visible) return;
 
@@ -398,6 +435,14 @@ function maybeNotifyIslandTrait(isl) {
 
 function handleWorldTap(hit) {
   if (sim.state !== 'play') return;
+
+  if (hit && hit.kind === 'meteor') {
+    const res = sim.catchMeteor();
+    if (res.ok) {
+      refreshUI();
+    }
+    return;
+  }
 
   if (!hit) {
     clearSelection();
@@ -624,6 +669,10 @@ function getTappableBounds() {
     const r = hudBottom.getBoundingClientRect();
     if (r.height > 0) bottom = Math.min(bottom, r.top);
   }
+  if (selectionBanner && !selectionBanner.classList.contains('hidden')) {
+    const sr = selectionBanner.getBoundingClientRect();
+    if (sr.height > 0) bottom = Math.min(bottom, sr.top);
+  }
   return { w, h, top, bottom };
 }
 
@@ -640,13 +689,30 @@ function isPointInTappableBounds(pt, bounds) {
 const DIRECTION_ARROWS = ['→', '↘', '↓', '↙', '←', '↖', '↑', '↗'];
 const blockedBadgePool = new Map();
 const edgeBadgePool = new Map();
+let edgeSummaryBadge = null;
 
 function clearModeBadgePools() {
+  if (edgeSummaryBadge) {
+    edgeSummaryBadge.remove();
+    edgeSummaryBadge = null;
+  }
   if (blockedBadgePool.size === 0 && edgeBadgePool.size === 0) return;
   for (const el of blockedBadgePool.values()) el.remove();
   for (const el of edgeBadgePool.values()) el.remove();
   blockedBadgePool.clear();
   edgeBadgePool.clear();
+}
+
+function findNonOverlappingEdgeY(placedBoxes, cx, desiredY, hw, hh, minY, maxY) {
+  const offsets = [0, 30, -30, 60, -60, 90, -90, 120, -120, 150, -150];
+  for (const off of offsets) {
+    const candY = Math.max(minY, Math.min(maxY, desiredY + off));
+    const clash = placedBoxes.some(
+      (b) => Math.abs(b.cx - cx) < b.hw + hw + 6 && Math.abs(b.cy - candY) < b.hh + hh + 6
+    );
+    if (!clash) return candY;
+  }
+  return desiredY;
 }
 
 function renderModeBadges() {
@@ -660,9 +726,11 @@ function renderModeBadges() {
   }
 
   const bounds = getTappableBounds();
-  const placedEdgeBadges = [];
+  const originIsl = sim.getIsland(uiState.originIslandId) || sim.getIsland(0);
+  const placedBoxes = [];
   const seenBlocked = new Set();
   const seenEdge = new Set();
+  const offscreenCandidates = [];
 
   for (const [islandId, status] of uiState.islandHighlight.entries()) {
     const isl = sim.getIsland(islandId);
@@ -681,10 +749,9 @@ function renderModeBadges() {
       }
       let txt = status === 'blocked' ? '✕ ふさがれ' : '✕ 遠い';
       if (status === 'blocked' && (uiState.mode === 'bridge' || uiState.mode === 'highBridge')) {
-        const orig = sim.getIsland(uiState.originIslandId);
-        if (isl.trait === 'fog' || orig?.trait === 'fog') {
+        if (isl.trait === 'fog' || originIsl?.trait === 'fog') {
           txt = '🌫 航路のみ';
-        } else if (uiState.mode === 'bridge' && (isl.trait === 'wind' || orig?.trait === 'wind')) {
+        } else if (uiState.mode === 'bridge' && (isl.trait === 'wind' || originIsl?.trait === 'wind')) {
           txt = '🌀 高い橋のみ';
         }
       }
@@ -697,72 +764,121 @@ function renderModeBadges() {
     if (status === 'candidate') {
       const pt = scene3d.projectToScreen(isl.x, isl.y + 0.3, isl.z);
       if (isPointInTappableBounds(pt, bounds)) continue;
-      seenEdge.add(isl.id);
-
-      const cx = bounds.w * 0.5;
-      const cy = (bounds.top + bounds.bottom) * 0.5;
-      const minX = 64;
-      const maxX = Math.max(minX, bounds.w - 64);
-      const minY = bounds.top + 16;
-      const maxY = Math.max(minY, bounds.bottom - 16);
-      const dx = pt.dirX;
-      const dy = pt.dirY;
-      const tx = Math.abs(dx) > 1e-4 ? (dx > 0 ? (maxX - cx) / dx : (minX - cx) / dx) : Infinity;
-      const ty = Math.abs(dy) > 1e-4 ? (dy > 0 ? (maxY - cy) / dy : (minY - cy) / dy) : Infinity;
-
-      let leftPx;
-      let centerX;
-      let ey;
-      let edgeClass = '';
-
-      if (tx <= ty) {
-        const isLeft = dx < 0;
-        leftPx = isLeft ? 8 : bounds.w - 8;
-        centerX = isLeft ? 62 : bounds.w - 62;
-        edgeClass = isLeft ? 'edge-left' : 'edge-right';
-        ey = Math.max(minY, Math.min(maxY, cy + dy * tx));
-      } else {
-        const ex = Math.max(minX, Math.min(maxX, cx + dx * ty));
-        leftPx = ex;
-        centerX = ex;
-        ey = dy < 0 ? minY : maxY;
-      }
-
-      for (let attempt = 0; attempt < 5; attempt++) {
-        const clash = placedEdgeBadges.some(
-          (p) => Math.abs(p.x - centerX) < 115 && Math.abs(p.y - ey) < 26
-        );
-        if (!clash) break;
-        ey = ey + 26 <= maxY ? ey + 26 : Math.max(minY, ey - 26);
-      }
-      placedEdgeBadges.push({ x: centerX, y: ey });
-
-      const sector = ((Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) % 8) + 8) % 8;
-      const arrow = DIRECTION_ARROWS[sector];
-      const txt = `${arrow} ${formatIslandName(isl)}`;
-
-      let badge = edgeBadgePool.get(isl.id);
-      if (!badge) {
-        badge = document.createElement('button');
-        badge.type = 'button';
-        badge.dataset.islandId = String(isl.id);
-        badge.addEventListener('pointerdown', (e) => {
-          e.stopPropagation();
-        });
-        badge.addEventListener('click', (e) => {
-          e.stopPropagation();
-          gameHook.api.focusIsland(isl.id);
-        });
-        modeBadgesLayer.appendChild(badge);
-        edgeBadgePool.set(isl.id, badge);
-      }
-
-      const cls = `mode-badge candidate-edge${edgeClass ? ' ' + edgeClass : ''}`;
-      if (badge.className !== cls) badge.className = cls;
-      if (badge.textContent !== txt) badge.textContent = txt;
-      badge.style.left = `${leftPx.toFixed(1)}px`;
-      badge.style.top = `${ey.toFixed(1)}px`;
+      const dist = originIsl ? distance2D(originIsl, isl) : distance2D({ x: 0, z: 0 }, isl);
+      offscreenCandidates.push({ isl, pt, dist });
     }
+  }
+
+  offscreenCandidates.sort((a, b) => a.dist - b.dist || a.isl.id - b.isl.id);
+
+  const cx = bounds.w * 0.5;
+  const cy = (bounds.top + bounds.bottom) * 0.5;
+  const minX = 64;
+  const maxX = Math.max(minX, bounds.w - 64);
+  const minY = bounds.top + 16;
+  const maxY = Math.max(minY, bounds.bottom - 16);
+
+  const sideCounts = { left: 0, right: 0 };
+  let shownCount = 0;
+
+  for (const item of offscreenCandidates) {
+    if (shownCount >= 4) break;
+    const { isl, pt } = item;
+    const dx = pt.dirX;
+    const dy = pt.dirY;
+    const tx = Math.abs(dx) > 1e-4 ? (dx > 0 ? (maxX - cx) / dx : (minX - cx) / dx) : Infinity;
+    const ty = Math.abs(dy) > 1e-4 ? (dy > 0 ? (maxY - cy) / dy : (minY - cy) / dy) : Infinity;
+
+    let leftPx;
+    let centerX;
+    let rawY;
+    let edgeClass = '';
+
+    if (tx <= ty) {
+      const isLeft = dx < 0;
+      leftPx = isLeft ? 8 : bounds.w - 8;
+      centerX = isLeft ? 63 : bounds.w - 63;
+      edgeClass = isLeft ? 'edge-left' : 'edge-right';
+      rawY = Math.max(minY, Math.min(maxY, cy + dy * tx));
+    } else {
+      const ex = Math.max(minX, Math.min(maxX, cx + dx * ty));
+      leftPx = ex;
+      centerX = ex;
+      rawY = dy < 0 ? minY : maxY;
+    }
+
+    const side = edgeClass === 'edge-left' || centerX < bounds.w * 0.5 ? 'left' : 'right';
+    if (sideCounts[side] >= 3) continue;
+    sideCounts[side] += 1;
+    shownCount += 1;
+
+    const hw = 55;
+    const hh = 12;
+    const ey = findNonOverlappingEdgeY(placedBoxes, centerX, rawY, hw, hh, minY, maxY);
+    placedBoxes.push({ cx: centerX, cy: ey, hw, hh });
+
+    seenEdge.add(isl.id);
+    const sector = ((Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) % 8) + 8) % 8;
+    const arrow = DIRECTION_ARROWS[sector];
+    const txt = `${arrow} ${formatIslandName(isl)}`;
+
+    let badge = edgeBadgePool.get(isl.id);
+    if (!badge) {
+      badge = document.createElement('button');
+      badge.type = 'button';
+      badge.dataset.islandId = String(isl.id);
+      badge.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+      });
+      badge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        gameHook.api.focusIsland(isl.id);
+      });
+      modeBadgesLayer.appendChild(badge);
+      edgeBadgePool.set(isl.id, badge);
+    }
+
+    const cls = `mode-badge candidate-edge${edgeClass ? ' ' + edgeClass : ''}`;
+    if (badge.className !== cls) badge.className = cls;
+    if (badge.textContent !== txt) badge.textContent = txt;
+    badge.style.left = `${leftPx.toFixed(1)}px`;
+    badge.style.top = `${ey.toFixed(1)}px`;
+  }
+
+  const overflowCount = offscreenCandidates.length - shownCount;
+  if (overflowCount > 0) {
+    if (!edgeSummaryBadge) {
+      edgeSummaryBadge = document.createElement('button');
+      edgeSummaryBadge.type = 'button';
+      edgeSummaryBadge.id = 'edge-summary-pill';
+      edgeSummaryBadge.className = 'mode-badge candidate-edge edge-summary';
+      edgeSummaryBadge.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+      });
+      edgeSummaryBadge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        scene3d.zoomOutToFitAll(sim.islands, getTappableBounds());
+        renderModeBadges();
+      });
+      modeBadgesLayer.appendChild(edgeSummaryBadge);
+    }
+    const sumText = `ほか ${overflowCount} 島`;
+    if (edgeSummaryBadge.textContent !== sumText) edgeSummaryBadge.textContent = sumText;
+    const sumX = bounds.w * 0.5;
+    const sumY = findNonOverlappingEdgeY(
+      placedBoxes,
+      sumX,
+      Math.max(minY, bounds.bottom - 18),
+      46,
+      12,
+      minY,
+      maxY
+    );
+    edgeSummaryBadge.style.left = `${sumX.toFixed(1)}px`;
+    edgeSummaryBadge.style.top = `${sumY.toFixed(1)}px`;
+  } else if (edgeSummaryBadge) {
+    edgeSummaryBadge.remove();
+    edgeSummaryBadge = null;
   }
 
   for (const [id, el] of blockedBadgePool.entries()) {
@@ -845,10 +961,12 @@ function refreshScreens() {
   const showTopHud = st === 'play' || st === 'paused' || st === 'dawn';
   hudTop.classList.toggle('hidden', !showTopHud);
   btnConstellation.classList.toggle('hidden', st !== 'play' || !sim.constellation);
+  btnFastForward.classList.toggle('hidden', st !== 'play');
   btnPause.classList.toggle('hidden', st === 'dawn');
   btnGuideHelp.classList.toggle('hidden', st !== 'play');
   hudBottom.classList.toggle('hidden', st !== 'play');
   if (st !== 'play') {
+    eventBanner.classList.add('hidden');
     selectionBanner.classList.add('hidden');
     guideBubble.classList.add('hidden');
     syncToastContainerPosition();
@@ -883,6 +1001,7 @@ function refreshUI() {
     sim.state === 'dawn' || sim.dawnActive
       ? '夜明け…'
       : `夜明けまで ${formatTime(sim.timeLeft)}`;
+  hudTimeLeft.classList.toggle('timer-climax', sim.state === 'play' && sim.climaxActive && sim.timeLeft > 30);
   hudTimeLeft.classList.toggle('timer-urgent', sim.state === 'play' && sim.timeLeft <= 30);
   hudConnectedCount.textContent = String(connectedCount);
   hudTotalIslands.textContent = String(sim.islands.length);
@@ -892,6 +1011,47 @@ function refreshUI() {
     hudSpeedBadge.classList.remove('hidden');
   } else {
     hudSpeedBadge.classList.add('hidden');
+  }
+  btnFastForward.classList.toggle('active', Boolean(uiState.fastForward));
+
+  if (sim.state === 'play') {
+    const ev = sim.activeEvent;
+    let evText = '';
+    let evCls = 'hud-event-pill';
+    if (ev) {
+      const sec = Math.max(1, Math.ceil(ev.timeLeft));
+      if (ev.phase === 'warning') {
+        if (ev.type === 'meteor') evText = `🌠 ${sec}秒後に流れ星`;
+        else if (ev.type === 'nightWind') evText = `🌬 ${sec}秒後に夜風`;
+        else if (ev.type === 'fullMoon') evText = `🌕 ${sec}秒後に満月`;
+        else if (ev.type === 'strayShip') evText = `⛵ ${sec}秒後に迷い船`;
+      } else {
+        if (ev.type === 'meteor') {
+          evText = `🌠 空をタップ！ (${sec}秒)`;
+          evCls += ' active';
+        } else if (ev.type === 'nightWind') {
+          evText = `🌬 夜風・船半速 ${sec}秒`;
+          evCls += ' wind';
+        } else if (ev.type === 'fullMoon') {
+          evText = `🌕 満月・生産2倍 ${sec}秒`;
+          evCls += ' active';
+        } else if (ev.type === 'strayShip') {
+          const target = sim.getIsland(ev.targetIslandId);
+          evText = `⛵ 迷い船(${target?.name || ''}) 航路半額 ${sec}秒`;
+          evCls += ' active';
+        }
+      }
+    } else if (sim.climaxActive) {
+      evText = `🌅 夜明け前・建築半減`;
+      evCls += ' active';
+    }
+    if (evText) {
+      eventBanner.textContent = evText;
+      eventBanner.className = evCls;
+    } else {
+      eventBanner.classList.add('hidden');
+    }
+    syncToastContainerPosition();
   }
 
   if (sim.constellation) {
@@ -961,7 +1121,13 @@ function refreshUI() {
             ? '船が下をくぐれる高い橋を架けます（つながっている島から選択）'
             : '光っている候補の島をタップしてプレビュー・再タップで架橋';
     } else if (uiState.mode === 'route') {
-      actionTitle.textContent = `船の航路を引く（灯り${ROUTE_COST}）`;
+      const strayActive =
+        sim.strayShip && !sim.strayShip.claimed && sim.strayShip.timeLeft > 0
+          ? sim.getIsland(sim.strayShip.islandId)
+          : null;
+      actionTitle.textContent = strayActive
+        ? `船の航路を引く（通常${ROUTE_COST}／⛵${strayActive.name}は${HALF_ROUTE_COST}）`
+        : `船の航路を引く（灯り${ROUTE_COST}）`;
       actionDesc.textContent =
         uiState.originIslandId === null
           ? 'つながっている島から遠くの島へ航路を引きます（通常の橋と交差不可）'
@@ -1111,6 +1277,7 @@ function handleEvents() {
       spawnWorldPopup(r.x, r.y + 1.9, r.z, `橋開通！ ${r.name} +${ev.bonus}`, 'cyan');
       spawnFlyOrbs(r.x, r.y + 0.6, r.z, 3, 'cyan');
     } else if (ev.type === 'shipArrived') {
+      if (sim.state === 'dawn' || sim.state === 'result') continue;
       const isl = ev.island;
       const wStr = ev.walletGain > 0 ? ` / 所持+${ev.walletGain}` : '';
       if (ev.firstArrival) {
@@ -1164,13 +1331,48 @@ function handleEvents() {
         spawnWorldPopup(anchor.x, anchor.y + 2.3, anchor.z, `✦ 星座完成「${c.name}」 +${ev.bonus}`, 'amber');
       }
       showToast(`✦ 今夜の星座「${c.name}」完成！ +${ev.bonus}`, 'good');
+    } else if (ev.type === 'nightEventWarning') {
+      const nEv = ev.event;
+      if (nEv.type === 'nightWind') showToast('🌬 10秒後に夜風が吹きます', 'normal');
+      else if (nEv.type === 'fullMoon') showToast('🌕 10秒後に満月が昇ります（生産2倍）', 'good');
+      else if (nEv.type === 'meteor') showToast('🌠 10秒後に流れ星が流れます！', 'good');
+      else if (nEv.type === 'strayShip') showToast('⛵ 10秒後に迷い船が現れます！', 'good');
+    } else if (ev.type === 'nightEventStarted') {
+      const nEv = ev.event;
+      if (nEv.type === 'nightWind') showToast('🌬 夜風！20秒間 船が半分の速さに', 'warn');
+      else if (nEv.type === 'fullMoon') showToast('🌕 満月！15秒間 全島の生産が2倍', 'good');
+      else if (nEv.type === 'meteor') showToast('🌠 流れ星！3秒以内に空をタップ！', 'good');
+      else if (nEv.type === 'strayShip') {
+        const tgt = sim.getIsland(nEv.targetIslandId);
+        showToast(`⛵ ${tgt?.name || '遠くの島'}に迷い船！20秒間 航路半額`, 'good');
+      }
+      uiSyncAcc = 1;
+    } else if (ev.type === 'meteorCaught') {
+      const mPos = scene3d.getMeteorWorldPosition(ev.progress, ev.dirSeed);
+      spawnFlyOrbs(mPos.x, mPos.y, mPos.z, 5, 'amber');
+      spawnWorldPopup(mPos.x, mPos.y, mPos.z, `🌠 +${ev.reward}`, 'amber');
+      showToast(`🌠 流れ星キャッチ！ 灯り+${ev.reward}`, 'good');
+    } else if (ev.type === 'strayShipJoined') {
+      const isl = ev.island;
+      scene3d.triggerIslandPulse(isl.id, nowSec);
+      spawnWorldPopup(isl.x, isl.y + 2.0, isl.z, '⛵ 迷い船が仲間に！半額開通', 'cyan');
+      showToast(`⛵ 迷い船が${isl.name}の航路に加わりました！`, 'good');
+    } else if (ev.type === 'climaxStarted') {
+      showToast('🌅 夜明け前のひと押し！建築時間が半分になりました', 'good');
+      uiSyncAcc = 1;
     } else if (ev.type === 'dawnStarted') {
       dawnExtinguishedIds.clear();
       clearSelection();
       uiState.constellationHighlight = false;
       updateIslandHighlights();
-      showToast(ev.reason, 'good');
+      clearModeBadgePools();
+      clearPopups();
+      clearToasts();
+      guideBubble.classList.add('hidden');
+      showToast(ev.reason, 'good', { dawn: true });
     } else if (ev.type === 'gameEnded') {
+      clearToasts();
+      clearPopups();
       showResultScreen();
     }
   }
@@ -1340,6 +1542,8 @@ function renderResultLightMap(canvas, simState) {
 }
 
 function showResultScreen() {
+  clearToasts();
+  clearPopups();
   const islandsSum = Math.round(sim.getIslandsLightSum());
   const walletSum = Math.round(sim.walletLight);
   const connectedCount = sim.getConnectedCount();
@@ -1389,6 +1593,9 @@ let pendingUrlSeed = urlSeed;
 function startNewGame(options = {}) {
   cancelAnimationFrame(resultCountAnimId);
   clearTimeout(guideHideTimer);
+  clearToasts();
+  clearPopups();
+  clearModeBadgePools();
   dawnExtinguishedIds.clear();
   for (const o of flyOrbs) o.el.remove();
   flyOrbs.length = 0;
@@ -1420,6 +1627,7 @@ function startNewGame(options = {}) {
   uiState.selectedBridgeId = null;
   uiState.lastDescribedIslandId = null;
   uiState.constellationHighlight = false;
+  uiState.fastForward = false;
   guideState.step1Done = false;
   guideState.step2Done = false;
   guideState.step3Done = false;
@@ -1473,6 +1681,13 @@ document.getElementById('btn-howto-pause').addEventListener('click', () => {
 
 document.getElementById('btn-howto-close').addEventListener('click', () => {
   screenHowto.classList.add('hidden');
+});
+
+btnFastForward.addEventListener('click', () => {
+  uiState.fastForward = !uiState.fastForward;
+  const baseSpeed = isFastMode ? 10 : 1;
+  sim.setSpeed(uiState.fastForward ? baseSpeed * 2 : baseSpeed);
+  refreshUI();
 });
 
 btnPause.addEventListener('click', () => {
@@ -1590,6 +1805,11 @@ Object.defineProperties(gameHook, {
   loopCount: { get: () => sim.loopCount, enumerable: true },
   loopBonus: { get: () => sim.loopBonus, enumerable: true },
   constellationBonus: { get: () => sim.constellationBonus, enumerable: true },
+  activeEvent: { get: () => sim.activeEvent, enumerable: true },
+  climaxActive: { get: () => sim.climaxActive, enumerable: true },
+  fullMoonActive: { get: () => sim.fullMoonActive, enumerable: true },
+  nightWindActive: { get: () => sim.nightWindActive, enumerable: true },
+  strayShip: { get: () => sim.strayShip, enumerable: true },
 });
 
 gameHook.api = {
@@ -1613,6 +1833,11 @@ gameHook.api = {
     refreshUI();
     return res;
   },
+  catchMeteor() {
+    const res = sim.catchMeteor();
+    refreshUI();
+    return res;
+  },
   startGame(options = {}) {
     return startNewGame(options);
   },
@@ -1622,9 +1847,23 @@ gameHook.api = {
     return res;
   },
   screenPos(islandId, slotIndex) {
+    const bounds = getTappableBounds();
+    if (islandId === 'meteor') {
+      const ev = sim.activeEvent;
+      if (!ev || ev.type !== 'meteor' || ev.phase !== 'active' || ev.caught) {
+        return { x: 0, y: 0, visible: false };
+      }
+      const prog = Math.max(0, Math.min(1, 1 - ev.timeLeft / Math.max(0.1, ev.duration)));
+      const mPos = scene3d.getMeteorWorldPosition(prog, ev.dirSeed ?? 0.5);
+      const pt = scene3d.projectToScreen(mPos.x, mPos.y, mPos.z);
+      return {
+        x: Math.round(pt.x * 10) / 10,
+        y: Math.round(pt.y * 10) / 10,
+        visible: isPointInTappableBounds(pt, bounds),
+      };
+    }
     const isl = sim.getIsland(islandId);
     if (!isl) return { x: 0, y: 0, visible: false };
-    const bounds = getTappableBounds();
     let pt;
     if (slotIndex !== undefined && slotIndex !== null) {
       const slot = isl.slots[Number(slotIndex)];
@@ -1653,6 +1892,35 @@ window.__game = gameHook;
 let botThinkAcc = 0;
 function stepAutoBot() {
   if (sim.state !== 'play') return;
+
+  // 0. Catch shooting star & claim half-price stray ship route
+  if (sim.activeEvent?.type === 'meteor' && sim.activeEvent.phase === 'active') {
+    if (sim.catchMeteor().ok) {
+      refreshUI();
+      return;
+    }
+  }
+  if (
+    sim.strayShip &&
+    !sim.strayShip.claimed &&
+    sim.strayShip.timeLeft > 0 &&
+    sim.walletLight >= HALF_ROUTE_COST
+  ) {
+    const strayTarget = sim.getIsland(sim.strayShip.islandId);
+    if (
+      strayTarget &&
+      !strayTarget.connected &&
+      !sim.routes.some((rt) => rt.islandB === strayTarget.id || rt.islandA === strayTarget.id)
+    ) {
+      for (const a of sim.islands) {
+        if (!a.connected) continue;
+        if (sim.buildRoute(a.id, strayTarget.id).ok) {
+          refreshUI();
+          return;
+        }
+      }
+    }
+  }
 
   // 1. Starter buildings on home island first
   const home = sim.getIsland(0);

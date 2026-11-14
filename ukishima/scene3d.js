@@ -146,7 +146,7 @@ export class Scene3D {
     const h = container.clientHeight || window.innerHeight;
     const aspect = w / Math.max(1, h);
 
-    this.camera = new THREE.PerspectiveCamera(aspect < 0.75 ? 54 : 46, aspect, 0.9, 260);
+    this.camera = new THREE.PerspectiveCamera(aspect < 0.75 ? 54 : 46, aspect, 0.9, 520);
     this.quality = 'high';
     this.islandPulses = new Map();
 
@@ -215,6 +215,8 @@ export class Scene3D {
     this._lastPreviewKey = '';
     this._lastConstellationKey = '';
     this.activeLoopPulses = [];
+    this._moonBoost = 0;
+    this._windBoost = 0;
     this._tmpGlowPos = new THREE.Vector3();
 
     this.islandVisuals = new Map();
@@ -225,6 +227,7 @@ export class Scene3D {
     this.hitMeshes = [];
 
     this._buildSkyAndClouds();
+    this._buildNightEventVisuals();
     this._setupInput();
 
     this._resizeHandler = () => this.resize();
@@ -425,6 +428,60 @@ export class Scene3D {
     this.scene.add(mistPlane);
   }
 
+  _buildNightEventVisuals() {
+    // 流れ星 (Meteor)
+    this.meteorGroup = new THREE.Group();
+    const headMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.45, 10, 8),
+      new THREE.MeshBasicMaterial({ color: 0xfff8cc })
+    );
+    this.meteorGlow = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: this.warmGlowTex,
+        color: 0xffe488,
+        transparent: true,
+        opacity: 0.96,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    );
+    this.meteorGlow.scale.set(5.2, 5.2, 1);
+    const tailGeo = new THREE.ConeGeometry(0.32, 6.2, 8);
+    tailGeo.rotateX(Math.PI / 2);
+    tailGeo.translate(0, 0, -3.1);
+    const tailMesh = new THREE.Mesh(
+      tailGeo,
+      new THREE.MeshBasicMaterial({
+        color: 0xffd56b,
+        transparent: true,
+        opacity: 0.72,
+      })
+    );
+    this.meteorHitMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(3.5, 8, 6),
+      new THREE.MeshBasicMaterial({ visible: false })
+    );
+    this.meteorHitMesh.userData = { kind: 'meteor' };
+    this.meteorGroup.add(tailMesh, headMesh, this.meteorGlow, this.meteorHitMesh);
+    this.meteorGroup.visible = false;
+    this.scene.add(this.meteorGroup);
+
+    // 迷い船 (Stray Ship)
+    this.strayShipVisual = this._createShipVisual();
+    this.strayShipVisual.glow.material.color.setHex(0x88f5ff);
+    this.strayShipVisual.group.visible = false;
+    this.scene.add(this.strayShipVisual.group);
+  }
+
+  getMeteorWorldPosition(progress, dirSeed = 0.5) {
+    const p = Math.max(0, Math.min(1, progress));
+    const side = dirSeed >= 0.5 ? 1 : -1;
+    const x = side * (-16 + p * 32);
+    const y = 17 - p * 4.5 + Math.sin(p * Math.PI) * 2.2;
+    const z = -18 + (dirSeed - 0.5) * 12;
+    return new THREE.Vector3(x, y, z);
+  }
+
   _setupInput() {
     const dom = this.renderer.domElement;
     const pointers = new Map();
@@ -486,7 +543,7 @@ export class Scene3D {
         pinchLastDist = dist;
         this.orbit.targetRadius = Math.max(
           18,
-          Math.min(68, this.orbit.targetRadius - delta * 0.09)
+          Math.min(280, this.orbit.targetRadius - delta * 0.09)
         );
       }
     });
@@ -522,7 +579,7 @@ export class Scene3D {
         e.preventDefault();
         this.orbit.targetRadius = Math.max(
           18,
-          Math.min(68, this.orbit.targetRadius + e.deltaY * 0.025)
+          Math.min(280, this.orbit.targetRadius + e.deltaY * 0.025)
         );
       },
       { passive: false }
@@ -537,6 +594,14 @@ export class Scene3D {
     );
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(ndc, this.camera);
+
+    if (this.meteorGroup.visible) {
+      const mHits = raycaster.intersectObject(this.meteorHitMesh, false);
+      if (mHits.length > 0) {
+        this.onTap({ kind: 'meteor' });
+        return;
+      }
+    }
 
     const hits = raycaster.intersectObjects(this.hitMeshes, false);
     if (hits.length === 0) {
@@ -563,6 +628,12 @@ export class Scene3D {
       this.target.z + radius * sinPhi * Math.cos(theta)
     );
     this.camera.lookAt(this.target);
+    if (this.skyDome) {
+      this.skyDome.position.copy(this.camera.position);
+    }
+    if (this.stars) {
+      this.stars.scale.setScalar(Math.max(1, radius / 75));
+    }
   }
 
   resetCameraForNewGame() {
@@ -582,10 +653,55 @@ export class Scene3D {
   }
 
   focusOn(x, y, z, radius = 22) {
-    const safeRadius = Math.max(18, Math.min(68, radius));
+    const safeRadius = Math.max(18, Math.min(280, radius));
     this.target.set(x, y + 0.2, z);
     this.orbit.radius = safeRadius;
     this.orbit.targetRadius = safeRadius;
+    this._updateCameraPosition();
+  }
+
+  zoomOutToFitAll(islands, bounds = null) {
+    if (!islands || islands.length === 0) return;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (const isl of islands) {
+      if (isl.x < minX) minX = isl.x;
+      if (isl.x > maxX) maxX = isl.x;
+      if (isl.z < minZ) minZ = isl.z;
+      if (isl.z > maxZ) maxZ = isl.z;
+    }
+    this.target.set((minX + maxX) * 0.5, 0.2, (minZ + maxZ) * 0.5);
+    this.orbit.phi = Math.min(this.orbit.phi, 0.52);
+    this.orbit.targetPhi = this.orbit.phi;
+
+    const w = this.renderer.domElement.clientWidth || window.innerWidth;
+    const h = this.renderer.domElement.clientHeight || window.innerHeight;
+    const padX = 16;
+    const minY = (bounds?.top ?? 80) + 12;
+    const maxY = (bounds?.bottom ?? h - 120) - 12;
+
+    let chosenR = 280;
+    const startR = Math.max(26, Math.round(this.orbit.radius));
+    for (let r = startR; r <= 280; r += 4) {
+      this.orbit.radius = r;
+      this._updateCameraPosition();
+      let allFit = true;
+      for (const isl of islands) {
+        const pt = this.projectToScreen(isl.x, isl.y + 0.3, isl.z);
+        if (!pt.inFront || pt.x < padX || pt.x > w - padX || pt.y < minY || pt.y > maxY) {
+          allFit = false;
+          break;
+        }
+      }
+      if (allFit) {
+        chosenR = r;
+        break;
+      }
+    }
+    this.orbit.radius = chosenR;
+    this.orbit.targetRadius = chosenR;
     this._updateCameraPosition();
   }
 
@@ -1435,16 +1551,30 @@ export class Scene3D {
       }
     } else {
       this._dawnCamStart = null;
+      this._moonBoost += ((sim.fullMoonActive ? 1 : 0) - this._moonBoost) * 0.08;
+      this._windBoost += ((sim.nightWindActive ? 1 : 0) - this._windBoost) * 0.08;
+      if (this._moonBoost > 0.01) {
+        this.skyUniforms.uZenithColor.value.lerp(new THREE.Color(0x223a70), this._moonBoost * 0.65);
+        this.skyUniforms.uMidColor.value.lerp(new THREE.Color(0x345594), this._moonBoost * 0.65);
+        this.skyUniforms.uHorizonColor.value.lerp(new THREE.Color(0x44639e), this._moonBoost * 0.65);
+      }
       this.skyUniforms.uEastColor.value.setHex(0xff9a62);
       this.skyUniforms.uEastIntensity.value = eastHint;
       this.bgColor.copy(this.skyUniforms.uHorizonColor.value);
       this.sunGroup.visible = false;
-      this.starMat.opacity = 0.92 - nightProgress * 0.22;
-      this.moonHalo.material.opacity = 0.6;
+      const climaxTwinkle = sim.climaxActive ? 0.35 + Math.sin(timeSec * 7.5) * 0.25 : 0;
+      this.starMat.size = 0.8 + climaxTwinkle;
+      this.starMat.opacity = Math.min(
+        1,
+        0.92 - nightProgress * 0.22 + (sim.climaxActive ? Math.sin(timeSec * 6.2) * 0.12 + 0.08 : 0)
+      );
+      this.moon.scale.setScalar(1 + this._moonBoost * 1.15);
+      this.moonHalo.scale.setScalar(15 + this._moonBoost * 16);
+      this.moonHalo.material.opacity = 0.6 + this._moonBoost * 0.35;
       this.dirLight.color.setHex(0xdceaff);
-      this.dirLight.intensity = 1.05;
+      this.dirLight.intensity = 1.05 + this._moonBoost * 0.42;
       this.hemiLight.color.setHex(0x8faeff);
-      this.hemiLight.intensity = 1.25;
+      this.hemiLight.intensity = 1.25 + this._moonBoost * 0.32;
       this.cloudMat.color.setHex(0x2a3966).lerp(new THREE.Color(0x4a3d70), nightProgress);
       this.cloudMat.emissive.setHex(0x101836).lerp(new THREE.Color(0x22193d), nightProgress);
       this.mistMat.color.setHex(0x182447).lerp(new THREE.Color(0x362d59), nightProgress);
@@ -1452,8 +1582,9 @@ export class Scene3D {
     }
     this.scene.fog.color.copy(this.skyUniforms.uHorizonColor.value);
 
+    const windCloudMult = 1 + (isDawnOrResult ? 0 : this._windBoost * 3.2);
     for (const cl of this.clouds) {
-      cl.position.x += cl.userData.speed * 0.008;
+      cl.position.x += cl.userData.speed * 0.008 * windCloudMult;
       if (cl.position.x > 46) cl.position.x = -46;
       cl.position.y = cl.userData.baseY + Math.sin(timeSec * 0.4 + cl.userData.phase) * 0.25;
     }
@@ -1694,6 +1825,13 @@ export class Scene3D {
       }
 
       const isSelectedBridge = !isDawnOrResult && uiState.selectedBridgeId === br.id;
+      if (br.high && this._windBoost > 0.01 && !isDawnOrResult) {
+        brVis.group.position.x = Math.sin(timeSec * 3.6 + br.islandA) * 0.16 * this._windBoost;
+        brVis.group.rotation.z = Math.sin(timeSec * 3.1 + br.islandB) * 0.025 * this._windBoost;
+      } else {
+        brVis.group.position.x = 0;
+        brVis.group.rotation.z = 0;
+      }
       const flow = br.flow || 0;
       const flowNorm = Math.min(1, flow / 26);
       for (const m of brVis.plankMeshes) {
@@ -1844,8 +1982,46 @@ export class Scene3D {
 
     this._updateSkyConstellation(sim, timeSec, globalDawnDim);
     this._updateLoopPulses(sim, timeSec, globalDawnDim);
+    this._updateNightEventVisuals(sim, timeSec, isDawnOrResult);
 
     this.renderer.render(this.scene, this.camera);
+  }
+
+  _updateNightEventVisuals(sim, timeSec, isDawnOrResult) {
+    const ev = sim.activeEvent;
+    if (!isDawnOrResult && ev && ev.type === 'meteor' && ev.phase === 'active' && !ev.caught) {
+      const progress = Math.max(0, Math.min(1, 1 - ev.timeLeft / Math.max(0.1, ev.duration)));
+      const pos = this.getMeteorWorldPosition(progress, ev.dirSeed ?? 0.5);
+      const nextPos = this.getMeteorWorldPosition(Math.min(1, progress + 0.04), ev.dirSeed ?? 0.5);
+      this.meteorGroup.visible = true;
+      this.meteorGroup.position.copy(pos);
+      this.meteorGroup.lookAt(nextPos);
+      this.meteorGlow.scale.setScalar(5.0 + Math.sin(timeSec * 14) * 0.8);
+    } else {
+      this.meteorGroup.visible = false;
+    }
+
+    if (!isDawnOrResult && sim.strayShip && !sim.strayShip.claimed && sim.strayShip.timeLeft > 0) {
+      const target = sim.getIsland(sim.strayShip.islandId);
+      if (target) {
+        const ang = timeSec * 1.1;
+        const r = target.radius + 2.6;
+        const px = target.x + Math.cos(ang) * r;
+        const pz = target.z + Math.sin(ang) * r;
+        const py = target.y + 0.9 + Math.sin(timeSec * 3.5) * 0.14;
+        const sv = this.strayShipVisual;
+        sv.group.visible = true;
+        sv.group.position.set(px, py, pz);
+        sv.group.lookAt(target.x + Math.cos(ang + 0.3) * r, py, target.z + Math.sin(ang + 0.3) * r);
+        sv.crate.visible = false;
+        sv.passenger.visible = true;
+        this._attenuateGlowSprite(sv.glow, px, py + 0.4, pz, 2.4, 0.95, 0.16, 1);
+      } else {
+        this.strayShipVisual.group.visible = false;
+      }
+    } else {
+      this.strayShipVisual.group.visible = false;
+    }
   }
 
   _updateSkyConstellation(sim, timeSec, globalDawnDim) {
