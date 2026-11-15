@@ -8,9 +8,10 @@ import {
   createShadowTexture,
 } from './textures.js';
 import { createBunnyCharacter } from './character.js';
-import { BackgroundSparkles, HeartParticleSystem } from './particles.js';
+import { BackgroundSparkles, HeartParticleSystem, SparkleBurstSystem } from './particles.js';
 
 const VALID_EXPRS = new Set(['normal', 'blink', 'half', 'kiss']);
+const VALID_POSES = new Set(['sit', 'stand']);
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
@@ -20,15 +21,40 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
 function lerpEuler(target, a, b, t) {
   target.x = lerp(a.x, b.x, t);
   target.y = lerp(a.y, b.y, t);
   target.z = lerp(a.z, b.z, t);
 }
 
+function quadBezierEuler(target, a, mid, b, t) {
+  const mt = 1 - t;
+  const c0 = mt * mt;
+  const c1 = 2 * mt * t;
+  const c2 = t * t;
+  target.x = c0 * a.x + c1 * mid.x + c2 * b.x;
+  target.y = c0 * a.y + c1 * mid.y + c2 * b.y;
+  target.z = c0 * a.z + c1 * mid.z + c2 * b.z;
+}
+
+function quadBezierVec3(target, a, mid, b, t) {
+  const mt = 1 - t;
+  const c0 = mt * mt;
+  const c1 = 2 * mt * t;
+  const c2 = t * t;
+  target.x = c0 * a.x + c1 * mid.x + c2 * b.x;
+  target.y = c0 * a.y + c1 * mid.y + c2 * b.y;
+  target.z = c0 * a.z + c1 * mid.z + c2 * b.z;
+}
+
 function init() {
   const canvas = document.getElementById('stage');
   const exprButtons = Array.from(document.querySelectorAll('.expr-btn'));
+  const poseButtons = Array.from(document.querySelectorAll('.pose-btn'));
   const autoRotateBtn = document.getElementById('btn-autorotate');
   const toastEl = document.getElementById('reaction-toast');
 
@@ -115,7 +141,9 @@ function init() {
 
   const bgSparkles = new BackgroundSparkles(scene, bokehTex);
   const heartParticles = new HeartParticleSystem(turntable, heartTex);
+  const poseSparkles = new SparkleBurstSystem(turntable, bokehTex);
   const _mouthWorld = new THREE.Vector3();
+  const _floorWorld = new THREE.Vector3();
 
   function getKissOrigin() {
     turntable.updateMatrixWorld(true);
@@ -127,6 +155,15 @@ function init() {
   const state = {
     mode: 'idle',
     userExpression: 'normal',
+    poseTarget: 'sit',
+    poseMix: 0, // 0 = sit, 1 = stand
+    poseTransition: {
+      active: false,
+      from: 'sit',
+      to: 'stand',
+      progress: 0,
+      duration: 1.0,
+    },
     frozen: false,
     autoRotate: false,
     rotationY: 0,
@@ -152,7 +189,17 @@ function init() {
     toastTimer: null,
   };
 
-  // --- Responsive Framing ---
+  // --- Responsive Framing (adapts smoothly to sit/stand bounding height) ---
+  function computeCameraDistance() {
+    const aspect = Math.max(0.3, camera.aspect || 1);
+    const fovRad = THREE.MathUtils.degToRad(camera.fov);
+    const halfTan = Math.tan(fovRad * 0.5);
+    const vertSpan = lerp(3.16, 3.74, state.poseMix);
+    const distVert = vertSpan / (2 * halfTan);
+    const distHoriz = 1.76 / (2 * halfTan * aspect);
+    state.baseCamDist = Math.max(distVert, distHoriz);
+  }
+
   function updateCameraFraming() {
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -160,23 +207,16 @@ function init() {
 
     renderer.setSize(w, h, false);
     camera.aspect = aspect;
-
-    // Fit full height (pedestal to bunny ear tips + UI margins) on both 390x844 mobile and 1280x800 PC
-    const fovRad = THREE.MathUtils.degToRad(camera.fov);
-    const halfTan = Math.tan(fovRad * 0.5);
-    const distVert = 3.16 / (2 * halfTan);
-    const distHoriz = 1.76 / (2 * halfTan * aspect);
-    state.baseCamDist = Math.max(distVert, distHoriz);
-
     applyCameraZoom();
     camera.updateProjectionMatrix();
   }
 
   function applyCameraZoom() {
+    computeCameraDistance();
     const dist = state.baseCamDist / state.zoom;
-    // Shift lookTarget gently upward when zoomed in so bunny ears never clip at max zoom
-    const zoomUp = Math.max(0, state.zoom - 1.0) * 0.42;
-    lookTarget.set(0, 1.02 + zoomUp, 0);
+    const baseLookY = lerp(1.02, 1.24, state.poseMix);
+    const zoomUp = Math.max(0, state.zoom - 1.0) * 0.44;
+    lookTarget.set(0, baseLookY + zoomUp, 0);
     camera.position.set(0, lookTarget.y + dist * 0.08, dist);
     camera.lookAt(lookTarget);
   }
@@ -184,10 +224,53 @@ function init() {
   window.addEventListener('resize', updateCameraFraming);
   updateCameraFraming();
 
-  // --- UI & Expressions ---
+  // --- UI, Poses & Expressions ---
   function syncExprButtons() {
     for (const btn of exprButtons) {
       btn.classList.toggle('active', btn.dataset.expr === state.userExpression);
+    }
+  }
+
+  function syncPoseButtons() {
+    for (const btn of poseButtons) {
+      const isActive = btn.dataset.pose === state.poseTarget;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', String(isActive));
+    }
+  }
+
+  function setPose(poseName, instant = false) {
+    const next = VALID_POSES.has(poseName) ? poseName : 'sit';
+    state.poseTarget = next;
+    syncPoseButtons();
+
+    if (instant) {
+      state.poseTransition.active = false;
+      state.poseTransition.progress = 1;
+      state.poseMix = next === 'stand' ? 1 : 0;
+      applyCameraZoom();
+      applyPose(0);
+      return;
+    }
+
+    const currentlyStand = state.poseMix >= 0.5;
+    const currentPose = currentlyStand ? 'stand' : 'sit';
+    if (next === currentPose && !state.poseTransition.active) {
+      return;
+    }
+
+    state.poseTransition.active = true;
+    state.poseTransition.from = currentPose;
+    state.poseTransition.to = next;
+    state.poseTransition.progress = 0;
+
+    // Ears pop happily & pastel sparkles burst on pose switch
+    state.earPop = 1.0;
+    poseSparkles.emit(lerp(0.88, 1.18, state.poseMix));
+    if (next === 'stand') {
+      showToast('よいしょ♪');
+    } else {
+      showToast('ちょこん♪');
     }
   }
 
@@ -286,6 +369,12 @@ function init() {
   for (const btn of exprButtons) {
     btn.addEventListener('click', () => {
       setExpression(btn.dataset.expr);
+    });
+  }
+
+  for (const btn of poseButtons) {
+    btn.addEventListener('click', () => {
+      setPose(btn.dataset.pose, false);
     });
   }
 
@@ -389,75 +478,176 @@ function init() {
     { passive: false }
   );
 
+  // Reusable scratch transforms for kiss & transition evaluation
+  const _baseLeftArm = new THREE.Euler();
+  const _baseLeftElbow = new THREE.Euler();
+  const _baseLeftWrist = new THREE.Euler();
+  const _baseKissArm = new THREE.Euler();
+  const _baseKissElbow = new THREE.Euler();
+  const _baseKissWrist = new THREE.Euler();
+
+  function evaluateRigPose() {
+    const p = character.poses;
+    const tr = state.poseTransition;
+
+    if (tr.active) {
+      const fromPose = tr.from === 'stand' ? p.stand : p.sit;
+      const toPose = tr.to === 'stand' ? p.stand : p.sit;
+      const midPose = tr.to === 'stand' ? p.midStand : p.midSit;
+      const u = easeInOutCubic(clamp(tr.progress, 0, 1));
+
+      quadBezierVec3(character.hipsGroup.position, fromPose.hipsPos, midPose.hipsPos, toPose.hipsPos, u);
+      quadBezierEuler(character.hipsGroup.rotation, fromPose.hipsRot, midPose.hipsRot, toPose.hipsRot, u);
+      quadBezierEuler(character.torsoPivot.rotation, fromPose.torsoRot, midPose.torsoRot, toPose.torsoRot, u);
+      quadBezierEuler(character.headPivot.rotation, fromPose.headRot, midPose.headRot, toPose.headRot, u);
+
+      quadBezierEuler(character.rightLeg.hipPivot.rotation, fromPose.rightHipRot, midPose.rightHipRot, toPose.rightHipRot, u);
+      quadBezierEuler(character.rightLeg.kneePivot.rotation, fromPose.rightKneeRot, midPose.rightKneeRot, toPose.rightKneeRot, u);
+      quadBezierEuler(character.rightLeg.anklePivot.rotation, fromPose.rightAnkleRot, midPose.rightAnkleRot, toPose.rightAnkleRot, u);
+
+      quadBezierEuler(character.leftLeg.hipPivot.rotation, fromPose.leftHipRot, midPose.leftHipRot, toPose.leftHipRot, u);
+      quadBezierEuler(character.leftLeg.kneePivot.rotation, fromPose.leftKneeRot, midPose.leftKneeRot, toPose.leftKneeRot, u);
+      quadBezierEuler(character.leftLeg.anklePivot.rotation, fromPose.leftAnkleRot, midPose.leftAnkleRot, toPose.leftAnkleRot, u);
+
+      quadBezierEuler(character.rightArmPivot.rotation, fromPose.rightArmRot, midPose.rightArmRot, toPose.rightArmRot, u);
+      quadBezierEuler(character.rightElbowPivot.rotation, fromPose.rightElbowRot, midPose.rightElbowRot, toPose.rightElbowRot, u);
+      quadBezierEuler(character.rightWristPivot.rotation, fromPose.rightWristRot, midPose.rightWristRot, toPose.rightWristRot, u);
+
+      quadBezierEuler(_baseLeftArm, fromPose.leftArmRot, midPose.leftArmRot, toPose.leftArmRot, u);
+      quadBezierEuler(_baseLeftElbow, fromPose.leftElbowRot, midPose.leftElbowRot, toPose.leftElbowRot, u);
+      quadBezierEuler(_baseLeftWrist, fromPose.leftWristRot, midPose.leftWristRot, toPose.leftWristRot, u);
+      return;
+    }
+
+    const active = state.poseMix >= 0.5 ? p.stand : p.sit;
+    character.hipsGroup.position.copy(active.hipsPos);
+    character.hipsGroup.rotation.copy(active.hipsRot);
+    character.torsoPivot.rotation.copy(active.torsoRot);
+    character.headPivot.rotation.copy(active.headRot);
+
+    character.rightLeg.hipPivot.rotation.copy(active.rightHipRot);
+    character.rightLeg.kneePivot.rotation.copy(active.rightKneeRot);
+    character.rightLeg.anklePivot.rotation.copy(active.rightAnkleRot);
+
+    character.leftLeg.hipPivot.rotation.copy(active.leftHipRot);
+    character.leftLeg.kneePivot.rotation.copy(active.leftKneeRot);
+    character.leftLeg.anklePivot.rotation.copy(active.leftAnkleRot);
+
+    character.rightArmPivot.rotation.copy(active.rightArmRot);
+    character.rightElbowPivot.rotation.copy(active.rightElbowRot);
+    character.rightWristPivot.rotation.copy(active.rightWristRot);
+
+    _baseLeftArm.copy(active.leftArmRot);
+    _baseLeftElbow.copy(active.leftElbowRot);
+    _baseLeftWrist.copy(active.leftWristRot);
+  }
+
   // --- Pose & Idle Animation Evaluator ---
   function applyPose(dt) {
     const t = state.time;
     const p = character.poses;
+    const standW = state.poseMix;
+    const inTrans = state.poseTransition.active;
+
+    evaluateRigPose();
 
     // 1. Breathing & lively idle motion (zeroed out when frozen)
     const breathe = state.frozen ? 0 : Math.sin(t * 2.1);
-    const sway = state.frozen ? 0 : Math.sin(t * 1.25);
+    const sway = state.frozen ? 0 : Math.sin(t * 1.18);
     const earBob = state.frozen ? 0 : Math.sin(t * 3.1) + Math.sin(t * 6.2) * 0.25;
     const wiggle = state.frozen ? 0 : Math.sin(t * 14.0) * state.wigglePop;
-    const earPopLift = state.frozen ? 0 : Math.sin(state.earPop * Math.PI) * 0.28;
+    const earPopLift = state.frozen ? 0 : Math.sin(state.earPop * Math.PI) * 0.30;
+
+    // Standing idle extras: slow weight shift + occasional playful knee bend & tiptoe bounce
+    const standBounce = state.frozen ? 0 : Math.pow(Math.max(0, Math.sin(t * 0.92)), 10) * standW * (1 - (inTrans ? 0.8 : 0));
+    const standSway = state.frozen ? 0 : sway * standW * (inTrans ? 0.25 : 1);
+
+    character.hipsGroup.position.x += standSway * 0.018;
+    character.hipsGroup.position.y += standBounce * 0.022;
+    character.hipsGroup.rotation.z += standSway * 0.024;
+    character.rightLeg.kneePivot.rotation.x += standBounce * 0.14;
+    character.leftLeg.kneePivot.rotation.x += standBounce * 0.14;
+    character.rightLeg.anklePivot.rotation.x -= standBounce * 0.10;
+    character.leftLeg.anklePivot.rotation.x -= standBounce * 0.12;
 
     character.torsoPivot.position.y = 0.43 + breathe * 0.009 + Math.abs(wiggle) * 0.01;
-    character.torsoPivot.rotation.set(
-      p.torsoBase.x + breathe * 0.014,
-      p.torsoBase.y + wiggle * 0.08,
-      p.torsoBase.z + sway * 0.012
-    );
+    character.torsoPivot.rotation.x += breathe * 0.014;
+    character.torsoPivot.rotation.y += wiggle * 0.08;
+    character.torsoPivot.rotation.z += sway * 0.012 - standSway * 0.020;
 
     // Head sway + kiss head tilt + shy blush dip
     const kissTilt = state.kissMix * 0.07;
     const shyDip = state.frozen ? 0 : state.blushBoost * 0.06;
-    character.headPivot.rotation.set(
-      p.headBase.x + breathe * 0.016 + shyDip,
-      p.headBase.y + sway * 0.025 + wiggle * 0.06,
-      p.headBase.z + sway * 0.02 + kissTilt
-    );
+    character.headPivot.rotation.x += breathe * 0.016 + shyDip;
+    character.headPivot.rotation.y += sway * 0.025 + wiggle * 0.06;
+    character.headPivot.rotation.z += sway * 0.02 + kissTilt;
 
-    // Livelier bunny ears wiggle + tap ear pop
+    // Livelier bunny ears wiggle + tap/transition ear pop
+    const earBaseR = p.sit.rightEarRot;
+    const earBaseL = p.sit.leftEarRot;
     character.rightBunnyEarPivot.rotation.set(
-      p.rightEarBase.x + earBob * 0.075,
-      p.rightEarBase.y,
-      p.rightEarBase.z - earBob * 0.095 - earPopLift
+      earBaseR.x + earBob * 0.075,
+      earBaseR.y,
+      earBaseR.z - earBob * 0.095 - earPopLift
     );
     character.leftBunnyEarPivot.rotation.set(
-      p.leftEarBase.x - earBob * 0.055,
-      p.leftEarBase.y,
-      p.leftEarBase.z + earBob * 0.072 + earPopLift * 0.8
+      earBaseL.x - earBob * 0.055,
+      earBaseL.y,
+      earBaseL.z + earBob * 0.072 + earPopLift * 0.8
     );
 
-    // Hair gentle sway
-    character.backHairPivot.rotation.x = sway * 0.028 + breathe * 0.01;
+    // Hair & tail gentle sway
+    character.backHairPivot.rotation.x = sway * 0.028 + breathe * 0.01 + standBounce * 0.06;
     character.leftSideHairPivot.rotation.z = sway * 0.022;
     character.rightSideHairPivot.rotation.z = -sway * 0.022;
-
-    // Tail wag
     character.tailPivot.rotation.y = sway * 0.08 + wiggle * 0.28;
 
-    // Left arm: interpolate smoothly between welcome gesture and blown-kiss pose
+    // Left arm: interpolate smoothly between active pose welcome gesture and blown-kiss pose
     const handFloat = state.frozen ? 0 : Math.sin(t * 2.1 - 0.8) * 0.035 * (1 - state.kissMix);
-    lerpEuler(character.leftArmPivot.rotation, p.welcomeArmRot, p.kissArmRot, state.kissMix);
-    lerpEuler(character.leftElbowPivot.rotation, p.welcomeElbowRot, p.kissElbowRot, state.kissMix);
-    lerpEuler(character.leftWristPivot.rotation, p.welcomeWristRot, p.kissWristRot, state.kissMix);
+    lerpEuler(_baseKissArm, p.kissArmRot, p.standKissArmRot, standW);
+    lerpEuler(_baseKissElbow, p.kissElbowRot, p.standKissElbowRot, standW);
+    lerpEuler(_baseKissWrist, p.kissWristRot, p.standKissWristRot, standW);
+    lerpEuler(character.leftArmPivot.rotation, _baseLeftArm, _baseKissArm, state.kissMix);
+    lerpEuler(character.leftElbowPivot.rotation, _baseLeftElbow, _baseKissElbow, state.kissMix);
+    lerpEuler(character.leftWristPivot.rotation, _baseLeftWrist, _baseKissWrist, state.kissMix);
     character.leftArmPivot.rotation.x += handFloat;
     character.leftWristPivot.rotation.z += handFloat * 0.7;
+
+    // Exact pedestal floor clamp: prevents feet or knees from ever dipping below y = 0.002
+    character.hipsGroup.updateMatrixWorld(true);
+    let minWorldY = Infinity;
+    for (const marker of character.floorMarkers) {
+      marker.getWorldPosition(_floorWorld);
+      if (_floorWorld.y < minWorldY) minWorldY = _floorWorld.y;
+    }
+    if (minWorldY < 0.002) {
+      character.hipsGroup.position.y += 0.002 - minWorldY;
+    }
+
+    // Ground shadow scales nicely between wider sitting stance & narrower standing stance
+    const shScale = lerp(1.0, 0.78, standW);
+    shadowMesh.scale.set(shScale, shScale, 1);
 
     // Update particles
     if (!state.frozen) {
       heartParticles.update(dt);
+      poseSparkles.update(dt);
     }
   }
 
   // --- URL Params Initialization ---
   const params = new URLSearchParams(window.location.search);
   const initExpr = params.get('expr');
+  const initPose = params.get('pose');
   const initRot = params.get('rot');
   const initZoom = params.get('zoom');
   const initFreeze = params.get('freeze');
 
+  if (initPose && VALID_POSES.has(initPose)) {
+    setPose(initPose, true);
+  } else {
+    setPose('sit', true);
+  }
   if (initRot !== null && Number.isFinite(Number(initRot))) {
     setRotation(Number(initRot));
   }
@@ -476,6 +666,9 @@ function init() {
     get state() {
       return state.frozen ? 'frozen' : state.mode;
     },
+    get pose() {
+      return state.poseTransition.active ? 'transition' : state.poseTarget;
+    },
     get expression() {
       return state.userExpression;
     },
@@ -484,6 +677,7 @@ function init() {
     },
     api: {
       setExpression,
+      setPose,
       setRotation,
       setZoom,
       setAutoRotate,
@@ -534,6 +728,22 @@ function init() {
 
     if (!state.frozen) {
       state.time += dt;
+
+      // Pose transition timeline (~1.0s choreographed sit <-> stand)
+      if (state.poseTransition.active) {
+        state.poseTransition.progress += dt / state.poseTransition.duration;
+        if (state.poseTransition.progress >= 1) {
+          state.poseTransition.progress = 1;
+          state.poseTransition.active = false;
+          state.poseMix = state.poseTransition.to === 'stand' ? 1 : 0;
+        } else {
+          const u = easeInOutCubic(state.poseTransition.progress);
+          const fromVal = state.poseTransition.from === 'stand' ? 1 : 0;
+          const toVal = state.poseTransition.to === 'stand' ? 1 : 0;
+          state.poseMix = lerp(fromVal, toVal, u);
+        }
+        applyCameraZoom();
+      }
 
       // Tap reaction decays
       if (state.earPop > 0) state.earPop = Math.max(0, state.earPop - dt * 1.9);

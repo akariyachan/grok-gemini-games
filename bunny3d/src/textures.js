@@ -335,24 +335,24 @@ export class FaceTextureController {
       return;
     }
 
-    // にこっと開いたD字形の笑顔（約1.3倍サイズ＋薄いピンクの舌）
-    ctx.fillStyle = '#d65854';
-    ctx.strokeStyle = '#561f16';
-    ctx.lineWidth = 5.5;
+    // より可愛くはっきり見える大きめD字形の笑顔（濃いピンク＋舌の明るいピンク）
+    ctx.fillStyle = '#d45252';
+    ctx.strokeStyle = '#5c231a';
+    ctx.lineWidth = 4.6;
     ctx.lineJoin = 'round';
     ctx.beginPath();
-    ctx.moveTo(cx - 38, cy - 11);
-    ctx.quadraticCurveTo(cx, cy - 5, cx + 38, cy - 11);
-    ctx.quadraticCurveTo(cx + 31, cy + 30, cx, cy + 30);
-    ctx.quadraticCurveTo(cx - 31, cy + 30, cx - 38, cy - 11);
+    ctx.moveTo(cx - 48, cy - 14);
+    ctx.quadraticCurveTo(cx, cy - 7, cx + 48, cy - 14);
+    ctx.quadraticCurveTo(cx + 41, cy + 40, cx, cy + 40);
+    ctx.quadraticCurveTo(cx - 41, cy + 40, cx - 48, cy - 14);
     ctx.closePath();
     ctx.fill();
 
     ctx.save();
     ctx.clip();
-    ctx.fillStyle = '#ff9a96';
+    ctx.fillStyle = '#ff989a';
     ctx.beginPath();
-    ctx.ellipse(cx, cy + 21, 27, 15, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy + 28, 36, 20, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
@@ -405,7 +405,7 @@ export function createFishnetTexture() {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(2.2, 4.0);
+  tex.repeat.set(2.2, 2.2);
   tex.needsUpdate = true;
   return tex;
 }

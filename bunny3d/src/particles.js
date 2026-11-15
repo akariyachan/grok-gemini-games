@@ -131,7 +131,7 @@ export class BackgroundSparkles {
     });
 
     this.items = [];
-    const count = 4;
+    const count = 3;
     for (let i = 0; i < count; i++) {
       const sprite = new THREE.Sprite(this.material);
       const baseX = (Math.random() - 0.5) * 3.8;
@@ -158,6 +158,77 @@ export class BackgroundSparkles {
       item.sprite.position.x = item.baseX + Math.cos(time * item.speed * 0.7 + item.phase) * 0.07;
       const pulse = 0.8 + Math.sin(time * 1.8 + item.phase) * 0.22;
       item.sprite.scale.setScalar(item.baseScale * pulse);
+    }
+  }
+}
+
+/**
+ * Pooled pastel sparkle burst emitted when switching between sit and stand poses.
+ */
+export class SparkleBurstSystem {
+  constructor(parentGroup, bokehTexture) {
+    this.group = new THREE.Group();
+    this.group.name = 'pose_sparkles';
+    parentGroup.add(this.group);
+
+    this.material = new THREE.SpriteMaterial({
+      map: bokehTexture,
+      color: 0xffe4ff,
+      transparent: true,
+      opacity: 0.72,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+
+    this.pool = [];
+    for (let i = 0; i < 4; i++) {
+      const sprite = new THREE.Sprite(this.material);
+      sprite.visible = false;
+      this.group.add(sprite);
+      this.pool.push({
+        sprite,
+        active: false,
+        age: 0,
+        life: 0.9,
+        vel: new THREE.Vector3(),
+        baseScale: 0.12,
+      });
+    }
+  }
+
+  emit(centerY = 0.9) {
+    for (let i = 0; i < this.pool.length; i++) {
+      const p = this.pool[i];
+      const angle = (i / this.pool.length) * Math.PI * 2 + 0.45;
+      p.active = true;
+      p.age = 0;
+      p.life = 0.75 + Math.random() * 0.25;
+      p.baseScale = 0.11 + Math.random() * 0.05;
+      p.sprite.position.set(
+        Math.cos(angle) * 0.48,
+        centerY + (Math.random() - 0.5) * 0.55,
+        Math.sin(angle) * 0.28 + 0.06
+      );
+      p.vel.set(Math.cos(angle) * 0.28, 0.36 + Math.random() * 0.22, Math.sin(angle) * 0.18);
+      p.sprite.scale.setScalar(0.01);
+      p.sprite.visible = true;
+    }
+  }
+
+  update(dt) {
+    for (const p of this.pool) {
+      if (!p.active) continue;
+      p.age += dt;
+      if (p.age >= p.life) {
+        p.active = false;
+        p.sprite.visible = false;
+        continue;
+      }
+      const t = p.age / p.life;
+      p.sprite.position.addScaledVector(p.vel, dt);
+      p.vel.y *= Math.exp(-1.5 * dt);
+      const env = Math.sin(t * Math.PI);
+      p.sprite.scale.setScalar(Math.max(0.005, p.baseScale * env));
     }
   }
 }

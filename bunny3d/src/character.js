@@ -320,30 +320,31 @@ function buildMittenHand(materials) {
 }
 
 /**
- * Sleek glossy black high-heel pump with clear stiletto heel silhouette.
+ * Sleek glossy black high-heel pump.
+ * Ankle collar is centered at (0, 0, 0); forefoot sole and stiletto tip both touch y = -0.105 when upright.
  */
 function buildHighHeel(materials) {
   const shoe = new THREE.Group();
 
   const bodyGeo = new THREE.SphereGeometry(0.068, 12, 10);
-  bodyGeo.scale(0.82, 0.62, 1.62);
+  bodyGeo.scale(0.84, 0.52, 1.72);
   const body = new THREE.Mesh(bodyGeo, materials.heel);
-  body.position.set(0, 0.038, 0.036);
-  body.rotation.x = 0.14;
+  body.position.set(0, -0.062, 0.052);
+  body.rotation.x = 0.36;
   attachOutline(body, materials.outlineDark, 0.008);
   shoe.add(body);
 
-  const cupGeo = new THREE.CylinderGeometry(0.046, 0.042, 0.072, 10);
+  const cupGeo = new THREE.CylinderGeometry(0.048, 0.044, 0.068, 10);
   const cup = new THREE.Mesh(cupGeo, materials.heel);
-  cup.position.set(0, 0.048, -0.046);
-  cup.rotation.x = -0.14;
+  cup.position.set(0, -0.024, -0.016);
+  cup.rotation.x = -0.12;
   attachOutline(cup, materials.outlineDark, 0.0075);
   shoe.add(cup);
 
-  const heelGeo = new THREE.CylinderGeometry(0.014, 0.007, 0.105, 7);
+  const heelGeo = new THREE.CylinderGeometry(0.014, 0.007, 0.102, 7);
   const heel = new THREE.Mesh(heelGeo, materials.heel);
-  heel.position.set(0, -0.022, -0.068);
-  heel.rotation.x = 0.12;
+  heel.position.set(0, -0.054, -0.062);
+  heel.rotation.x = 0.07;
   attachOutline(heel, materials.outlineDark, 0.0055);
   shoe.add(heel);
 
@@ -458,52 +459,93 @@ export function createBunnyCharacter(materials, faceTexture) {
   hipsGroup.scale.setScalar(0.92);
   root.add(hipsGroup);
 
-  // --- SIDE-SWEPT KNEELING LEGS (Both black heels clearly visible behind on viewer's left!) ---
-  const buildLeg = (side) => {
-    const legGroup = new THREE.Group();
-    const xBase = side * 0.095;
-    // Stagger ankle depths cleanly so BOTH heels peek out side-by-side behind knees
-    const shinSweepX = side < 0 ? -0.11 : -0.15;
-    const ankleZ = side < 0 ? -0.21 : -0.41;
+  // --- ARTICULATED RIGGED LEGS (Shared smoothly across sit & stand poses) ---
+  const thighLen = 0.295;
+  const shinLen = 0.34;
+  const floorMarkers = [];
 
-    const legCurve = [
-      new THREE.Vector3(xBase * 1.0, 0.36, -0.06),
-      new THREE.Vector3(xBase * 1.04, 0.25, 0.12),
-      new THREE.Vector3(xBase * 0.96, 0.105, 0.265),
-      new THREE.Vector3(xBase * 0.92, 0.084, 0.21),
-      new THREE.Vector3(xBase * 0.92 + shinSweepX * 0.45, 0.094, 0.0),
-      new THREE.Vector3(xBase * 0.92 + shinSweepX, 0.088, ankleZ),
+  const buildRiggedLeg = (side) => {
+    const hipPivot = new THREE.Group();
+    hipPivot.name = side < 0 ? 'hip_r' : 'hip_l';
+    hipPivot.position.set(side * 0.088, 0.32, -0.02);
+
+    // Outline-free hip & knee spheres bridge thigh/shin seamlessly at any bend angle
+    const hipBallGeo = new THREE.SphereGeometry(0.092, 12, 10);
+    const hipBall = new THREE.Mesh(hipBallGeo, materials.fishnet);
+    hipPivot.add(hipBall);
+
+    // Start thigh cylinder buried inside opaque purple pelvis (y = +0.02) so zero rim/crease shows on butt/hips
+    const thighCurve = [
+      new THREE.Vector3(0, 0.02, 0),
+      new THREE.Vector3(0, -thighLen * 0.5, 0.010),
+      new THREE.Vector3(0, -thighLen, 0),
     ];
-    const legGeo = createTaperedTube(
-      legCurve,
-      (t) => {
-        if (t < 0.45) {
-          const u = t / 0.45;
-          return 0.106 - u * 0.024 + Math.sin(u * Math.PI) * 0.01;
-        }
-        const u = (t - 0.45) / 0.55;
-        return 0.082 + Math.sin(u * Math.PI) * 0.01 - u * 0.028;
-      },
-      24,
+    const thighGeo = createTaperedTube(
+      thighCurve,
+      (t) => 0.072 + Math.sin(t * Math.PI * 0.72) * 0.025 - (t > 0.7 ? (t - 0.7) * 0.04 : 0),
+      12,
       12
     );
-    const legMesh = new THREE.Mesh(legGeo, materials.fishnet);
-    legMesh.name = side < 0 ? 'leg_r' : 'leg_l';
-    attachOutline(legMesh, materials.outlineDark, 0.0095);
-    legGroup.add(legMesh);
+    const thighMesh = new THREE.Mesh(thighGeo, materials.fishnet);
+    attachOutline(thighMesh, materials.outlineDark, 0.0088);
+    hipPivot.add(thighMesh);
+
+    const kneePivot = new THREE.Group();
+    kneePivot.name = side < 0 ? 'knee_r' : 'knee_l';
+    kneePivot.position.set(0, -thighLen, 0);
+    hipPivot.add(kneePivot);
+
+    const kneeBallGeo = new THREE.SphereGeometry(0.080, 12, 10);
+    const kneeBall = new THREE.Mesh(kneeBallGeo, materials.fishnet);
+    kneePivot.add(kneeBall);
+
+    const kneeBottomMarker = new THREE.Object3D();
+    kneeBottomMarker.position.set(0, -0.072, 0.045);
+    kneePivot.add(kneeBottomMarker);
+    floorMarkers.push(kneeBottomMarker);
+
+    const shinCurve = [
+      new THREE.Vector3(0, -0.02, 0),
+      new THREE.Vector3(0, -shinLen * 0.38, -0.014),
+      new THREE.Vector3(0, -shinLen * 0.78, -0.004),
+      new THREE.Vector3(0, -shinLen, 0),
+    ];
+    const shinGeo = createTaperedTube(
+      shinCurve,
+      (t) => 0.078 + Math.sin(t * Math.PI * 0.85) * 0.012 - t * 0.028,
+      14,
+      12
+    );
+    const shinMesh = new THREE.Mesh(shinGeo, materials.fishnet);
+    attachOutline(shinMesh, materials.outlineDark, 0.0085);
+    kneePivot.add(shinMesh);
+
+    const anklePivot = new THREE.Group();
+    anklePivot.name = side < 0 ? 'ankle_r' : 'ankle_l';
+    anklePivot.position.set(0, -shinLen, 0);
+    kneePivot.add(anklePivot);
 
     const shoe = buildHighHeel(materials);
-    shoe.position.set(xBase * 0.92 + shinSweepX - 0.01, 0.096, ankleZ - 0.04);
-    shoe.rotation.x = Math.PI * 0.58;
-    shoe.rotation.y = side < 0 ? -0.24 : -0.12;
-    shoe.rotation.z = side * 0.10;
-    legGroup.add(shoe);
+    anklePivot.add(shoe);
 
-    return legGroup;
+    // Floor contact anchors on toe & heel tip so sit/stand/transition never clips into pedestal
+    const toeMarker = new THREE.Object3D();
+    toeMarker.position.set(0, -0.104, 0.11);
+    anklePivot.add(toeMarker);
+    const heelMarker = new THREE.Object3D();
+    heelMarker.position.set(0, -0.104, -0.068);
+    anklePivot.add(heelMarker);
+    const cupMarker = new THREE.Object3D();
+    cupMarker.position.set(0, -0.046, 0.04);
+    anklePivot.add(cupMarker);
+    floorMarkers.push(toeMarker, heelMarker, cupMarker);
+
+    return { hipPivot, kneePivot, anklePivot };
   };
 
-  hipsGroup.add(buildLeg(-1));
-  hipsGroup.add(buildLeg(1));
+  const rightLeg = buildRiggedLeg(-1);
+  const leftLeg = buildRiggedLeg(1);
+  hipsGroup.add(rightLeg.hipPivot, leftLeg.hipPivot);
 
   // --- HIGH-CUT BUNNY SUIT PELVIS & BIGGER FLUFFY TAIL ---
   const pelvisGeo = new THREE.SphereGeometry(0.195, 16, 12);
@@ -679,11 +721,15 @@ export function createBunnyCharacter(materials, faceTexture) {
   rCuff.position.set(0, -0.155, 0);
   rightElbowPivot.add(rCuff);
 
+  const rightWristPivot = new THREE.Group();
+  rightWristPivot.name = 'right_wrist_pivot';
+  rightWristPivot.position.set(0, -0.198, 0);
+  rightElbowPivot.add(rightWristPivot);
+
   const rHand = buildMittenHand(materials);
-  rHand.position.set(0, -0.198, 0);
   rHand.rotation.x = Math.PI * 0.44;
   rHand.rotation.y = 0.25;
-  rightElbowPivot.add(rHand);
+  rightWristPivot.add(rHand);
 
   rightArmPivot.rotation.set(-0.24, 0.10, -0.22);
   rightElbowPivot.rotation.set(-0.62, 0.18, 0.42);
@@ -804,7 +850,7 @@ export function createBunnyCharacter(materials, faceTexture) {
   const hairCap = new THREE.Mesh(capGeo, materials.hair);
   hairCap.position.set(0, 0.02, -0.06);
   hairCap.rotation.x = -0.68;
-  attachOutline(hairCap, materials.outlineHair, 0.007);
+  attachOutline(hairCap, materials.outlineHair, 0.0044);
   staticHairGroup.add(hairCap);
 
   const topDomeGeo = new THREE.SphereGeometry(0.425, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.42);
@@ -812,7 +858,7 @@ export function createBunnyCharacter(materials, faceTexture) {
   const topDome = new THREE.Mesh(topDomeGeo, materials.hair);
   topDome.position.set(0, 0.07, -0.02);
   topDome.rotation.x = -0.16;
-  attachOutline(topDome, materials.outlineHair, 0.007);
+  attachOutline(topDome, materials.outlineHair, 0.0044);
   staticHairGroup.add(topDome);
 
   // Plush temple hair cushions sealing cheek-to-back-hair side gap under headband
@@ -821,7 +867,7 @@ export function createBunnyCharacter(materials, faceTexture) {
   for (const side of [-1, 1]) {
     const temple = new THREE.Mesh(templeGeo, materials.hair);
     temple.position.set(side * 0.39, 0.08, 0.085);
-    attachOutline(temple, materials.outlineHair, 0.0068);
+    attachOutline(temple, materials.outlineHair, 0.0042);
     staticHairGroup.add(temple);
   }
 
@@ -865,7 +911,7 @@ export function createBunnyCharacter(materials, faceTexture) {
       flattenZ
     );
     const mesh = new THREE.Mesh(geo, materials.hair);
-    attachOutline(mesh, materials.outlineHair, 0.0068);
+    attachOutline(mesh, materials.outlineHair, 0.0042);
     parent.add(mesh);
 
     // Sleek chestnut shine crescent nestled softly on outer curl belly
@@ -1044,7 +1090,7 @@ export function createBunnyCharacter(materials, faceTexture) {
   backMassGeo.scale(1.04, 0.92, 0.36);
   const backMass = new THREE.Mesh(backMassGeo, materials.hair);
   backMass.position.set(0, -0.16, -0.29);
-  attachOutline(backMass, materials.outlineHair, 0.007);
+  attachOutline(backMass, materials.outlineHair, 0.0044);
   backHairPivot.add(backMass);
 
   // Inner deeper layer (6 curls)
@@ -1138,6 +1184,100 @@ export function createBunnyCharacter(materials, faceTexture) {
   leftBunnyEarPivot.add(leftBunnyEar);
   headMeshGroup.add(leftBunnyEarPivot);
 
+  rightLeg.hipPivot.rotation.order = 'YXZ';
+  leftLeg.hipPivot.rotation.order = 'YXZ';
+
+  // Rich pose presets for smooth Sit <-> Stand transitions and animations
+  const poses = {
+    sit: {
+      hipsPos: new THREE.Vector3(0, -0.092, 0),
+      hipsRot: new THREE.Euler(0.06, 1.12, 0),
+      torsoRot: new THREE.Euler(0.11, -0.80, 0),
+      headRot: new THREE.Euler(-0.04, -0.12, 0.12),
+      rightEarRot: rightBunnyEarPivot.rotation.clone(),
+      leftEarRot: leftBunnyEarPivot.rotation.clone(),
+      // Side-swept shins (kneeRot.z tilts folded ankles out -X behind knees so BOTH black heels peek cleanly!)
+      rightHipRot: new THREE.Euler(-1.18, 0.36, -0.10),
+      rightKneeRot: new THREE.Euler(2.68, 0, -0.34),
+      rightAnkleRot: new THREE.Euler(1.64, 0.12, 0),
+      leftHipRot: new THREE.Euler(-1.16, 0.24, 0.04),
+      leftKneeRot: new THREE.Euler(2.74, 0, -0.44),
+      leftAnkleRot: new THREE.Euler(1.60, 0.18, 0),
+      rightArmRot: new THREE.Euler(-0.24, 0.10, -0.22),
+      rightElbowRot: new THREE.Euler(-0.62, 0.18, 0.42),
+      rightWristRot: new THREE.Euler(0, 0, 0),
+      leftArmRot: welcomeArmRot.clone(),
+      leftElbowRot: welcomeElbowRot.clone(),
+      leftWristRot: welcomeWristRot.clone(),
+    },
+    stand: {
+      hipsPos: new THREE.Vector3(0, 0.362, 0),
+      hipsRot: new THREE.Euler(0.02, 0.22, -0.06),
+      torsoRot: new THREE.Euler(0.04, -0.10, 0.06),
+      headRot: new THREE.Euler(-0.02, -0.04, 0.14),
+      rightEarRot: rightBunnyEarPivot.rotation.clone(),
+      leftEarRot: leftBunnyEarPivot.rotation.clone(),
+      rightHipRot: new THREE.Euler(-0.05, 0.14, 0.05),
+      rightKneeRot: new THREE.Euler(0.08, 0, 0),
+      rightAnkleRot: new THREE.Euler(-0.03, 0, 0),
+      leftHipRot: new THREE.Euler(-0.34, -0.22, 0.03),
+      leftKneeRot: new THREE.Euler(0.56, 0, 0),
+      leftAnkleRot: new THREE.Euler(-0.08, 0, 0),
+      // Right hand resting playfully on hip/waist in contrapposto
+      rightArmRot: new THREE.Euler(-0.14, 0.12, -0.48),
+      rightElbowRot: new THREE.Euler(-0.42, 0.10, 1.12),
+      rightWristRot: new THREE.Euler(0.18, 0.12, 0.24),
+      // Left hand extending outward in welcoming "どうぞ" palm-up
+      leftArmRot: new THREE.Euler(-0.06, 0.10, 0.64),
+      leftElbowRot: new THREE.Euler(-0.88, 0.08, 0.62),
+      leftWristRot: new THREE.Euler(-0.34, 0.28, -0.24),
+    },
+    midStand: {
+      hipsPos: new THREE.Vector3(0, 0.14, 0.02),
+      hipsRot: new THREE.Euler(0.10, 0.62, -0.02),
+      torsoRot: new THREE.Euler(0.28, -0.42, 0.0),
+      headRot: new THREE.Euler(-0.12, -0.06, 0.06),
+      rightHipRot: new THREE.Euler(-0.74, 0.08, 0.02),
+      rightKneeRot: new THREE.Euler(1.38, 0, 0),
+      rightAnkleRot: new THREE.Euler(0.18, 0, 0),
+      leftHipRot: new THREE.Euler(-0.78, -0.08, -0.02),
+      leftKneeRot: new THREE.Euler(1.44, 0, 0),
+      leftAnkleRot: new THREE.Euler(0.18, 0, 0),
+      // Hand bracing gently toward thigh ("よいしょ")
+      rightArmRot: new THREE.Euler(-0.42, 0.08, -0.18),
+      rightElbowRot: new THREE.Euler(-0.52, 0.10, 0.25),
+      rightWristRot: new THREE.Euler(0.20, 0, 0),
+      leftArmRot: new THREE.Euler(-0.28, 0.06, 0.36),
+      leftElbowRot: new THREE.Euler(-0.82, 0.08, 0.24),
+      leftWristRot: new THREE.Euler(-0.10, 0.10, 0),
+    },
+    midSit: {
+      hipsPos: new THREE.Vector3(0, 0.10, -0.02),
+      hipsRot: new THREE.Euler(0.08, 0.68, -0.02),
+      torsoRot: new THREE.Euler(0.22, -0.46, 0.02),
+      headRot: new THREE.Euler(-0.08, -0.08, 0.10),
+      rightHipRot: new THREE.Euler(-0.80, 0.14, -0.02),
+      rightKneeRot: new THREE.Euler(1.52, 0, 0),
+      rightAnkleRot: new THREE.Euler(0.32, 0, 0),
+      leftHipRot: new THREE.Euler(-0.82, 0.02, 0.02),
+      leftKneeRot: new THREE.Euler(1.56, 0, 0),
+      leftAnkleRot: new THREE.Euler(0.32, 0, 0),
+      // Hands lightly holding/smoothing hip/skirt forward as she kneels down
+      rightArmRot: new THREE.Euler(-0.36, 0.14, -0.16),
+      rightElbowRot: new THREE.Euler(-0.78, 0.22, 0.48),
+      rightWristRot: new THREE.Euler(0.10, 0, 0),
+      leftArmRot: new THREE.Euler(-0.32, -0.10, 0.22),
+      leftElbowRot: new THREE.Euler(-0.78, -0.18, -0.42),
+      leftWristRot: new THREE.Euler(0.10, 0, 0),
+    },
+    kissArmRot,
+    kissElbowRot,
+    kissWristRot,
+    standKissArmRot: new THREE.Euler(-0.62, -0.16, 0.72),
+    standKissElbowRot: new THREE.Euler(-1.72, 0.45, -0.76),
+    standKissWristRot: new THREE.Euler(0.32, 0.42, 0.48),
+  };
+
   return {
     root,
     hipsGroup,
@@ -1146,28 +1286,21 @@ export function createBunnyCharacter(materials, faceTexture) {
     headMeshGroup,
     mouthAnchor,
     faceMesh,
+    rightLeg,
+    leftLeg,
+    floorMarkers,
     leftArmPivot,
     leftElbowPivot,
     leftWristPivot,
     rightArmPivot,
     rightElbowPivot,
+    rightWristPivot,
     leftBunnyEarPivot,
     rightBunnyEarPivot,
     backHairPivot,
     leftSideHairPivot,
     rightSideHairPivot,
     tailPivot,
-    poses: {
-      headBase: headPivot.rotation.clone(),
-      torsoBase: torsoPivot.rotation.clone(),
-      rightEarBase: rightBunnyEarPivot.rotation.clone(),
-      leftEarBase: leftBunnyEarPivot.rotation.clone(),
-      welcomeArmRot,
-      welcomeElbowRot,
-      welcomeWristRot,
-      kissArmRot,
-      kissElbowRot,
-      kissWristRot,
-    },
+    poses,
   };
 }

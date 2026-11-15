@@ -203,7 +203,7 @@ export function createCharacterMaterials(fishnetTexture) {
       side: THREE.BackSide,
     }),
     outlineHair: new THREE.MeshBasicMaterial({
-      color: 0x3a2214,
+      color: 0x482b1a,
       side: THREE.BackSide,
     }),
     outlineSkin: new THREE.MeshBasicMaterial({
