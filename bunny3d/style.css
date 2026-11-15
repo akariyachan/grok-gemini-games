@@ -1,13 +1,14 @@
 :root {
-  --bg-top: #171026;
-  --bg-mid: #281942;
-  --bg-bottom: #100b1b;
-  --panel-bg: rgba(24, 15, 42, 0.62);
-  --panel-border: rgba(212, 178, 255, 0.22);
-  --accent: #9b5de5;
-  --accent-bright: #c78cff;
-  --text-main: #f6f0ff;
-  --text-sub: rgba(236, 222, 255, 0.72);
+  --bg-top: #2c194d;
+  --bg-mid: #532c76;
+  --bg-glow: #753e92;
+  --bg-bottom: #1d1033;
+  --panel-bg: rgba(34, 18, 58, 0.56);
+  --panel-border: rgba(240, 204, 255, 0.28);
+  --accent: #b36df2;
+  --accent-bright: #f2b5ff;
+  --text-main: #fff8ff;
+  --text-sub: rgba(246, 228, 255, 0.78);
 }
 
 * {
@@ -23,7 +24,9 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: radial-gradient(circle at 50% 35%, var(--bg-mid) 0%, var(--bg-top) 52%, var(--bg-bottom) 100%);
+  background:
+    radial-gradient(circle at 50% 38%, rgba(235, 148, 220, 0.26) 0%, rgba(117, 62, 146, 0) 48%),
+    radial-gradient(circle at 50% 42%, var(--bg-mid) 0%, var(--bg-top) 54%, var(--bg-bottom) 100%);
   color: var(--text-main);
   font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, -apple-system, sans-serif;
   touch-action: none;

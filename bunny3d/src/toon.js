@@ -140,47 +140,49 @@ export function mergeGroupByMaterial(group) {
 }
 
 /**
- * Build the shared material palette for the character.
+ * Build the shared 3-step pastel toon material palette with color-matched outlines.
  */
 export function createCharacterMaterials(fishnetTexture) {
-  const skinGradient = createToonGradient([182, 218, 244, 255]);
-  const softGradient = createToonGradient([146, 194, 232, 255]);
-  const crispGradient = createToonGradient([114, 168, 224, 255]);
+  const skinGradient = createToonGradient([188, 224, 255]);
+  const softGradient = createToonGradient([156, 208, 255]);
+  const crispGradient = createToonGradient([132, 194, 255]);
 
   return {
     gradients: { skinGradient, softGradient, crispGradient },
     skin: new THREE.MeshToonMaterial({
-      color: 0xffe0c6,
+      color: 0xffe5d4,
       gradientMap: skinGradient,
     }),
     hair: new THREE.MeshToonMaterial({
-      color: 0x733c1e,
+      color: 0x7c4324,
       gradientMap: crispGradient,
     }),
     hairHighlight: new THREE.MeshToonMaterial({
-      color: 0x99572e,
+      color: 0xc8824d,
       gradientMap: softGradient,
+      emissive: 0x3b1f0c,
+      emissiveIntensity: 0.18,
     }),
     suit: new THREE.MeshToonMaterial({
-      color: 0x6f38a6,
+      color: 0x763cb0,
       gradientMap: crispGradient,
-      emissive: 0x1a092b,
-      emissiveIntensity: 0.25,
+      emissive: 0x1d0a33,
+      emissiveIntensity: 0.22,
     }),
     suitTrim: new THREE.MeshToonMaterial({
-      color: 0x8d52c9,
-      gradientMap: crispGradient,
+      color: 0x9b5fd9,
+      gradientMap: softGradient,
     }),
     innerEar: new THREE.MeshToonMaterial({
-      color: 0x9e5cc8,
+      color: 0xde8ff2,
       gradientMap: softGradient,
     }),
     white: new THREE.MeshToonMaterial({
-      color: 0xf9f6fc,
+      color: 0xfbf8ff,
       gradientMap: softGradient,
     }),
     heel: new THREE.MeshToonMaterial({
-      color: 0x1e1626,
+      color: 0x261a30,
       gradientMap: crispGradient,
     }),
     fishnet: new THREE.MeshToonMaterial({
@@ -189,11 +191,31 @@ export function createCharacterMaterials(fishnetTexture) {
       gradientMap: skinGradient,
     }),
     gold: new THREE.MeshToonMaterial({
-      color: 0xe8bc7d,
+      color: 0xf0c788,
       gradientMap: crispGradient,
     }),
     outline: new THREE.MeshBasicMaterial({
-      color: 0x261312,
+      color: 0x221528,
+      side: THREE.BackSide,
+    }),
+    outlineHair: new THREE.MeshBasicMaterial({
+      color: 0x3a2214,
+      side: THREE.BackSide,
+    }),
+    outlineSkin: new THREE.MeshBasicMaterial({
+      color: 0x9c6152,
+      side: THREE.BackSide,
+    }),
+    outlinePurple: new THREE.MeshBasicMaterial({
+      color: 0x3b1a63,
+      side: THREE.BackSide,
+    }),
+    outlineWhite: new THREE.MeshBasicMaterial({
+      color: 0x7b6894,
+      side: THREE.BackSide,
+    }),
+    outlineDark: new THREE.MeshBasicMaterial({
+      color: 0x221528,
       side: THREE.BackSide,
     }),
   };

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 /**
  * Procedural facial expression CanvasTexture manager.
- * Renders eyes, lashes, brows, blush, nose dot, and mouth onto a transparent 512x512 canvas.
+ * Renders oversized sparkling chibi eyes, lashes, soft brows, blush, nose dot, and mouth.
  */
 export class FaceTextureController {
   constructor() {
@@ -22,9 +22,6 @@ export class FaceTextureController {
     this.render('normal', 0);
   }
 
-  /**
-   * Redraw facial features if expression or blush intensity changed meaningfully.
-   */
   update(expr, blushBoost = 0) {
     const quantizedBlush = Math.round(blushBoost * 20) / 20;
     if (expr === this.currentExpr && quantizedBlush === this.currentBlush) {
@@ -42,62 +39,68 @@ export class FaceTextureController {
     const h = this.canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    // Subtle cheek blush under both eyes (stronger on kiss or tap reaction)
-    const baseBlush = expr === 'kiss' ? 0.82 : 0.56;
-    const blushAlpha = Math.min(0.96, baseBlush + blushBoost * 0.4);
-    this.#drawCheekBlush(ctx, w * 0.215, h * 0.695, 56, 26, blushAlpha);
-    this.#drawCheekBlush(ctx, w * 0.785, h * 0.695, 56, 26, blushAlpha);
+    // Wide, soft pastel cheek blush under the eyes
+    const baseBlush = expr === 'kiss' ? 0.78 : 0.56;
+    const blushAlpha = Math.min(0.95, baseBlush + blushBoost * 0.38);
+    this.#drawCheekBlush(ctx, w * 0.20, h * 0.705, 68, 28, blushAlpha);
+    this.#drawCheekBlush(ctx, w * 0.80, h * 0.705, 68, 28, blushAlpha);
 
-    // Large chibi eyes & eyebrows
-    const eyeY = h * 0.525;
-    const leftEyeX = w * 0.275;
-    const rightEyeX = w * 0.725;
+    // Large tall chibi eyes placed low and slightly wide-set
+    const eyeY = h * 0.545;
+    const leftEyeX = w * 0.255;
+    const rightEyeX = w * 0.745;
 
-    this.#drawEyebrow(ctx, leftEyeX, h * 0.30, -1, expr);
-    this.#drawEyebrow(ctx, rightEyeX, h * 0.30, 1, expr);
+    // Gentle slightly-drooped friendly eyebrows (少し困り眉気味の優しい弧)
+    this.#drawEyebrow(ctx, leftEyeX, h * 0.285, -1, expr);
+    this.#drawEyebrow(ctx, rightEyeX, h * 0.285, 1, expr);
 
     if (expr === 'blink') {
-      this.#drawClosedEye(ctx, leftEyeX, eyeY + 14, -1);
-      this.#drawClosedEye(ctx, rightEyeX, eyeY + 14, 1);
-    } else if (expr === 'half' || expr === 'kiss') {
+      // にっこり閉じ目（∩の弧）
+      this.#drawHappyClosedEye(ctx, leftEyeX, eyeY + 10, -1);
+      this.#drawHappyClosedEye(ctx, rightEyeX, eyeY + 10, 1);
+    } else if (expr === 'half') {
       this.#drawHalfEye(ctx, leftEyeX, eyeY, -1);
       this.#drawHalfEye(ctx, rightEyeX, eyeY, 1);
+    } else if (expr === 'kiss') {
+      // 片目ウインク（左目ウインク＋右目キラキラ開き目）
+      this.#drawOpenEye(ctx, leftEyeX, eyeY, -1);
+      this.#drawWinkEye(ctx, rightEyeX, eyeY + 8, 1);
     } else {
       this.#drawOpenEye(ctx, leftEyeX, eyeY, -1);
       this.#drawOpenEye(ctx, rightEyeX, eyeY, 1);
     }
 
-    // Tiny chibi nose highlight dot (matches bunny_01.png)
+    // Barely-there tiny nose dot
     ctx.save();
-    ctx.fillStyle = 'rgba(255, 248, 240, 0.92)';
+    ctx.fillStyle = 'rgba(255, 245, 238, 0.72)';
     ctx.beginPath();
-    ctx.arc(w * 0.5, h * 0.655, 3.8, 0, Math.PI * 2);
+    ctx.arc(w * 0.5, h * 0.675, 2.3, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
-    // Mouth
-    this.#drawMouth(ctx, w * 0.5, h * 0.775, expr);
+    // Mouth centered naturally in lower face
+    this.#drawMouth(ctx, w * 0.5, h * 0.785, expr);
 
     this.texture.needsUpdate = true;
   }
 
   #drawCheekBlush(ctx, cx, cy, rx, ry, alpha) {
     ctx.save();
-    const grad = ctx.createRadialGradient(cx, cy, 3, cx, cy, rx);
-    grad.addColorStop(0, `rgba(236, 114, 96, ${alpha})`);
-    grad.addColorStop(0.65, `rgba(236, 120, 102, ${alpha * 0.52})`);
-    grad.addColorStop(1, 'rgba(236, 120, 102, 0)');
+    const grad = ctx.createRadialGradient(cx, cy, 4, cx, cy, rx);
+    grad.addColorStop(0, `rgba(250, 128, 122, ${alpha})`);
+    grad.addColorStop(0.58, `rgba(248, 136, 128, ${alpha * 0.52})`);
+    grad.addColorStop(1, 'rgba(248, 136, 128, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Soft anime diagonal blush lines
-    ctx.strokeStyle = `rgba(218, 86, 78, ${alpha * 0.55})`;
-    ctx.lineWidth = 3.5;
+    // Faint 3 diagonal blush strokes
+    ctx.strokeStyle = `rgba(224, 96, 94, ${alpha * 0.34})`;
+    ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     for (let i = -1; i <= 1; i++) {
-      const ox = cx + i * 13;
+      const ox = cx + i * 14;
       ctx.beginPath();
       ctx.moveTo(ox - 5, cy + 6);
       ctx.lineTo(ox + 5, cy - 6);
@@ -108,209 +111,203 @@ export class FaceTextureController {
 
   #drawEyebrow(ctx, cx, cy, side, expr) {
     ctx.save();
-    ctx.strokeStyle = '#3d1909';
-    ctx.lineWidth = 6.5;
+    ctx.strokeStyle = '#522814';
+    ctx.lineWidth = 5.5;
     ctx.lineCap = 'round';
-    const lift = expr === 'half' || expr === 'kiss' ? 5 : 0;
+    const softDip = expr === 'half' || expr === 'kiss' ? 5 : 0;
+    // Inner end gently lifted, outer end softly tapering down (優しい困り眉弧)
     ctx.beginPath();
-    ctx.moveTo(cx - side * 38, cy + 7 + lift);
-    ctx.quadraticCurveTo(cx + side * 4, cy - 12 + lift, cx + side * 42, cy + 6 + lift);
+    ctx.moveTo(cx - side * 38, cy + 1 + softDip);
+    ctx.quadraticCurveTo(cx + side * 2, cy - 9 + softDip, cx + side * 42, cy + 10 + softDip);
     ctx.stroke();
     ctx.restore();
   }
 
-  #drawOpenEye(ctx, cx, cy, side) {
-    const rx = 72;
-    const ry = 76;
-
-    ctx.save();
-    // Sclera base
-    ctx.fillStyle = '#fffdf9';
-    ctx.beginPath();
-    ctx.ellipse(cx, cy + 4, rx, ry * 0.92, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Clip iris inside sclera
-    ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(cx, cy + 4, rx - 3, ry * 0.90, 0, 0, Math.PI * 2);
-    ctx.clip();
-
-    // Slightly inward gaze for cute chibi look
-    const irisX = cx - side * 4;
-    const irisY = cy + 7;
-    const irisRx = 54;
-    const irisRy = 60;
-
+  #drawSparklingIris(ctx, irisX, irisY, irisRx, irisRy) {
+    // Deep chocolate top -> bright amber bottom gradient
     const irisGrad = ctx.createLinearGradient(irisX, irisY - irisRy, irisX, irisY + irisRy);
-    irisGrad.addColorStop(0, '#2a1006');
-    irisGrad.addColorStop(0.45, '#59260f');
-    irisGrad.addColorStop(1, '#984c1e');
+    irisGrad.addColorStop(0, '#2a1005');
+    irisGrad.addColorStop(0.42, '#692d11');
+    irisGrad.addColorStop(0.8, '#aa541f');
+    irisGrad.addColorStop(1, '#d87f32');
     ctx.fillStyle = irisGrad;
     ctx.beginPath();
     ctx.ellipse(irisX, irisY, irisRx, irisRy, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Warm lower iris crescent
-    ctx.fillStyle = 'rgba(218, 128, 56, 0.58)';
+    // Bright golden-amber reflection arc along the bottom rim
+    ctx.strokeStyle = 'rgba(255, 224, 148, 0.78)';
+    ctx.lineWidth = 7.5;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.ellipse(irisX, irisY + 29, irisRx * 0.70, irisRy * 0.34, 0, 0, Math.PI * 2);
+    ctx.ellipse(irisX, irisY + 4, irisRx * 0.72, irisRy * 0.74, 0, Math.PI * 0.18, Math.PI * 0.82);
+    ctx.stroke();
+
+    // Soft pupil
+    ctx.fillStyle = '#1b0803';
+    ctx.beginPath();
+    ctx.ellipse(irisX, irisY - 4, irisRx * 0.44, irisRy * 0.46, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Pupil
-    ctx.fillStyle = '#180703';
-    ctx.beginPath();
-    ctx.ellipse(irisX, irisY - 3, 25, 29, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Crisp outer iris ring
-    ctx.strokeStyle = '#230c05';
-    ctx.lineWidth = 5;
+    // Crisp outer iris rim
+    ctx.strokeStyle = '#250c05';
+    ctx.lineWidth = 4.5;
     ctx.beginPath();
     ctx.ellipse(irisX, irisY, irisRx, irisRy, 0, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Two specular highlights (matching bunny_01.png)
+    // Specular highlights: 1 large upper-left + 2 small sparkles
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.ellipse(irisX - 20, irisY - 24, 17, 14.5, -0.25, 0, Math.PI * 2);
+    ctx.ellipse(irisX - irisRx * 0.36, irisY - irisRy * 0.36, 19, 17, -0.22, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.beginPath();
-    ctx.arc(irisX + 18, irisY + 24, 7.5, 0, Math.PI * 2);
+    ctx.arc(irisX + irisRx * 0.34, irisY + irisRy * 0.38, 8.2, 0, Math.PI * 2);
     ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(irisX + irisRx * 0.38, irisY - irisRy * 0.24, 5.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  #drawOpenEye(ctx, cx, cy, side) {
+    const rx = 82;
+    const ry = 98;
+
+    ctx.save();
+    // Bright sclera
+    ctx.fillStyle = '#fffefa';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 4, rx, ry * 0.92, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 4, rx - 3, ry * 0.90, 0, 0, Math.PI * 2);
+    ctx.clip();
+
+    const irisX = cx - side * 4;
+    const irisY = cy + 6;
+    this.#drawSparklingIris(ctx, irisX, irisY, 61, 74);
 
     ctx.restore();
 
-    // Upper thick eyelash + outer wing
-    ctx.strokeStyle = '#1f0b05';
-    ctx.lineWidth = 14;
+    // Thick curved upper lash + cute outward-flipped wing
+    ctx.strokeStyle = '#240d06';
+    ctx.lineWidth = 15;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(cx - side * (rx + 4), cy - 6);
-    ctx.quadraticCurveTo(cx, cy - ry - 14, cx + side * (rx + 10), cy - 11);
+    ctx.moveTo(cx - side * (rx + 2), cy - 8);
+    ctx.quadraticCurveTo(cx, cy - ry - 12, cx + side * (rx + 10), cy - 14);
     ctx.stroke();
 
-    // Outer lash flick
-    ctx.lineWidth = 9;
+    // Outer lash wing flicking up
+    ctx.lineWidth = 9.5;
     ctx.beginPath();
-    ctx.moveTo(cx + side * (rx + 2), cy - 14);
-    ctx.lineTo(cx + side * (rx + 18), cy - 30);
+    ctx.moveTo(cx + side * (rx + 2), cy - 16);
+    ctx.quadraticCurveTo(cx + side * (rx + 12), cy - 26, cx + side * (rx + 20), cy - 36);
     ctx.stroke();
 
-    // Delicate lower lid line
-    ctx.strokeStyle = 'rgba(48, 20, 12, 0.78)';
-    ctx.lineWidth = 4.5;
+    // Subtle delicate lower lash
+    ctx.strokeStyle = 'rgba(72, 30, 18, 0.45)';
+    ctx.lineWidth = 3.5;
     ctx.beginPath();
-    ctx.arc(cx, cy + 5, rx - 4, Math.PI * 0.22, Math.PI * 0.78);
+    ctx.ellipse(cx, cy + 6, rx - 5, ry * 0.88, 0, Math.PI * 0.28, Math.PI * 0.72);
     ctx.stroke();
 
     ctx.restore();
   }
 
   #drawHalfEye(ctx, cx, cy, side) {
-    const rx = 70;
-    const ry = 68;
-    const lidY = cy - 6;
+    const rx = 80;
+    const ry = 94;
+    const lidY = cy - 12;
 
     ctx.save();
-    // Clip to lower half below the drooped upper eyelid so 3D skin shows above cleanly
     ctx.beginPath();
     ctx.moveTo(cx - rx - 16, lidY);
-    ctx.quadraticCurveTo(cx, lidY + 8, cx + rx + 16, lidY);
+    ctx.quadraticCurveTo(cx, lidY + 10, cx + rx + 16, lidY);
     ctx.lineTo(cx + rx + 16, cy + ry + 16);
     ctx.lineTo(cx - rx - 16, cy + ry + 16);
     ctx.closePath();
     ctx.clip();
 
-    // Sclera
-    ctx.fillStyle = '#fffdf9';
+    ctx.fillStyle = '#fffefa';
     ctx.beginPath();
-    ctx.ellipse(cx, cy + 8, rx, ry * 0.86, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy + 8, rx, ry * 0.88, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Iris + pupil
-    const irisX = cx - side * 3;
-    const irisY = cy + 11;
-    const irisGrad = ctx.createLinearGradient(irisX, irisY - 50, irisX, irisY + 50);
-    irisGrad.addColorStop(0, '#331308');
-    irisGrad.addColorStop(0.55, '#6b3013');
-    irisGrad.addColorStop(1, '#a05323');
-    ctx.fillStyle = irisGrad;
-    ctx.beginPath();
-    ctx.ellipse(irisX, irisY, 49, 51, 0, 0, Math.PI * 2);
-    ctx.fill();
+    this.#drawSparklingIris(ctx, cx - side * 3, cy + 12, 57, 66);
 
-    ctx.fillStyle = '#180703';
+    ctx.strokeStyle = 'rgba(72, 30, 18, 0.5)';
+    ctx.lineWidth = 3.5;
     ctx.beginPath();
-    ctx.ellipse(irisX, irisY, 22, 24, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Highlights peeking under half lid
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.ellipse(irisX - 16, irisY + 2, 12, 9.5, -0.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(irisX + 17, irisY + 22, 6.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Lower lid line
-    ctx.strokeStyle = 'rgba(48, 20, 12, 0.8)';
-    ctx.lineWidth = 4.5;
-    ctx.beginPath();
-    ctx.arc(cx, cy + 8, rx - 4, Math.PI * 0.2, Math.PI * 0.8);
+    ctx.ellipse(cx, cy + 8, rx - 5, ry * 0.85, 0, Math.PI * 0.26, Math.PI * 0.74);
     ctx.stroke();
 
     ctx.restore();
 
-    // Heavy relaxed upper lash line + outer wing (outside clip)
     ctx.save();
-    ctx.strokeStyle = '#1f0b05';
-    ctx.lineWidth = 13;
+    ctx.strokeStyle = '#240d06';
+    ctx.lineWidth = 14;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(cx - side * (rx + 2), lidY + 2);
-    ctx.quadraticCurveTo(cx, lidY + 11, cx + side * (rx + 12), lidY - 6);
+    ctx.quadraticCurveTo(cx, lidY + 14, cx + side * (rx + 12), lidY - 6);
     ctx.stroke();
 
-    ctx.lineWidth = 8.5;
+    ctx.lineWidth = 9;
     ctx.beginPath();
-    ctx.moveTo(cx + side * (rx + 4), lidY - 5);
-    ctx.lineTo(cx + side * (rx + 19), lidY - 19);
+    ctx.moveTo(cx + side * (rx + 4), lidY - 6);
+    ctx.lineTo(cx + side * (rx + 20), lidY - 22);
     ctx.stroke();
 
-    // Subtle eyelid fold crease above
-    ctx.strokeStyle = 'rgba(130, 72, 48, 0.45)';
+    ctx.strokeStyle = 'rgba(140, 76, 52, 0.42)';
     ctx.lineWidth = 3.5;
     ctx.beginPath();
-    ctx.moveTo(cx - side * (rx * 0.68), lidY - 22);
-    ctx.quadraticCurveTo(cx, lidY - 28, cx + side * (rx * 0.78), lidY - 20);
+    ctx.moveTo(cx - side * (rx * 0.65), lidY - 22);
+    ctx.quadraticCurveTo(cx, lidY - 29, cx + side * (rx * 0.75), lidY - 20);
     ctx.stroke();
     ctx.restore();
   }
 
-  #drawClosedEye(ctx, cx, cy, side) {
+  #drawHappyClosedEye(ctx, cx, cy, side) {
+    // にっこり閉じ目（∩の弧）
     ctx.save();
-    ctx.strokeStyle = '#1f0b05';
-    ctx.lineWidth = 12;
+    ctx.strokeStyle = '#240d06';
+    ctx.lineWidth = 13;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(cx - side * 62, cy - 3);
-    ctx.quadraticCurveTo(cx, cy + 24, cx + side * 64, cy - 7);
+    ctx.moveTo(cx - side * 66, cy + 10);
+    ctx.quadraticCurveTo(cx, cy - 34, cx + side * 68, cy + 12);
     ctx.stroke();
 
-    // Outer eyelash tips
+    // Cute outer eyelash flick
     ctx.lineWidth = 8;
     ctx.beginPath();
-    ctx.moveTo(cx + side * 52, cy + 3);
-    ctx.lineTo(cx + side * 72, cy - 12);
+    ctx.moveTo(cx + side * 56, cy + 4);
+    ctx.lineTo(cx + side * 76, cy - 10);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  #drawWinkEye(ctx, cx, cy, side) {
+    // Cheerful playful wink curve for kiss expression
+    ctx.save();
+    ctx.strokeStyle = '#240d06';
+    ctx.lineWidth = 13;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx - side * 58, cy + 14);
+    ctx.quadraticCurveTo(cx - side * 4, cy - 28, cx + side * 62, cy + 6);
     ctx.stroke();
 
-    ctx.lineWidth = 6;
+    ctx.lineWidth = 8;
     ctx.beginPath();
-    ctx.moveTo(cx + side * 42, cy + 9);
-    ctx.lineTo(cx + side * 61, cy + 17);
+    ctx.moveTo(cx + side * 52, cy + 2);
+    ctx.lineTo(cx + side * 74, cy - 12);
     ctx.stroke();
     ctx.restore();
   }
@@ -318,37 +315,44 @@ export class FaceTextureController {
   #drawMouth(ctx, cx, cy, expr) {
     ctx.save();
     if (expr === 'kiss') {
-      // Cute gentle curved smile matching bunnykisshalf.png
-      ctx.strokeStyle = '#5a2218';
-      ctx.lineWidth = 6.5;
+      // 口をすぼめた「ちゅ」の口（可愛らしい小さなチュー口）
+      ctx.fillStyle = '#f28b88';
+      ctx.strokeStyle = '#5c2118';
+      ctx.lineWidth = 5;
       ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
       ctx.beginPath();
-      ctx.moveTo(cx - 22, cy - 2);
-      ctx.quadraticCurveTo(cx, cy + 16, cx + 22, cy - 4);
+      ctx.ellipse(cx, cy + 2, 11, 13, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.stroke();
+
+      // Tiny glossy lip highlight
+      ctx.fillStyle = 'rgba(255, 240, 240, 0.8)';
+      ctx.beginPath();
+      ctx.arc(cx - 3.5, cy - 3, 3, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
       return;
     }
 
-    // Small open happy mouth (D-shape)
-    ctx.fillStyle = '#cf5c55';
-    ctx.strokeStyle = '#541f16';
-    ctx.lineWidth = 5;
+    // にこっと開いたD字形の笑顔（中に薄いピンクの舌）
+    ctx.fillStyle = '#d65d58';
+    ctx.strokeStyle = '#561f16';
+    ctx.lineWidth = 5.5;
     ctx.lineJoin = 'round';
     ctx.beginPath();
-    ctx.moveTo(cx - 22, cy - 5);
-    ctx.quadraticCurveTo(cx, cy - 2, cx + 22, cy - 5);
-    ctx.quadraticCurveTo(cx + 18, cy + 23, cx, cy + 23);
-    ctx.quadraticCurveTo(cx - 18, cy + 23, cx - 22, cy - 5);
+    ctx.moveTo(cx - 30, cy - 9);
+    ctx.quadraticCurveTo(cx, cy - 4, cx + 30, cy - 9);
+    ctx.quadraticCurveTo(cx + 25, cy + 25, cx, cy + 25);
+    ctx.quadraticCurveTo(cx - 25, cy + 25, cx - 30, cy - 9);
     ctx.closePath();
     ctx.fill();
 
-    // Soft pink tongue inside bottom of open mouth
     ctx.save();
     ctx.clip();
-    ctx.fillStyle = '#f28b82';
+    ctx.fillStyle = '#ff9d98';
     ctx.beginPath();
-    ctx.ellipse(cx, cy + 17, 16, 10, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy + 18, 22, 12, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
@@ -358,7 +362,7 @@ export class FaceTextureController {
 }
 
 /**
- * Procedural fishnet tights texture: warm skin tone base + crisp diagonal diamond mesh.
+ * Procedural fishnet tights texture harmonized with pastel peach skin.
  */
 export function createFishnetTexture() {
   const size = 512;
@@ -367,32 +371,27 @@ export function createFishnetTexture() {
   canvas.height = size;
   const ctx = canvas.getContext('2d');
 
-  // Warm skin tone base harmonized with skin material
-  ctx.fillStyle = '#ffdcc0';
+  ctx.fillStyle = '#ffe5d4';
   ctx.fillRect(0, 0, size, size);
 
-  // Seamless repeating diagonal grid
-  const step = 42.6667; // divides 512 into 12 clean repeats
-  ctx.strokeStyle = '#241210';
-  ctx.lineWidth = 5.8;
+  const step = 42.6667;
+  ctx.strokeStyle = '#2d161b';
+  ctx.lineWidth = 5.4;
   ctx.lineCap = 'square';
 
   for (let offset = -size; offset <= size * 2; offset += step) {
-    // Diagonal 1
     ctx.beginPath();
     ctx.moveTo(offset, 0);
     ctx.lineTo(offset + size, size);
     ctx.stroke();
 
-    // Diagonal 2
     ctx.beginPath();
     ctx.moveTo(offset, size);
     ctx.lineTo(offset + size, 0);
     ctx.stroke();
   }
 
-  // Tiny knot accent at intersections for crisp clarity
-  ctx.fillStyle = '#1b0d0b';
+  ctx.fillStyle = '#1f0e12';
   for (let y = 0; y <= size; y += step * 0.5) {
     const rowShift = Math.round(y / (step * 0.5)) % 2 === 0 ? 0 : step * 0.5;
     for (let x = rowShift; x <= size; x += step) {
@@ -423,9 +422,9 @@ export function createShadowTexture() {
 
   const cx = size / 2;
   const grad = ctx.createRadialGradient(cx, cx, 12, cx, cx, cx);
-  grad.addColorStop(0, 'rgba(14, 6, 28, 0.65)');
-  grad.addColorStop(0.55, 'rgba(18, 8, 34, 0.36)');
-  grad.addColorStop(1, 'rgba(18, 8, 34, 0)');
+  grad.addColorStop(0, 'rgba(38, 16, 66, 0.52)');
+  grad.addColorStop(0.55, 'rgba(42, 18, 72, 0.28)');
+  grad.addColorStop(1, 'rgba(42, 18, 72, 0)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, size, size);
 
@@ -455,21 +454,43 @@ export function createHeartTexture() {
   ctx.closePath();
 
   const grad = ctx.createLinearGradient(0, -34, 0, 34);
-  grad.addColorStop(0, '#ff9de2');
-  grad.addColorStop(1, '#e84da8');
+  grad.addColorStop(0, '#ffb5ec');
+  grad.addColorStop(1, '#f25cb3');
   ctx.fillStyle = grad;
   ctx.fill();
 
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = '#3b152a';
+  ctx.lineWidth = 5.5;
+  ctx.strokeStyle = '#6b224c';
   ctx.stroke();
 
-  // Tiny shine dot
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
   ctx.beginPath();
   ctx.ellipse(-16, -18, 7, 4.5, -0.5, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Soft pastel bokeh/sparkle texture for gentle dreamy background ambience.
+ */
+export function createBokehTexture() {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  const c = size / 2;
+  const grad = ctx.createRadialGradient(c, c, 2, c, c, c);
+  grad.addColorStop(0, 'rgba(255, 235, 255, 0.95)');
+  grad.addColorStop(0.35, 'rgba(248, 196, 255, 0.45)');
+  grad.addColorStop(1, 'rgba(248, 196, 255, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;

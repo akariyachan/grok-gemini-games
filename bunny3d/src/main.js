@@ -2,12 +2,13 @@ import * as THREE from 'three';
 import { createCharacterMaterials } from './toon.js';
 import {
   FaceTextureController,
+  createBokehTexture,
   createFishnetTexture,
   createHeartTexture,
   createShadowTexture,
 } from './textures.js';
 import { createBunnyCharacter } from './character.js';
-import { HeartParticleSystem } from './particles.js';
+import { BackgroundSparkles, HeartParticleSystem } from './particles.js';
 
 const VALID_EXPRS = new Set(['normal', 'blink', 'half', 'kiss']);
 
@@ -45,18 +46,18 @@ function init() {
   // --- Scene & Camera ---
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 40);
-  const lookTarget = new THREE.Vector3(0, 0.96, 0);
+  const lookTarget = new THREE.Vector3(0, 1.02, 0);
 
-  // --- Lighting (Hemisphere + 2 Directional lights, no shadow maps) ---
-  const hemiLight = new THREE.HemisphereLight(0xfff4ff, 0x4b2f6e, 1.32);
+  // --- Lighting (Pastel Hemisphere + Key + Pink-Lavender Rim Light) ---
+  const hemiLight = new THREE.HemisphereLight(0xfff6ff, 0x926ab8, 1.36);
   scene.add(hemiLight);
 
-  const keyLight = new THREE.DirectionalLight(0xfff6ee, 1.32);
-  keyLight.position.set(2.4, 3.8, 3.6);
+  const keyLight = new THREE.DirectionalLight(0xfff5f0, 1.18);
+  keyLight.position.set(2.3, 3.6, 3.8);
   scene.add(keyLight);
 
-  const rimLight = new THREE.DirectionalLight(0xc79eff, 0.48);
-  rimLight.position.set(-2.6, 2.4, -2.8);
+  const rimLight = new THREE.DirectionalLight(0xffd0f6, 0.92);
+  rimLight.position.set(-2.3, 2.8, -2.8);
   scene.add(rimLight);
 
   // --- Textures & Materials ---
@@ -64,6 +65,7 @@ function init() {
   const fishnetTex = createFishnetTexture();
   const shadowTex = createShadowTexture();
   const heartTex = createHeartTexture();
+  const bokehTex = createBokehTexture();
   const materials = createCharacterMaterials(fishnetTex);
 
   // --- Turntable (Character + Pedestal rotate together) ---
@@ -107,13 +109,19 @@ function init() {
 
   turntable.add(pedestalGroup);
 
-  // --- Character ---
+  // --- Character & Particles ---
   const character = createBunnyCharacter(materials, faceCtrl.texture);
   turntable.add(character.root);
 
-  // Heart particles attached to turntable so they orient nicely with the character
+  const bgSparkles = new BackgroundSparkles(scene, bokehTex);
   const heartParticles = new HeartParticleSystem(turntable, heartTex);
-  const kissOrigin = new THREE.Vector3(0.14, 1.24, 0.36);
+  const _mouthWorld = new THREE.Vector3();
+
+  function getKissOrigin() {
+    turntable.updateMatrixWorld(true);
+    character.mouthAnchor.getWorldPosition(_mouthWorld);
+    return turntable.worldToLocal(_mouthWorld.clone());
+  }
 
   // --- State ---
   const state = {
@@ -153,11 +161,11 @@ function init() {
     renderer.setSize(w, h, false);
     camera.aspect = aspect;
 
-    // Fit full height (pedestal to ear tips + UI margins) on both 390x844 mobile and 1280x800 PC
+    // Fit full height (pedestal to bunny ear tips + UI margins) on both 390x844 mobile and 1280x800 PC
     const fovRad = THREE.MathUtils.degToRad(camera.fov);
     const halfTan = Math.tan(fovRad * 0.5);
-    const distVert = 2.98 / (2 * halfTan);
-    const distHoriz = 1.72 / (2 * halfTan * aspect);
+    const distVert = 3.16 / (2 * halfTan);
+    const distHoriz = 1.76 / (2 * halfTan * aspect);
     state.baseCamDist = Math.max(distVert, distHoriz);
 
     applyCameraZoom();
@@ -166,7 +174,10 @@ function init() {
 
   function applyCameraZoom() {
     const dist = state.baseCamDist / state.zoom;
-    camera.position.set(0, 0.96 + dist * 0.085, dist);
+    // Shift lookTarget gently upward when zoomed in so bunny ears never clip at max zoom
+    const zoomUp = Math.max(0, state.zoom - 1.0) * 0.42;
+    lookTarget.set(0, 1.02 + zoomUp, 0);
+    camera.position.set(0, lookTarget.y + dist * 0.08, dist);
     camera.lookAt(lookTarget);
   }
 
@@ -199,11 +210,12 @@ function init() {
       state.mode = 'kiss';
       state.kissTimer = 0;
       state.kissBurstDone = false;
+      const origin = getKissOrigin();
       if (state.frozen) {
         state.kissMix = 1;
-        heartParticles.showStaticKissPreview(kissOrigin);
+        heartParticles.showStaticKissPreview(origin);
       } else {
-        heartParticles.emitBurst(kissOrigin, 4);
+        heartParticles.emitBurst(origin, 4);
       }
     } else {
       state.mode = 'idle';
@@ -228,7 +240,7 @@ function init() {
 
   function setZoom(z) {
     if (Number.isFinite(z)) {
-      state.zoom = clamp(z, 0.75, 1.55);
+      state.zoom = clamp(z, 0.75, 1.28);
       applyCameraZoom();
     }
   }
@@ -261,12 +273,13 @@ function init() {
     if (state.frozen) {
       if (state.userExpression === 'kiss') {
         state.kissMix = 1;
-        heartParticles.showStaticKissPreview(kissOrigin);
+        applyPose(0);
+        heartParticles.showStaticKissPreview(getKissOrigin());
       } else {
         state.kissMix = 0;
         heartParticles.clear();
+        applyPose(0);
       }
-      applyPose(0);
     }
   }
 
@@ -381,14 +394,14 @@ function init() {
     const t = state.time;
     const p = character.poses;
 
-    // 1. Breathing & subtle idle motion (zeroed out when frozen)
+    // 1. Breathing & lively idle motion (zeroed out when frozen)
     const breathe = state.frozen ? 0 : Math.sin(t * 2.1);
     const sway = state.frozen ? 0 : Math.sin(t * 1.25);
-    const earBob = state.frozen ? 0 : Math.sin(t * 2.9);
+    const earBob = state.frozen ? 0 : Math.sin(t * 3.1) + Math.sin(t * 6.2) * 0.25;
     const wiggle = state.frozen ? 0 : Math.sin(t * 14.0) * state.wigglePop;
-    const earPopLift = state.frozen ? 0 : Math.sin(state.earPop * Math.PI) * 0.24;
+    const earPopLift = state.frozen ? 0 : Math.sin(state.earPop * Math.PI) * 0.28;
 
-    character.torsoPivot.position.y = 0.44 + breathe * 0.009 + Math.abs(wiggle) * 0.01;
+    character.torsoPivot.position.y = 0.43 + breathe * 0.009 + Math.abs(wiggle) * 0.01;
     character.torsoPivot.rotation.set(
       p.torsoBase.x + breathe * 0.014,
       p.torsoBase.y + wiggle * 0.08,
@@ -404,16 +417,16 @@ function init() {
       p.headBase.z + sway * 0.02 + kissTilt
     );
 
-    // Bunny ears wiggle + tap ear pop
+    // Livelier bunny ears wiggle + tap ear pop
     character.rightBunnyEarPivot.rotation.set(
-      p.rightEarBase.x + earBob * 0.045,
+      p.rightEarBase.x + earBob * 0.075,
       p.rightEarBase.y,
-      p.rightEarBase.z - earBob * 0.055 - earPopLift
+      p.rightEarBase.z - earBob * 0.095 - earPopLift
     );
     character.leftBunnyEarPivot.rotation.set(
-      p.leftEarBase.x - earBob * 0.035,
+      p.leftEarBase.x - earBob * 0.055,
       p.leftEarBase.y,
-      p.leftEarBase.z + earBob * 0.04 + earPopLift * 0.75
+      p.leftEarBase.z + earBob * 0.072 + earPopLift * 0.8
     );
 
     // Hair gentle sway
@@ -533,7 +546,7 @@ function init() {
         state.kissMix = Math.min(1, state.kissMix + dt * 5.2);
         if (state.kissTimer > 0.45 && !state.kissBurstDone) {
           state.kissBurstDone = true;
-          heartParticles.emitBurst(kissOrigin, 6);
+          heartParticles.emitBurst(getKissOrigin(), 5);
         }
         if (state.kissTimer >= 2.7) {
           setExpression('normal');
@@ -541,6 +554,8 @@ function init() {
       } else {
         state.kissMix = Math.max(0, state.kissMix - dt * 4.5);
       }
+
+      bgSparkles.update(state.time);
 
       // Automatic random blink (2 to 6s) when expression is 'normal'
       let displayExpr = state.userExpression;
