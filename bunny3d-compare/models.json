@@ -1,0 +1,31 @@
+{
+  "models": [
+    {
+      "id": "threejs-v5",
+      "name": "three.js版 v5",
+      "type": "procedural",
+      "poses": ["sit", "stand"]
+    },
+    {
+      "id": "blender-direct-v5",
+      "name": "Blender MCP直接版 v5",
+      "type": "gltf",
+      "sit": "models/blender-direct-v5/bunny.glb",
+      "stand": "models/blender-direct-v5/bunny_stand.glb"
+    },
+    {
+      "id": "agy-manual-v0",
+      "name": "agy手順書版 v0",
+      "type": "gltf",
+      "sit": "models/agy-manual-v0/bunny_manual.glb",
+      "stand": "models/agy-manual-v0/bunny_manual_stand.glb"
+    },
+    {
+      "id": "agy-manual",
+      "name": "agy手順書版",
+      "type": "gltf",
+      "sit": "models/agy-manual/bunny_manual.glb",
+      "stand": "models/agy-manual/bunny_manual_stand.glb"
+    }
+  ]
+}
