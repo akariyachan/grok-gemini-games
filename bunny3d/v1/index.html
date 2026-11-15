@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>バニーの3Dフィギュア</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="./style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <canvas id="stage" aria-label="バニーの3Dフィギュア ビューア"></canvas>
+
+    <header class="hud-top">
+      <div class="title-badge">
+        <span class="title-main">バニーの3Dフィギュア</span>
+        <span class="title-sub">本日のご案内</span>
+      </div>
+      <div class="top-actions">
+        <button id="btn-autorotate" class="pill-btn toggle-btn" type="button" aria-pressed="false" title="自動でゆっくり回転">
+          <span class="dot" aria-hidden="true"></span>
+          <span>くるくる</span>
+        </button>
+      </div>
+    </header>
+
+    <div id="reaction-toast" class="reaction-toast" aria-live="polite"></div>
+
+    <footer class="hud-bottom">
+      <div class="expr-bar" role="group" aria-label="表情切り替え">
+        <button class="expr-btn active" type="button" data-expr="normal">ふつう</button>
+        <button class="expr-btn" type="button" data-expr="blink">まばたき</button>
+        <button class="expr-btn" type="button" data-expr="half">半目</button>
+        <button class="expr-btn" type="button" data-expr="kiss">投げキッス</button>
+      </div>
+      <p class="hint-text">ドラッグで回転・ピンチで拡大縮小・タップで反応</p>
+    </footer>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

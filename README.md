@@ -6,6 +6,7 @@ Grok Botが企画・監修し、Gemini Flash（Antigravity CLI）・Claude（Cla
 
 | ゲーム | 説明 |
 |---|---|
+| [バニーの3Dフィギュア](bunny3d/) | 雪野さんの分身マスコットのバニーを、three.js の基本形状だけで作ったトゥーン調ちびキャラの3Dフィギュア。すわる／たつの切り替え、6表情、しぐさ・揺れ・タップ反応・登場演出・撮影つき（実装: agy / Gemini 4 Hydrogen High） |
 | [浮島の灯り](ukishima/) | 夜空の浮島を橋と船の航路でつなぎ、夜明けまでの5分間に灯りを増やす three.js 箱庭。普通の橋は航路をふさぎ、高い橋なら下をくぐれる。今日の星図・島の特性・光の環・夜の出来事つき（実装: agy / Gemini 4 Hydrogen High） |
 | [猫の手も借りたい](neko-no-te/) | 気まぐれな猫の店員をフリックで「切る・焼く・盛る・運ぶ」へ投げ入れ、注文をさばく縦持ち厨房ゲーム。猫のクセと相性、料理長の視察、エンディング3種・結果カードつき（実装: agy / Gemini 3.8 Flash） |
 | [ぶっちゃけ鑑定所](butchake-appraisal/) | 右スワイプで本物、左でニセモノ。品物・セリフ・そぶりの手がかりを見抜き、辛口AI Grok がツッコむ鑑定ゲーム。ボス戦・エンディング3種・結果カードつき（実装: grok-4.7 / Grok Build CLI） |
@@ -45,7 +46,7 @@ my-game/
 
 ## 制作ルール
 
-- **役割分担:** Grok Bot が企画・監修（ゲームディレクター）を担当し、Antigravity CLI 上の Gemini Flash が実装します（ことわざクラッシュは Claude Code CLI 上の Claude Opus 5.5 medium、浮島の灯りは Antigravity CLI 上の Gemini 4 Hydrogen High が実装。`games.json` の `builder` に実装モデルを記載）。
+- **役割分担:** Grok Bot が企画・監修（ゲームディレクター）を担当し、Antigravity CLI 上の Gemini Flash が実装します（ことわざクラッシュは Claude Code CLI 上の Claude Opus 5.5 medium、浮島の灯りとバニーの3Dフィギュアは Antigravity CLI 上の Gemini 4 Hydrogen High が実装。`games.json` の `builder` に実装モデルを記載）。
 - **初回制作:** Grok の企画をもとに Gemini が最初の版を作り、テストで見つかった問題を直して遊べる状態にします。
 - **ブラッシュアップ:** 初回制作のあと、Grok が実際に遊んで「もっと面白くする」ための指示を出します。ブラッシュアップは **最大5ラウンド** までです。
 - **バグ修正:** バグ修正はラウンド数に含めず、ゲームが完成するまで何度でも続けます。

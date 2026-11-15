@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>バニーの3Dフィギュア</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="./style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <canvas id="stage" aria-label="バニーの3Dフィギュア ビューア"></canvas>
+
+    <div id="loading-overlay" class="loading-overlay" aria-live="polite">
+      <div class="loading-spinner" aria-hidden="true">
+        <svg viewBox="0 0 64 64" width="44" height="44" fill="none">
+          <path d="M22 36 C16 20 17 8 24 8 C30 8 30 22 30 34" fill="#a864ea" stroke="#f5d2ff" stroke-width="2.5"/>
+          <path d="M42 36 C48 20 47 8 40 8 C34 8 34 22 34 34" fill="#a864ea" stroke="#f5d2ff" stroke-width="2.5"/>
+          <path d="M23 32 C19 20 20 13 23.5 13 C27 13 27 21 27 32" fill="#eab5ff"/>
+          <path d="M41 32 C45 20 44 13 40.5 13 C37 13 37 21 37 32" fill="#eab5ff"/>
+          <path d="M16 38 A16 14 0 0 1 48 38" stroke="#f5d2ff" stroke-width="3.2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="loading-text">よみこみ中…</span>
+    </div>
+
+    <div id="shutter-flash" class="shutter-flash" aria-hidden="true"></div>
+
+    <header class="hud-top">
+      <div class="title-badge">
+        <span class="title-main">バニーの3Dフィギュア</span>
+        <span class="title-sub">本日のご案内</span>
+      </div>
+      <div class="top-actions">
+        <div class="top-btn-row">
+          <button id="btn-snapshot" class="pill-btn" type="button" title="UIなしでPNG画像を保存">
+            <span aria-hidden="true">📷</span>
+            <span>撮影</span>
+          </button>
+          <button id="btn-autorotate" class="pill-btn toggle-btn" type="button" aria-pressed="false" title="自動でゆっくり回転">
+            <span class="dot" aria-hidden="true"></span>
+            <span>くるくる</span>
+          </button>
+        </div>
+        <div class="pose-toggle" role="group" aria-label="ポーズ切り替え">
+          <button class="pose-btn active" type="button" data-pose="sit">すわる</button>
+          <button class="pose-btn" type="button" data-pose="stand">たつ</button>
+        </div>
+      </div>
+    </header>
+
+    <div id="reaction-toast" class="reaction-toast" aria-live="polite"></div>
+
+    <footer class="hud-bottom">
+      <div class="expr-shell">
+        <div id="expr-bar" class="expr-bar has-fade" role="group" aria-label="表情切り替え">
+          <button class="expr-btn active" type="button" data-expr="normal">😊 ふつう</button>
+          <button class="expr-btn" type="button" data-expr="blink">😌 まばたき</button>
+          <button class="expr-btn" type="button" data-expr="half">😪 半目</button>
+          <button class="expr-btn" type="button" data-expr="kiss">😘 キッス</button>
+          <button class="expr-btn" type="button" data-expr="smile">😆 にっこり</button>
+          <button class="expr-btn" type="button" data-expr="shy">😳 てれ</button>
+        </div>
+      </div>
+      <p id="hint-text" class="hint-text">ドラッグで回転・ピンチで拡大縮小・タップで反応</p>
+    </footer>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
