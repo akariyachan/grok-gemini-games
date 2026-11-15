@@ -8,8 +8,9 @@
 2. Blender MCP直接版 v5
 3. agy手順書版 v0（初回の通し）
 4. agy手順書版（仕上げ後の最新）
+5. Codex版（Aポーズの立ち姿。すわるポーズは未収録）
 
-立ち／正座は右上の「たつ」「すわる」で切り替えます。
+立ち／正座は右上の「たつ」「すわる」で切り替えます。Codex版は立ちのみです。
 
 ▶ 見る: https://akariyachan.github.io/grok-gemini-games/bunny3d-compare/
 

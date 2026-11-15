@@ -26,6 +26,12 @@
       "type": "gltf",
       "sit": "models/agy-manual/bunny_manual.glb",
       "stand": "models/agy-manual/bunny_manual_stand.glb"
+    },
+    {
+      "id": "codex",
+      "name": "Codex版",
+      "type": "gltf",
+      "stand": "models/codex/bunny_codex_stand.glb"
     }
   ]
 }

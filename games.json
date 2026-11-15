@@ -28,7 +28,7 @@
     "id": "bunny3d-compare",
     "folder": "bunny3d-compare",
     "title": "バニー 3D 比較ビューア",
-    "description": "同じ画面で、three.js版、Blender MCP直接版、agy手順書版（初回と仕上げ後）のちびバニーを ◀ ▶ で見比べられるビューア。すわる／たつの切り替えつき。three.js版はコードのまま読み込み、独自のトゥーンとまばたきを残しています。",
+    "description": "同じ画面で、three.js版、Blender MCP直接版、agy手順書版（初回と仕上げ後）、Codex版のちびバニーを ◀ ▶ で見比べられるビューア。すわる／たつの切り替えつき。Codex版はAポーズの立ち姿です。three.js版はコードのまま読み込み、独自のトゥーンとまばたきを残しています。",
     "thumbnail": "bunny3d-compare/thumbnail.png",
     "date": "2026-11-15",
     "builder": "agy（Gemini 4 Hydrogen High）ほか"
