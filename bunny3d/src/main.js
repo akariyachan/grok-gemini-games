@@ -10,7 +10,7 @@ import {
 import { createBunnyCharacter } from './character.js';
 import { BackgroundSparkles, HeartParticleSystem, SparkleBurstSystem } from './particles.js';
 
-const VALID_EXPRS = new Set(['normal', 'blink', 'half', 'kiss']);
+const VALID_EXPRS = new Set(['normal', 'blink', 'half', 'kiss', 'smile', 'shy']);
 const VALID_POSES = new Set(['sit', 'stand']);
 
 function clamp(v, min, max) {
@@ -177,6 +177,20 @@ function init() {
     nextBlinkIn: 2.8,
     blinkTimer: 0,
 
+    // Smooth expression eyelid transition (0.12s)
+    renderedExpr: 'normal',
+    exprTrans: {
+      active: false,
+      from: 'normal',
+      to: 'normal',
+      progress: 1,
+      duration: 0.12,
+    },
+
+    // Temporary tap expression override
+    tapExpr: null,
+    tapExprTimer: 0,
+
     // Kiss sequence
     kissTimer: 0,
     kissMix: 0,
@@ -186,7 +200,33 @@ function init() {
     earPop: 0,
     blushBoost: 0,
     wigglePop: 0,
+    highFivePop: 0,
     toastTimer: null,
+
+    // Idle gestures & 20s "こっち見て" appeal
+    idleSinceInput: 0,
+    appealDoneThisStretch: false,
+    nextGestureIn: 6.5,
+    lastGesture: '',
+    gesture: {
+      active: false,
+      type: '',
+      dir: 1,
+      progress: 0,
+      duration: 1.8,
+    },
+
+    // Secondary spring-damper physics for hair & bunny ears
+    springs: {
+      hairYaw: 0,
+      hairYawVel: 0,
+      hairPitch: 0,
+      hairPitchVel: 0,
+      earTilt: 0,
+      earTiltVel: 0,
+      prevY: 0.35,
+      prevRotY: 0,
+    },
   };
 
   // --- Responsive Framing (adapts smoothly to sit/stand bounding height) ---
@@ -284,9 +324,35 @@ function init() {
     }, 1500);
   }
 
-  function setExpression(name) {
+  function registerUserActivity() {
+    state.idleSinceInput = 0;
+    state.appealDoneThisStretch = false;
+  }
+
+  function hasClosedEyeShape(expr) {
+    return expr === 'blink' || expr === 'smile';
+  }
+
+  function startExprTransition(fromExpr, toExpr) {
+    if (fromExpr === toExpr) return;
+    if (state.frozen || (hasClosedEyeShape(fromExpr) && hasClosedEyeShape(toExpr))) {
+      state.renderedExpr = toExpr;
+      state.exprTrans.active = false;
+      faceCtrl.update(toExpr, state.blushBoost, 0);
+      return;
+    }
+    state.exprTrans.active = true;
+    state.exprTrans.from = fromExpr;
+    state.exprTrans.to = toExpr;
+    state.exprTrans.progress = 0;
+  }
+
+  function setExpression(name, instant = false) {
     const next = VALID_EXPRS.has(name) ? name : 'normal';
+    const prevBase = state.tapExpr || state.userExpression;
     state.userExpression = next;
+    state.tapExpr = null;
+    state.tapExprTimer = 0;
     state.blinkTimer = 0;
 
     if (next === 'kiss') {
@@ -309,7 +375,13 @@ function init() {
     }
 
     syncExprButtons();
-    faceCtrl.update(next, state.blushBoost);
+    if (instant || state.frozen) {
+      state.renderedExpr = next;
+      state.exprTrans.active = false;
+      faceCtrl.update(next, state.blushBoost, 0);
+    } else {
+      startExprTransition(prevBase, next);
+    }
     applyPose(0);
   }
 
@@ -317,6 +389,7 @@ function init() {
     if (Number.isFinite(yRadians)) {
       state.rotationY = yRadians;
       state.rotVelocity = 0;
+      state.springs.prevRotY = yRadians;
       turntable.rotation.y = yRadians;
     }
   }
@@ -336,24 +409,84 @@ function init() {
     }
   }
 
-  function triggerTapReaction() {
-    const reactions = ['earPop', 'blush', 'happyWiggle'];
-    const choice = reactions[Math.floor(Math.random() * reactions.length)];
-    if (choice === 'earPop') {
+  function detectTapZone(hitObject) {
+    let cur = hitObject;
+    while (cur && cur !== character.root) {
+      const n = cur.name || '';
+      if (
+        n === 'left_arm_pivot' ||
+        n === 'left_elbow_pivot' ||
+        n === 'left_wrist_pivot' ||
+        n === 'right_arm_pivot' ||
+        n === 'right_elbow_pivot' ||
+        n === 'right_wrist_pivot'
+      ) {
+        return 'hand';
+      }
+      if (n === 'head_pivot') {
+        return 'head';
+      }
+      cur = cur.parent;
+    }
+    return 'body';
+  }
+
+  function triggerTapReaction(zone = null) {
+    registerUserActivity();
+    const chosenZone =
+      zone === 'head' || zone === 'body' || zone === 'hand'
+        ? zone
+        : ['head', 'body', 'hand'][Math.floor(Math.random() * 3)];
+
+    if (chosenZone === 'head') {
       state.earPop = 1.0;
-      showToast('ぴょこん♪');
-    } else if (choice === 'blush') {
-      state.blushBoost = 1.0;
-      showToast('えへへ…♪');
+      if (state.userExpression !== 'kiss') {
+        const prev = state.tapExpr || state.userExpression;
+        state.tapExpr = 'smile';
+        state.tapExprTimer = 1.25;
+        startExprTransition(prev, 'smile');
+      }
+      poseSparkles.emit(lerp(1.22, 1.62, state.poseMix));
+      showToast('えへっ♪');
+    } else if (chosenZone === 'hand') {
+      state.highFivePop = 1.0;
+      state.wigglePop = 0.7;
+      if (state.userExpression !== 'kiss') {
+        const prev = state.tapExpr || state.userExpression;
+        state.tapExpr = 'smile';
+        state.tapExprTimer = 1.1;
+        startExprTransition(prev, 'smile');
+      }
+      showToast('はいたっち♪');
     } else {
-      state.wigglePop = 1.0;
-      showToast('いらっしゃいませ♪');
+      state.blushBoost = 1.0;
+      state.wigglePop = 0.65;
+      if (state.userExpression !== 'kiss') {
+        const prev = state.tapExpr || state.userExpression;
+        state.tapExpr = 'shy';
+        state.tapExprTimer = 1.4;
+        startExprTransition(prev, 'shy');
+      }
+      heartParticles.emitBurst(getKissOrigin(), 2);
+      showToast('きゃっ…♪');
     }
   }
 
   function setFrozen(flag) {
     state.frozen = Boolean(flag);
     if (state.frozen) {
+      state.exprTrans.active = false;
+      state.tapExpr = null;
+      state.tapExprTimer = 0;
+      state.gesture.active = false;
+      state.renderedExpr = state.userExpression;
+      state.springs.hairYaw = 0;
+      state.springs.hairYawVel = 0;
+      state.springs.hairPitch = 0;
+      state.springs.hairPitchVel = 0;
+      state.springs.earTilt = 0;
+      state.springs.earTiltVel = 0;
+      faceCtrl.update(state.userExpression, state.blushBoost, 0);
       if (state.userExpression === 'kiss') {
         state.kissMix = 1;
         applyPose(0);
@@ -368,18 +501,21 @@ function init() {
 
   for (const btn of exprButtons) {
     btn.addEventListener('click', () => {
+      registerUserActivity();
       setExpression(btn.dataset.expr);
     });
   }
 
   for (const btn of poseButtons) {
     btn.addEventListener('click', () => {
+      registerUserActivity();
       setPose(btn.dataset.pose, false);
     });
   }
 
   if (autoRotateBtn) {
     autoRotateBtn.addEventListener('click', () => {
+      registerUserActivity();
       setAutoRotate(!state.autoRotate);
     });
   }
@@ -398,6 +534,7 @@ function init() {
   }
 
   canvas.addEventListener('pointerdown', (e) => {
+    registerUserActivity();
     canvas.setPointerCapture(e.pointerId);
     activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
@@ -419,6 +556,7 @@ function init() {
     const prev = activePointers.get(e.pointerId);
     if (!prev) return;
 
+    registerUserActivity();
     const dx = e.clientX - prev.x;
     const dy = e.clientY - prev.y;
     prev.x = e.clientX;
@@ -451,14 +589,14 @@ function init() {
 
     if (tapCandidate && tapCandidate.id === e.pointerId) {
       if (tapCandidate.maxDist < 9) {
-        // Raycast against character to confirm tap hit
+        // Raycast against character to confirm tap hit and detect head / body / hand zone
         const rect = canvas.getBoundingClientRect();
         pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(pointerNDC, camera);
         const hits = raycaster.intersectObject(character.root, true);
         if (hits.length > 0) {
-          triggerTapReaction();
+          triggerTapReaction(detectTapZone(hits[0].object));
         }
       }
       tapCandidate = null;
@@ -472,6 +610,7 @@ function init() {
     'wheel',
     (e) => {
       e.preventDefault();
+      registerUserActivity();
       const factor = Math.exp(-e.deltaY * 0.0011);
       setZoom(state.zoom * factor);
     },
@@ -542,6 +681,67 @@ function init() {
     _baseLeftWrist.copy(active.leftWristRot);
   }
 
+  // --- Idle Gesture Scheduler & Secondary Spring-Damper Physics ---
+  function startIdleGesture(type, dir = 1) {
+    state.gesture.active = true;
+    state.gesture.type = type;
+    state.gesture.dir = dir;
+    state.gesture.progress = 0;
+    state.lastGesture = type;
+    if (type === 'appealWave') {
+      state.gesture.duration = 2.5;
+      showToast('こっち見て〜♪');
+      if (state.userExpression === 'normal') {
+        const prev = state.tapExpr || state.userExpression;
+        state.tapExpr = 'smile';
+        state.tapExprTimer = 1.6;
+        startExprTransition(prev, 'smile');
+      }
+    } else if (type === 'earTuck') {
+      state.gesture.duration = 2.2;
+    } else if (type === 'waveHand') {
+      state.gesture.duration = 1.9;
+    } else if (type === 'headTilt') {
+      state.gesture.duration = 2.0;
+    } else if (type === 'earTwitch') {
+      state.gesture.duration = 1.3;
+    } else {
+      state.gesture.duration = 1.4;
+    }
+  }
+
+  function stepSpring(pos, vel, target, stiffness, damping, dt) {
+    const acc = -stiffness * (pos - target) - damping * vel;
+    const nextVel = vel + acc * dt;
+    const nextPos = pos + nextVel * dt;
+    return [nextPos, nextVel];
+  }
+
+  function updateSprings(dt) {
+    const sp = state.springs;
+    if (state.frozen || dt <= 0) {
+      sp.prevY = character.hipsGroup.position.y;
+      sp.prevRotY = state.rotationY;
+      return;
+    }
+    const dy = (character.hipsGroup.position.y - sp.prevY) / dt;
+    sp.prevY = character.hipsGroup.position.y;
+
+    let dRot = state.rotationY - sp.prevRotY;
+    while (dRot > Math.PI) dRot -= Math.PI * 2;
+    while (dRot < -Math.PI) dRot += Math.PI * 2;
+    const omega = dRot / dt;
+    sp.prevRotY = state.rotationY;
+
+    const targetYaw = clamp(-omega * 0.045, -0.24, 0.24);
+    const targetPitch = clamp(-dy * 0.08, -0.18, 0.18);
+    const targetEarTilt = clamp(-omega * 0.055 - dy * 0.14, -0.26, 0.26);
+
+    [sp.hairYaw, sp.hairYawVel] = stepSpring(sp.hairYaw, sp.hairYawVel, targetYaw, 52, 8.2, dt);
+    [sp.hairPitch, sp.hairPitchVel] = stepSpring(sp.hairPitch, sp.hairPitchVel, targetPitch, 58, 7.8, dt);
+    [sp.earTilt, sp.earTiltVel] = stepSpring(sp.earTilt, sp.earTiltVel, targetEarTilt, 72, 6.8, dt);
+  }
+
   // --- Pose & Idle Animation Evaluator ---
   function applyPose(dt) {
     const t = state.time;
@@ -556,14 +756,34 @@ function init() {
     const sway = state.frozen ? 0 : Math.sin(t * 1.18);
     const earBob = state.frozen ? 0 : Math.sin(t * 3.1) + Math.sin(t * 6.2) * 0.25;
     const wiggle = state.frozen ? 0 : Math.sin(t * 14.0) * state.wigglePop;
-    const earPopLift = state.frozen ? 0 : Math.sin(state.earPop * Math.PI) * 0.30;
+    const earPopLift = state.frozen ? 0 : Math.sin(state.earPop * Math.PI) * 0.32;
+    const highFiveLift = state.frozen ? 0 : Math.sin(state.highFivePop * Math.PI);
+
+    // Random gesture & 20s appeal offsets
+    let gEnv = 0;
+    let gU = 0;
+    let gType = '';
+    let gDir = 1;
+    if (!state.frozen && state.gesture.active) {
+      gType = state.gesture.type;
+      gDir = state.gesture.dir;
+      gU = clamp(state.gesture.progress, 0, 1);
+      gEnv = Math.sin(gU * Math.PI);
+    }
+
+    const gestureBounce =
+      gType === 'happyBounce' ? Math.pow(Math.max(0, Math.sin(gU * Math.PI * 2)), 1.4) : 0;
 
     // Standing idle extras: slow weight shift + occasional playful knee bend & tiptoe bounce
-    const standBounce = state.frozen ? 0 : Math.pow(Math.max(0, Math.sin(t * 0.92)), 10) * standW * (1 - (inTrans ? 0.8 : 0));
+    const standBounce = state.frozen
+      ? 0
+      : (Math.pow(Math.max(0, Math.sin(t * 0.92)), 10) * 0.8 + gestureBounce * 1.1) *
+        standW *
+        (1 - (inTrans ? 0.8 : 0));
     const standSway = state.frozen ? 0 : sway * standW * (inTrans ? 0.25 : 1);
 
     character.hipsGroup.position.x += standSway * 0.018;
-    character.hipsGroup.position.y += standBounce * 0.022;
+    character.hipsGroup.position.y += standBounce * 0.024 + (gType === 'happyBounce' ? gestureBounce * (1 - standW) * 0.012 : 0);
     character.hipsGroup.rotation.z += standSway * 0.024;
     character.rightLeg.kneePivot.rotation.x += standBounce * 0.14;
     character.leftLeg.kneePivot.rotation.x += standBounce * 0.14;
@@ -575,34 +795,46 @@ function init() {
     character.torsoPivot.rotation.y += wiggle * 0.08;
     character.torsoPivot.rotation.z += sway * 0.012 - standSway * 0.020;
 
-    // Head sway + kiss head tilt + shy blush dip
+    // Head sway + kiss head tilt + shy blush dip + headTilt/earTuck gesture
     const kissTilt = state.kissMix * 0.07;
     const shyDip = state.frozen ? 0 : state.blushBoost * 0.06;
+    const gHeadTilt = gType === 'headTilt' ? gEnv * 0.16 * gDir : 0;
+    const gEarTuckHead = gType === 'earTuck' ? gEnv * -0.10 : 0;
     character.headPivot.rotation.x += breathe * 0.016 + shyDip;
-    character.headPivot.rotation.y += sway * 0.025 + wiggle * 0.06;
-    character.headPivot.rotation.z += sway * 0.02 + kissTilt;
+    character.headPivot.rotation.y += sway * 0.025 + wiggle * 0.06 + (gType === 'earTuck' ? gEnv * 0.14 : 0);
+    character.headPivot.rotation.z += sway * 0.02 + kissTilt + gHeadTilt + gEarTuckHead;
 
-    // Livelier bunny ears wiggle + tap/transition ear pop
+    // Livelier bunny ears wiggle + single-ear twitch + spring trailing lag
+    const sp = state.springs;
     const earBaseR = p.sit.rightEarRot;
     const earBaseL = p.sit.leftEarRot;
+    const earTwitchVal =
+      gType === 'earTwitch' ? Math.pow(Math.max(0, Math.sin(gU * Math.PI * 3)), 1.5) * 0.24 : 0;
+    const rightTwitch = gDir < 0 ? earTwitchVal : 0;
+    const leftTwitch = gDir > 0 ? earTwitchVal : 0;
+
     character.rightBunnyEarPivot.rotation.set(
-      earBaseR.x + earBob * 0.075,
+      earBaseR.x + earBob * 0.075 + sp.earTilt * 0.45 + rightTwitch,
       earBaseR.y,
-      earBaseR.z - earBob * 0.095 - earPopLift
+      earBaseR.z - earBob * 0.095 - earPopLift + sp.earTilt - rightTwitch * 0.7
     );
     character.leftBunnyEarPivot.rotation.set(
-      earBaseL.x - earBob * 0.055,
+      earBaseL.x - earBob * 0.055 + sp.earTilt * 0.35 + leftTwitch,
       earBaseL.y,
-      earBaseL.z + earBob * 0.072 + earPopLift * 0.8
+      earBaseL.z + earBob * 0.072 + earPopLift * 0.8 + sp.earTilt * 0.85 + leftTwitch * 0.7
     );
 
-    // Hair & tail gentle sway
-    character.backHairPivot.rotation.x = sway * 0.028 + breathe * 0.01 + standBounce * 0.06;
-    character.leftSideHairPivot.rotation.z = sway * 0.022;
-    character.rightSideHairPivot.rotation.z = -sway * 0.022;
-    character.tailPivot.rotation.y = sway * 0.08 + wiggle * 0.28;
+    // Hair & tail gentle sway + secondary spring-damper lag (reacts to bounce & turntable spin)
+    character.backHairPivot.rotation.x = sway * 0.028 + breathe * 0.01 + sp.hairPitch * 0.65;
+    character.backHairPivot.rotation.y = sp.hairYaw * 0.9;
+    character.backHairPivot.rotation.z = -sp.hairYaw * 0.35;
+    character.leftSideHairPivot.rotation.z = sway * 0.022 + sp.hairYaw * 0.55;
+    character.leftSideHairPivot.rotation.x = sp.hairPitch * 0.4;
+    character.rightSideHairPivot.rotation.z = -sway * 0.022 + sp.hairYaw * 0.55;
+    character.rightSideHairPivot.rotation.x = sp.hairPitch * 0.4;
+    character.tailPivot.rotation.y = sway * 0.08 + wiggle * 0.28 + sp.hairYaw * 0.7;
 
-    // Left arm: interpolate smoothly between active pose welcome gesture and blown-kiss pose
+    // Left arm: interpolate smoothly between active pose welcome gesture, blown-kiss, high-five, wave, or ear-tuck
     const handFloat = state.frozen ? 0 : Math.sin(t * 2.1 - 0.8) * 0.035 * (1 - state.kissMix);
     lerpEuler(_baseKissArm, p.kissArmRot, p.standKissArmRot, standW);
     lerpEuler(_baseKissElbow, p.kissElbowRot, p.standKissElbowRot, standW);
@@ -610,8 +842,39 @@ function init() {
     lerpEuler(character.leftArmPivot.rotation, _baseLeftArm, _baseKissArm, state.kissMix);
     lerpEuler(character.leftElbowPivot.rotation, _baseLeftElbow, _baseKissElbow, state.kissMix);
     lerpEuler(character.leftWristPivot.rotation, _baseLeftWrist, _baseKissWrist, state.kissMix);
-    character.leftArmPivot.rotation.x += handFloat;
-    character.leftWristPivot.rotation.z += handFloat * 0.7;
+
+    if (highFiveLift > 0) {
+      character.leftArmPivot.rotation.x -= highFiveLift * 0.52;
+      character.leftArmPivot.rotation.z -= highFiveLift * 0.20;
+      character.leftElbowPivot.rotation.x -= highFiveLift * 0.28;
+      character.leftWristPivot.rotation.z -= highFiveLift * 0.24;
+    }
+
+    if (gType === 'waveHand' || gType === 'appealWave') {
+      const waveBeats = gType === 'appealWave' ? 5 : 4;
+      const waveOsc = Math.sin(gU * Math.PI * waveBeats) * gEnv;
+      const lift = gType === 'appealWave' ? 0.56 : 0.38;
+      character.leftArmPivot.rotation.x -= gEnv * lift;
+      character.leftArmPivot.rotation.z += gEnv * 0.14;
+      character.leftElbowPivot.rotation.x -= gEnv * 0.32;
+      character.leftElbowPivot.rotation.z += waveOsc * 0.22;
+      character.leftWristPivot.rotation.z += waveOsc * 0.32;
+    } else if (gType === 'earTuck') {
+      const tuckW = Math.pow(gEnv, 0.85) * (1 - state.kissMix);
+      character.leftArmPivot.rotation.x = lerp(character.leftArmPivot.rotation.x, -0.98, tuckW);
+      character.leftArmPivot.rotation.y = lerp(character.leftArmPivot.rotation.y, 0.22, tuckW);
+      character.leftArmPivot.rotation.z = lerp(character.leftArmPivot.rotation.z, 0.52, tuckW);
+      character.leftElbowPivot.rotation.x = lerp(character.leftElbowPivot.rotation.x, -1.32, tuckW);
+      character.leftElbowPivot.rotation.y = lerp(character.leftElbowPivot.rotation.y, 0.34, tuckW);
+      character.leftElbowPivot.rotation.z = lerp(character.leftElbowPivot.rotation.z, -0.52, tuckW);
+      character.leftWristPivot.rotation.x = lerp(character.leftWristPivot.rotation.x, 0.16, tuckW);
+      character.leftWristPivot.rotation.z = lerp(character.leftWristPivot.rotation.z, 0.28, tuckW);
+    } else {
+      character.leftArmPivot.rotation.x += handFloat;
+      character.leftWristPivot.rotation.z += handFloat * 0.7;
+    }
+
+    updateSprings(dt);
 
     // Exact pedestal floor clamp: prevents feet or knees from ever dipping below y = 0.002
     character.hipsGroup.updateMatrixWorld(true);
@@ -655,7 +918,7 @@ function init() {
     setZoom(Number(initZoom));
   }
   if (initExpr && VALID_EXPRS.has(initExpr)) {
-    setExpression(initExpr);
+    setExpression(initExpr, true);
   }
   if (initFreeze === '1' || initFreeze === 'true') {
     setFrozen(true);
@@ -728,6 +991,7 @@ function init() {
 
     if (!state.frozen) {
       state.time += dt;
+      state.idleSinceInput += dt;
 
       // Pose transition timeline (~1.0s choreographed sit <-> stand)
       if (state.poseTransition.active) {
@@ -749,6 +1013,50 @@ function init() {
       if (state.earPop > 0) state.earPop = Math.max(0, state.earPop - dt * 1.9);
       if (state.blushBoost > 0) state.blushBoost = Math.max(0, state.blushBoost - dt * 0.45);
       if (state.wigglePop > 0) state.wigglePop = Math.max(0, state.wigglePop - dt * 1.3);
+      if (state.highFivePop > 0) state.highFivePop = Math.max(0, state.highFivePop - dt * 1.5);
+
+      if (state.tapExprTimer > 0) {
+        state.tapExprTimer -= dt;
+        if (state.tapExprTimer <= 0) {
+          const prev = state.tapExpr || state.userExpression;
+          state.tapExpr = null;
+          state.tapExprTimer = 0;
+          startExprTransition(prev, state.userExpression);
+        }
+      }
+
+      // Random idle gesture scheduler + 20s "こっち見て" camera appeal
+      if (state.gesture.active) {
+        state.gesture.progress += dt / state.gesture.duration;
+        if (state.gesture.type === 'appealWave' && !state.autoRotate && activePointers.size === 0) {
+          let diff = -state.rotationY;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          state.rotationY += diff * Math.min(1, dt * 3.2);
+          turntable.rotation.y = state.rotationY;
+        }
+        if (state.gesture.progress >= 1) {
+          state.gesture.active = false;
+          state.gesture.progress = 0;
+        }
+      } else if (state.mode === 'idle' && !state.poseTransition.active) {
+        if (!state.appealDoneThisStretch && state.idleSinceInput >= 20) {
+          state.appealDoneThisStretch = true;
+          startIdleGesture('appealWave', 1);
+          state.nextGestureIn = 7.0;
+        } else {
+          state.nextGestureIn -= dt;
+          if (state.nextGestureIn <= 0) {
+            state.nextGestureIn = 6.0 + Math.random() * 5.0;
+            const pool = ['headTilt', 'waveHand', 'earTwitch', 'happyBounce'];
+            if (state.poseMix > 0.9) pool.push('earTuck');
+            const filtered = pool.filter((g) => g !== state.lastGesture);
+            const pick = filtered[Math.floor(Math.random() * filtered.length)];
+            const dir = Math.random() < 0.5 ? -1 : 1;
+            startIdleGesture(pick, dir);
+          }
+        }
+      }
 
       // Kiss animation timeline (auto-returns to normal after ~2.6s)
       if (state.userExpression === 'kiss') {
@@ -767,23 +1075,42 @@ function init() {
 
       bgSparkles.update(state.time);
 
-      // Automatic random blink (2 to 6s) when expression is 'normal'
-      let displayExpr = state.userExpression;
-      if (state.userExpression === 'normal') {
+      // Smooth 0.12s eye close -> open animation for expression transitions
+      let displayExpr = state.tapExpr || state.userExpression;
+      let lidClose = 0;
+
+      if (state.exprTrans.active) {
+        state.exprTrans.progress += dt / state.exprTrans.duration;
+        if (state.exprTrans.progress >= 1) {
+          state.exprTrans.active = false;
+          state.exprTrans.progress = 1;
+          state.renderedExpr = state.exprTrans.to;
+          displayExpr = state.exprTrans.to;
+          lidClose = 0;
+        } else if (state.exprTrans.progress < 0.5) {
+          displayExpr = state.exprTrans.from;
+          lidClose = state.exprTrans.progress * 2;
+        } else {
+          displayExpr = state.exprTrans.to;
+          lidClose = (1 - state.exprTrans.progress) * 2;
+        }
+      } else if (displayExpr === 'normal') {
+        // Automatic random blink (2 to 6s) with smooth eye close curve
         if (state.blinkTimer > 0) {
           state.blinkTimer -= dt;
-          displayExpr = 'blink';
+          const u = clamp(1 - state.blinkTimer / 0.14, 0, 1);
+          lidClose = Math.sin(u * Math.PI);
+          if (lidClose > 0.88) displayExpr = 'blink';
         } else {
           state.nextBlinkIn -= dt;
           if (state.nextBlinkIn <= 0) {
             state.blinkTimer = 0.14;
             state.nextBlinkIn = 2.0 + Math.random() * 4.0;
-            displayExpr = 'blink';
           }
         }
       }
 
-      faceCtrl.update(displayExpr, state.blushBoost);
+      faceCtrl.update(displayExpr, state.blushBoost, lidClose);
       applyPose(dt);
     }
 

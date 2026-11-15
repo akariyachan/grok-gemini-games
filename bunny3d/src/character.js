@@ -482,7 +482,7 @@ export function createBunnyCharacter(materials, faceTexture) {
     ];
     const thighGeo = createTaperedTube(
       thighCurve,
-      (t) => 0.072 + Math.sin(t * Math.PI * 0.72) * 0.025 - (t > 0.7 ? (t - 0.7) * 0.04 : 0),
+      (t) => 0.080 + Math.sin(t * Math.PI * 0.84) * 0.022 - t * 0.017,
       12,
       12
     );
@@ -495,7 +495,7 @@ export function createBunnyCharacter(materials, faceTexture) {
     kneePivot.position.set(0, -thighLen, 0);
     hipPivot.add(kneePivot);
 
-    const kneeBallGeo = new THREE.SphereGeometry(0.080, 12, 10);
+    const kneeBallGeo = new THREE.SphereGeometry(0.074, 12, 10);
     const kneeBall = new THREE.Mesh(kneeBallGeo, materials.fishnet);
     kneePivot.add(kneeBall);
 
@@ -506,13 +506,13 @@ export function createBunnyCharacter(materials, faceTexture) {
 
     const shinCurve = [
       new THREE.Vector3(0, -0.02, 0),
-      new THREE.Vector3(0, -shinLen * 0.38, -0.014),
-      new THREE.Vector3(0, -shinLen * 0.78, -0.004),
+      new THREE.Vector3(0, -shinLen * 0.34, -0.015),
+      new THREE.Vector3(0, -shinLen * 0.74, -0.004),
       new THREE.Vector3(0, -shinLen, 0),
     ];
     const shinGeo = createTaperedTube(
       shinCurve,
-      (t) => 0.078 + Math.sin(t * Math.PI * 0.85) * 0.012 - t * 0.028,
+      (t) => 0.074 + Math.sin(Math.pow(t, 0.72) * Math.PI) * 0.018 - t * 0.028,
       14,
       12
     );
@@ -1211,22 +1211,23 @@ export function createBunnyCharacter(materials, faceTexture) {
       leftWristRot: welcomeWristRot.clone(),
     },
     stand: {
-      hipsPos: new THREE.Vector3(0, 0.362, 0),
-      hipsRot: new THREE.Euler(0.02, 0.22, -0.06),
-      torsoRot: new THREE.Euler(0.04, -0.10, 0.06),
-      headRot: new THREE.Euler(-0.02, -0.04, 0.14),
+      hipsPos: new THREE.Vector3(0, 0.352, 0),
+      hipsRot: new THREE.Euler(0.02, 0.24, -0.105),
+      torsoRot: new THREE.Euler(0.04, -0.12, 0.095),
+      headRot: new THREE.Euler(-0.02, -0.06, 0.12),
       rightEarRot: rightBunnyEarPivot.rotation.clone(),
       leftEarRot: leftBunnyEarPivot.rotation.clone(),
-      rightHipRot: new THREE.Euler(-0.05, 0.14, 0.05),
-      rightKneeRot: new THREE.Euler(0.08, 0, 0),
-      rightAnkleRot: new THREE.Euler(-0.03, 0, 0),
-      leftHipRot: new THREE.Euler(-0.34, -0.22, 0.03),
-      leftKneeRot: new THREE.Euler(0.56, 0, 0),
-      leftAnkleRot: new THREE.Euler(-0.08, 0, 0),
-      // Right hand resting playfully on hip/waist in contrapposto
-      rightArmRot: new THREE.Euler(-0.14, 0.12, -0.48),
-      rightElbowRot: new THREE.Euler(-0.42, 0.10, 1.12),
-      rightWristRot: new THREE.Euler(0.18, 0.12, 0.24),
+      // Weight-bearing straight right leg + clearly bent pigeon-toed (内股) left leg
+      rightHipRot: new THREE.Euler(-0.04, 0.08, 0.07),
+      rightKneeRot: new THREE.Euler(0.06, 0, 0),
+      rightAnkleRot: new THREE.Euler(-0.02, 0, -0.04),
+      leftHipRot: new THREE.Euler(-0.44, -0.34, -0.08),
+      leftKneeRot: new THREE.Euler(0.76, 0, 0.04),
+      leftAnkleRot: new THREE.Euler(-0.16, -0.14, 0.04),
+      // Right hand cleanly perched on outer hip waist silhouette (no body clipping)
+      rightArmRot: new THREE.Euler(-0.12, 0.18, -0.62),
+      rightElbowRot: new THREE.Euler(-0.48, 0.16, 0.92),
+      rightWristRot: new THREE.Euler(0.14, 0.18, 0.28),
       // Left hand extending outward in welcoming "どうぞ" palm-up
       leftArmRot: new THREE.Euler(-0.06, 0.10, 0.64),
       leftElbowRot: new THREE.Euler(-0.88, 0.08, 0.62),
