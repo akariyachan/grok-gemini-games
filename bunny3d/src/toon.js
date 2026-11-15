@@ -150,7 +150,11 @@ export function createCharacterMaterials(fishnetTexture) {
   return {
     gradients: { skinGradient, softGradient, crispGradient },
     skin: new THREE.MeshToonMaterial({
-      color: 0xffe5d4,
+      color: 0xffd9be,
+      gradientMap: skinGradient,
+    }),
+    skinShadow: new THREE.MeshToonMaterial({
+      color: 0xeba98c,
       gradientMap: skinGradient,
     }),
     hair: new THREE.MeshToonMaterial({
@@ -158,10 +162,10 @@ export function createCharacterMaterials(fishnetTexture) {
       gradientMap: crispGradient,
     }),
     hairHighlight: new THREE.MeshToonMaterial({
-      color: 0xc8824d,
+      color: 0xc9844f,
       gradientMap: softGradient,
-      emissive: 0x3b1f0c,
-      emissiveIntensity: 0.18,
+      emissive: 0x42220d,
+      emissiveIntensity: 0.22,
     }),
     suit: new THREE.MeshToonMaterial({
       color: 0x763cb0,

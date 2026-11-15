@@ -39,11 +39,11 @@ export class FaceTextureController {
     const h = this.canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    // Wide, soft pastel cheek blush under the eyes
-    const baseBlush = expr === 'kiss' ? 0.78 : 0.56;
-    const blushAlpha = Math.min(0.95, baseBlush + blushBoost * 0.38);
-    this.#drawCheekBlush(ctx, w * 0.20, h * 0.705, 68, 28, blushAlpha);
-    this.#drawCheekBlush(ctx, w * 0.80, h * 0.705, 68, 28, blushAlpha);
+    // Clearer, warmer pastel cheek blush under the eyes
+    const baseBlush = expr === 'kiss' ? 0.88 : 0.72;
+    const blushAlpha = Math.min(0.98, baseBlush + blushBoost * 0.28);
+    this.#drawCheekBlush(ctx, w * 0.20, h * 0.695, 72, 30, blushAlpha);
+    this.#drawCheekBlush(ctx, w * 0.80, h * 0.695, 72, 30, blushAlpha);
 
     // Large tall chibi eyes placed low and slightly wide-set
     const eyeY = h * 0.545;
@@ -86,21 +86,21 @@ export class FaceTextureController {
 
   #drawCheekBlush(ctx, cx, cy, rx, ry, alpha) {
     ctx.save();
-    const grad = ctx.createRadialGradient(cx, cy, 4, cx, cy, rx);
-    grad.addColorStop(0, `rgba(250, 128, 122, ${alpha})`);
-    grad.addColorStop(0.58, `rgba(248, 136, 128, ${alpha * 0.52})`);
-    grad.addColorStop(1, 'rgba(248, 136, 128, 0)');
+    const grad = ctx.createRadialGradient(cx, cy, 6, cx, cy, rx);
+    grad.addColorStop(0, `rgba(246, 110, 106, ${alpha})`);
+    grad.addColorStop(0.62, `rgba(246, 122, 118, ${alpha * 0.58})`);
+    grad.addColorStop(1, 'rgba(246, 122, 118, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Faint 3 diagonal blush strokes
-    ctx.strokeStyle = `rgba(224, 96, 94, ${alpha * 0.34})`;
-    ctx.lineWidth = 3;
+    // Soft diagonal blush strokes
+    ctx.strokeStyle = `rgba(224, 86, 84, ${alpha * 0.42})`;
+    ctx.lineWidth = 3.2;
     ctx.lineCap = 'round';
     for (let i = -1; i <= 1; i++) {
-      const ox = cx + i * 14;
+      const ox = cx + i * 15;
       ctx.beginPath();
       ctx.moveTo(ox - 5, cy + 6);
       ctx.lineTo(ox + 5, cy - 6);
@@ -335,24 +335,24 @@ export class FaceTextureController {
       return;
     }
 
-    // にこっと開いたD字形の笑顔（中に薄いピンクの舌）
-    ctx.fillStyle = '#d65d58';
+    // にこっと開いたD字形の笑顔（約1.3倍サイズ＋薄いピンクの舌）
+    ctx.fillStyle = '#d65854';
     ctx.strokeStyle = '#561f16';
     ctx.lineWidth = 5.5;
     ctx.lineJoin = 'round';
     ctx.beginPath();
-    ctx.moveTo(cx - 30, cy - 9);
-    ctx.quadraticCurveTo(cx, cy - 4, cx + 30, cy - 9);
-    ctx.quadraticCurveTo(cx + 25, cy + 25, cx, cy + 25);
-    ctx.quadraticCurveTo(cx - 25, cy + 25, cx - 30, cy - 9);
+    ctx.moveTo(cx - 38, cy - 11);
+    ctx.quadraticCurveTo(cx, cy - 5, cx + 38, cy - 11);
+    ctx.quadraticCurveTo(cx + 31, cy + 30, cx, cy + 30);
+    ctx.quadraticCurveTo(cx - 31, cy + 30, cx - 38, cy - 11);
     ctx.closePath();
     ctx.fill();
 
     ctx.save();
     ctx.clip();
-    ctx.fillStyle = '#ff9d98';
+    ctx.fillStyle = '#ff9a96';
     ctx.beginPath();
-    ctx.ellipse(cx, cy + 18, 22, 12, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy + 21, 27, 15, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
@@ -362,7 +362,7 @@ export class FaceTextureController {
 }
 
 /**
- * Procedural fishnet tights texture harmonized with pastel peach skin.
+ * Procedural fishnet tights texture with larger ~1.5x diamonds so peachy skin shows clearly.
  */
 export function createFishnetTexture() {
   const size = 512;
@@ -371,12 +371,12 @@ export function createFishnetTexture() {
   canvas.height = size;
   const ctx = canvas.getContext('2d');
 
-  ctx.fillStyle = '#ffe5d4';
+  ctx.fillStyle = '#ffd9be';
   ctx.fillRect(0, 0, size, size);
 
-  const step = 42.6667;
+  const step = 64; // divides 512 cleanly into 8 larger diamonds
   ctx.strokeStyle = '#2d161b';
-  ctx.lineWidth = 5.4;
+  ctx.lineWidth = 4.2;
   ctx.lineCap = 'square';
 
   for (let offset = -size; offset <= size * 2; offset += step) {
@@ -396,7 +396,7 @@ export function createFishnetTexture() {
     const rowShift = Math.round(y / (step * 0.5)) % 2 === 0 ? 0 : step * 0.5;
     for (let x = rowShift; x <= size; x += step) {
       ctx.beginPath();
-      ctx.arc(x, y, 2.0, 0, Math.PI * 2);
+      ctx.arc(x, y, 2.2, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -405,7 +405,7 @@ export function createFishnetTexture() {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(2.4, 4.2);
+  tex.repeat.set(2.2, 4.0);
   tex.needsUpdate = true;
   return tex;
 }

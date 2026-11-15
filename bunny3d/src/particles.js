@@ -131,7 +131,7 @@ export class BackgroundSparkles {
     });
 
     this.items = [];
-    const count = 7;
+    const count = 4;
     for (let i = 0; i < count; i++) {
       const sprite = new THREE.Sprite(this.material);
       const baseX = (Math.random() - 0.5) * 3.8;
