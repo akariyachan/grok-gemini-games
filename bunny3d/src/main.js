@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createCharacterMaterials } from './toon.js';
 import {
   FaceTextureController,
@@ -12,6 +13,7 @@ import { BackgroundSparkles, HeartParticleSystem, SparkleBurstSystem } from './p
 
 const VALID_EXPRS = new Set(['normal', 'blink', 'half', 'kiss', 'smile', 'shy']);
 const VALID_POSES = new Set(['sit', 'stand']);
+const VALID_QUALITIES = new Set(['high', 'mid', 'low']);
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
@@ -23,6 +25,29 @@ function lerp(a, b, t) {
 
 function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+function easeOutBack(t) {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  const u = t - 1;
+  return 1 + c3 * u * u * u + c1 * u * u;
+}
+
+function fillVertexColor(geometry, hexColor) {
+  const geo = geometry.index ? geometry.toNonIndexed() : geometry.clone();
+  if (geometry.index) geometry.dispose();
+  if (geo.attributes.uv) geo.deleteAttribute('uv');
+  const count = geo.attributes.position.count;
+  const colors = new Float32Array(count * 3);
+  const col = new THREE.Color(hexColor);
+  for (let i = 0; i < count; i++) {
+    colors[i * 3] = col.r;
+    colors[i * 3 + 1] = col.g;
+    colors[i * 3 + 2] = col.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  return geo;
 }
 
 function lerpEuler(target, a, b, t) {
@@ -53,10 +78,16 @@ function quadBezierVec3(target, a, mid, b, t) {
 
 function init() {
   const canvas = document.getElementById('stage');
+  const exprBar = document.getElementById('expr-bar');
   const exprButtons = Array.from(document.querySelectorAll('.expr-btn'));
   const poseButtons = Array.from(document.querySelectorAll('.pose-btn'));
   const autoRotateBtn = document.getElementById('btn-autorotate');
+  const snapshotBtn = document.getElementById('btn-snapshot');
+  const loadingOverlay = document.getElementById('loading-overlay');
+  const shutterFlash = document.getElementById('shutter-flash');
+  const hintText = document.getElementById('hint-text');
   const toastEl = document.getElementById('reaction-toast');
+  const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches || false;
 
   // --- Renderer ---
   const renderer = new THREE.WebGLRenderer({
@@ -74,17 +105,21 @@ function init() {
   const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 40);
   const lookTarget = new THREE.Vector3(0, 1.02, 0);
 
-  // --- Lighting (Pastel Hemisphere + Key + Pink-Lavender Rim Light) ---
-  const hemiLight = new THREE.HemisphereLight(0xfff6ff, 0x926ab8, 1.36);
+  // --- Lighting (Pastel Rose-Lavender Hemisphere + Soft Key + Dual Pastel Rim) ---
+  const hemiLight = new THREE.HemisphereLight(0xfff7ff, 0xc98be8, 1.38);
   scene.add(hemiLight);
 
-  const keyLight = new THREE.DirectionalLight(0xfff5f0, 1.18);
+  const keyLight = new THREE.DirectionalLight(0xfff6f2, 1.06);
   keyLight.position.set(2.3, 3.6, 3.8);
   scene.add(keyLight);
 
-  const rimLight = new THREE.DirectionalLight(0xffd0f6, 0.92);
+  const rimLight = new THREE.DirectionalLight(0xffcaf8, 0.96);
   rimLight.position.set(-2.3, 2.8, -2.8);
   scene.add(rimLight);
+
+  const backFillRim = new THREE.DirectionalLight(0xe4c6ff, 0.36);
+  backFillRim.position.set(2.2, 2.2, -2.6);
+  scene.add(backFillRim);
 
   // --- Textures & Materials ---
   const faceCtrl = new FaceTextureController();
@@ -99,28 +134,41 @@ function init() {
   turntable.name = 'turntable_group';
   scene.add(turntable);
 
-  // Circular Figure Pedestal
+  // Circular Figure Pedestal (base + rim merged into 1 draw call + subtle glowing rim line)
   const pedestalGroup = new THREE.Group();
   pedestalGroup.name = 'pedestal_group';
 
-  const baseGeo = new THREE.CylinderGeometry(0.88, 0.96, 0.11, 44);
-  const baseMat = new THREE.MeshToonMaterial({
-    color: 0x281b40,
+  const baseGeoRaw = new THREE.CylinderGeometry(0.88, 0.96, 0.11, 44);
+  baseGeoRaw.translate(0, -0.055, 0);
+  const rimGeoRaw = new THREE.TorusGeometry(0.88, 0.016, 10, 44);
+  rimGeoRaw.rotateX(Math.PI * 0.5);
+  rimGeoRaw.translate(0, -0.002, 0);
+
+  const baseColored = fillVertexColor(baseGeoRaw, 0x2b1d45);
+  const rimColored = fillVertexColor(rimGeoRaw, 0x9e70d9);
+  const mergedPedestalGeo = mergeGeometries([baseColored, rimColored], false);
+  baseColored.dispose();
+  rimColored.dispose();
+
+  const pedestalMat = new THREE.MeshToonMaterial({
+    vertexColors: true,
     gradientMap: materials.gradients.softGradient,
   });
-  const baseMesh = new THREE.Mesh(baseGeo, baseMat);
-  baseMesh.position.y = -0.055;
-  pedestalGroup.add(baseMesh);
+  const pedestalMesh = new THREE.Mesh(mergedPedestalGeo, pedestalMat);
+  pedestalGroup.add(pedestalMesh);
 
-  const rimGeo = new THREE.TorusGeometry(0.88, 0.016, 10, 44);
-  rimGeo.rotateX(Math.PI * 0.5);
-  const rimMat = new THREE.MeshToonMaterial({
-    color: 0x9b6ed4,
-    gradientMap: materials.gradients.crispGradient,
+  const glowRimGeo = new THREE.TorusGeometry(0.882, 0.0055, 6, 48);
+  glowRimGeo.rotateX(Math.PI * 0.5);
+  const glowRimMat = new THREE.MeshBasicMaterial({
+    color: 0xf6ceff,
+    transparent: true,
+    opacity: 0.68,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
   });
-  const rimMesh = new THREE.Mesh(rimGeo, rimMat);
-  rimMesh.position.y = -0.002;
-  pedestalGroup.add(rimMesh);
+  const glowRimMesh = new THREE.Mesh(glowRimGeo, glowRimMat);
+  glowRimMesh.position.y = 0.003;
+  pedestalGroup.add(glowRimMesh);
 
   const shadowGeo = new THREE.PlaneGeometry(1.38, 1.38);
   shadowGeo.rotateX(-Math.PI * 0.5);
@@ -140,6 +188,8 @@ function init() {
   turntable.add(character.root);
 
   const bgSparkles = new BackgroundSparkles(scene, bokehTex);
+  bgSparkles.setPixelRatio(renderer.getPixelRatio());
+  bgSparkles.setReducedMotion(prefersReducedMotion);
   const heartParticles = new HeartParticleSystem(turntable, heartTex);
   const poseSparkles = new SparkleBurstSystem(turntable, bokehTex);
   const _mouthWorld = new THREE.Vector3();
@@ -216,6 +266,23 @@ function init() {
       duration: 1.8,
     },
 
+    // Performance quality tier & initial 2s auto-tuning
+    quality: 'high',
+    qualityLocked: false,
+    qualityEvalTimer: 0,
+    qualityEvalFrames: 0,
+    qualityDone: false,
+
+    // 1.5s pop-in entrance choreography
+    intro: {
+      active: false,
+      progress: 1,
+      duration: prefersReducedMotion ? 0.75 : 1.55,
+      sparkleDone: false,
+      smileDone: false,
+      smileEndDone: false,
+    },
+
     // Secondary spring-damper physics for hair & bunny ears
     springs: {
       hairYaw: 0,
@@ -229,6 +296,22 @@ function init() {
     },
   };
 
+  function getDprForQuality(level) {
+    const raw = window.devicePixelRatio || 1;
+    if (level === 'low') return 1.0;
+    if (level === 'mid') return Math.min(raw, 1.5);
+    return Math.min(raw, 2.0);
+  }
+
+  function applyQuality(level) {
+    const valid = VALID_QUALITIES.has(level) ? level : 'high';
+    state.quality = valid;
+    const dpr = getDprForQuality(valid);
+    renderer.setPixelRatio(dpr);
+    bgSparkles.setPixelRatio(dpr);
+    updateCameraFraming();
+  }
+
   // --- Responsive Framing (adapts smoothly to sit/stand bounding height) ---
   function computeCameraDistance() {
     const aspect = Math.max(0.3, camera.aspect || 1);
@@ -240,6 +323,16 @@ function init() {
     state.baseCamDist = Math.max(distVert, distHoriz);
   }
 
+  function updateExprScrollFade() {
+    if (!exprBar) return;
+    const remaining = exprBar.scrollWidth - exprBar.clientWidth - exprBar.scrollLeft;
+    exprBar.classList.toggle('has-fade', remaining > 8);
+  }
+
+  if (exprBar) {
+    exprBar.addEventListener('scroll', updateExprScrollFade, { passive: true });
+  }
+
   function updateCameraFraming() {
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -249,6 +342,7 @@ function init() {
     camera.aspect = aspect;
     applyCameraZoom();
     camera.updateProjectionMatrix();
+    updateExprScrollFade();
   }
 
   function applyCameraZoom() {
@@ -259,6 +353,13 @@ function init() {
     lookTarget.set(0, baseLookY + zoomUp, 0);
     camera.position.set(0, lookTarget.y + dist * 0.08, dist);
     camera.lookAt(lookTarget);
+
+    // Keep outline pixel weight natural when zooming in closely
+    materials.outlineUniforms.uOutlineScale.value = clamp(
+      1.0 / (0.68 + 0.32 * state.zoom),
+      0.78,
+      1.06
+    );
   }
 
   window.addEventListener('resize', updateCameraFraming);
@@ -472,9 +573,66 @@ function init() {
     }
   }
 
+  function captureSnapshotDataUrl() {
+    renderer.render(scene, camera);
+    const w = renderer.domElement.width || Math.max(1, window.innerWidth);
+    const h = renderer.domElement.height || Math.max(1, window.innerHeight);
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = w;
+    outCanvas.height = h;
+    const ctx = outCanvas.getContext('2d');
+
+    // Match the app's pastel purple radial stage backdrop behind the transparent WebGL buffer
+    const maxR = Math.max(w, h) * 0.68;
+    const bgGrad = ctx.createRadialGradient(w * 0.5, h * 0.42, 0, w * 0.5, h * 0.42, maxR);
+    bgGrad.addColorStop(0, '#532c76');
+    bgGrad.addColorStop(0.54, '#2c194d');
+    bgGrad.addColorStop(1, '#1d1033');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    const glowGrad = ctx.createRadialGradient(w * 0.5, h * 0.38, 0, w * 0.5, h * 0.38, Math.min(w, h) * 0.52);
+    glowGrad.addColorStop(0, 'rgba(235, 148, 220, 0.26)');
+    glowGrad.addColorStop(1, 'rgba(117, 62, 146, 0)');
+    ctx.fillStyle = glowGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.drawImage(renderer.domElement, 0, 0, w, h);
+    return outCanvas.toDataURL('image/png');
+  }
+
+  function triggerShutterFlash() {
+    if (!shutterFlash) return;
+    shutterFlash.classList.add('is-flashing');
+    setTimeout(() => {
+      shutterFlash.classList.remove('is-flashing');
+    }, 140);
+  }
+
+  function formatDateStamp() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  }
+
+  function takeSnapshot() {
+    registerUserActivity();
+    const dataUrl = captureSnapshotDataUrl();
+    triggerShutterFlash();
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `bunny3d-${formatDateStamp()}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast('パシャッ♪ 保存しました');
+  }
+
   function setFrozen(flag) {
     state.frozen = Boolean(flag);
     if (state.frozen) {
+      state.intro.active = false;
+      character.root.scale.setScalar(1);
       state.exprTrans.active = false;
       state.tapExpr = null;
       state.tapExprTimer = 0;
@@ -518,6 +676,10 @@ function init() {
       registerUserActivity();
       setAutoRotate(!state.autoRotate);
     });
+  }
+
+  if (snapshotBtn) {
+    snapshotBtn.addEventListener('click', takeSnapshot);
   }
 
   // --- Pointer Interactions (Drag Rotation + Inertia, Pinch/Wheel Zoom, Tap) ---
@@ -874,6 +1036,26 @@ function init() {
       character.leftWristPivot.rotation.z += handFloat * 0.7;
     }
 
+    // 1.5s pop-in entrance animation (small elastic pop -> ear hop -> smile -> welcome arm raise)
+    if (!state.frozen && state.intro.active) {
+      const u = clamp(state.intro.progress, 0, 1);
+      const popT = clamp(u / 0.48, 0, 1);
+      const popScale = clamp(lerp(0.06, 1.0, easeOutBack(popT)), 0.05, 1.09);
+      character.root.scale.setScalar(popScale);
+
+      const armSweep = easeInOutCubic(clamp((u - 0.32) / 0.56, 0, 1));
+      if (armSweep < 1) {
+        const restX = character.leftArmPivot.rotation.x + 0.52;
+        const restZ = character.leftArmPivot.rotation.z - 0.42;
+        character.leftArmPivot.rotation.x = lerp(restX, character.leftArmPivot.rotation.x, armSweep);
+        character.leftArmPivot.rotation.z = lerp(restZ, character.leftArmPivot.rotation.z, armSweep);
+      }
+    } else {
+      character.root.scale.setScalar(1);
+    }
+
+    glowRimMat.opacity = state.frozen ? 0.68 : 0.56 + 0.16 * Math.sin(t * 1.7);
+
     updateSprings(dt);
 
     // Exact pedestal floor clamp: prevents feet or knees from ever dipping below y = 0.002
@@ -905,6 +1087,15 @@ function init() {
   const initRot = params.get('rot');
   const initZoom = params.get('zoom');
   const initFreeze = params.get('freeze');
+  const initQuality = params.get('quality');
+
+  if (initQuality && VALID_QUALITIES.has(initQuality)) {
+    state.qualityLocked = true;
+    state.qualityDone = true;
+    applyQuality(initQuality);
+  } else {
+    applyQuality('high');
+  }
 
   if (initPose && VALID_POSES.has(initPose)) {
     setPose(initPose, true);
@@ -920,8 +1111,29 @@ function init() {
   if (initExpr && VALID_EXPRS.has(initExpr)) {
     setExpression(initExpr, true);
   }
-  if (initFreeze === '1' || initFreeze === 'true') {
+
+  const startFrozen = initFreeze === '1' || initFreeze === 'true';
+  if (startFrozen) {
     setFrozen(true);
+    if (loadingOverlay) loadingOverlay.style.display = 'none';
+  } else {
+    state.intro.active = true;
+    state.intro.progress = 0;
+    if (loadingOverlay) {
+      requestAnimationFrame(() => {
+        loadingOverlay.classList.add('is-done');
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+        }, 300);
+      });
+    }
+  }
+
+  // Auto-hide the bottom hint line cleanly after a few seconds
+  if (hintText) {
+    setTimeout(() => {
+      hintText.classList.add('is-hidden');
+    }, 4500);
   }
 
   // --- Expose Test Hook ---
@@ -938,6 +1150,9 @@ function init() {
     get fps() {
       return state.fps;
     },
+    get quality() {
+      return state.quality;
+    },
     api: {
       setExpression,
       setPose,
@@ -946,6 +1161,7 @@ function init() {
       setAutoRotate,
       tap: triggerTapReaction,
       freeze: setFrozen,
+      snapshot: captureSnapshotDataUrl,
       stats() {
         return {
           drawCalls: renderer.info.render.calls,
@@ -957,13 +1173,26 @@ function init() {
     },
   };
 
-  // --- Main Render Loop ---
+  // --- Main Render Loop with Visibility Pause & 2s Auto-Quality Tuning ---
   let lastTime = performance.now();
   let fpsAccum = 0;
   let fpsFrames = 0;
+  let rafId = null;
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    } else if (rafId === null) {
+      lastTime = performance.now();
+      rafId = requestAnimationFrame(tick);
+    }
+  });
 
   function tick(now) {
-    requestAnimationFrame(tick);
+    rafId = requestAnimationFrame(tick);
     const rawDt = (now - lastTime) * 0.001;
     lastTime = now;
     const dt = Math.min(0.05, Math.max(0.0001, rawDt));
@@ -975,6 +1204,30 @@ function init() {
       state.fps = Math.round(fpsFrames / fpsAccum);
       fpsAccum = 0;
       fpsFrames = 0;
+    }
+
+    // Automatic DPR quality scaling over first ~2s when FPS < 45
+    if (!state.qualityDone && !state.qualityLocked && !state.frozen && !document.hidden) {
+      state.qualityEvalTimer += rawDt;
+      state.qualityEvalFrames++;
+      const threshold = state.quality === 'high' ? 2.0 : 1.5;
+      if (state.qualityEvalTimer >= threshold) {
+        const avgFps = state.qualityEvalFrames / state.qualityEvalTimer;
+        if (avgFps < 45) {
+          if (state.quality === 'high') {
+            applyQuality('mid');
+            state.qualityEvalTimer = 0;
+            state.qualityEvalFrames = 0;
+          } else if (state.quality === 'mid') {
+            applyQuality('low');
+            state.qualityDone = true;
+          } else {
+            state.qualityDone = true;
+          }
+        } else {
+          state.qualityDone = true;
+        }
+      }
     }
 
     // Turntable inertia & auto-rotate (works even when pose is frozen if user drags)
@@ -992,6 +1245,33 @@ function init() {
     if (!state.frozen) {
       state.time += dt;
       state.idleSinceInput += dt;
+
+      // 1.5s pop-in entrance choreography
+      if (state.intro.active) {
+        state.intro.progress += dt / state.intro.duration;
+        const u = state.intro.progress;
+        if (u >= 0.16 && !state.intro.sparkleDone) {
+          state.intro.sparkleDone = true;
+          state.earPop = 0.85;
+          poseSparkles.emit(lerp(0.88, 1.18, state.poseMix));
+        }
+        if (u >= 0.22 && !state.intro.smileDone && state.userExpression === 'normal' && !state.tapExpr) {
+          state.intro.smileDone = true;
+          state.tapExpr = 'smile';
+          startExprTransition('normal', 'smile');
+        }
+        if (u >= 0.78 && !state.intro.smileEndDone) {
+          state.intro.smileEndDone = true;
+          if (state.tapExpr === 'smile' && state.tapExprTimer <= 0) {
+            state.tapExpr = null;
+            startExprTransition('smile', state.userExpression);
+          }
+        }
+        if (u >= 1) {
+          state.intro.active = false;
+          state.intro.progress = 1;
+        }
+      }
 
       // Pose transition timeline (~1.0s choreographed sit <-> stand)
       if (state.poseTransition.active) {
@@ -1039,17 +1319,21 @@ function init() {
           state.gesture.active = false;
           state.gesture.progress = 0;
         }
-      } else if (state.mode === 'idle' && !state.poseTransition.active) {
-        if (!state.appealDoneThisStretch && state.idleSinceInput >= 20) {
+      } else if (state.mode === 'idle' && !state.poseTransition.active && !state.intro.active) {
+        if (!state.appealDoneThisStretch && state.idleSinceInput >= 20 && !prefersReducedMotion) {
           state.appealDoneThisStretch = true;
           startIdleGesture('appealWave', 1);
-          state.nextGestureIn = 7.0;
+          state.nextGestureIn = 8.0;
         } else {
           state.nextGestureIn -= dt;
           if (state.nextGestureIn <= 0) {
-            state.nextGestureIn = 6.0 + Math.random() * 5.0;
-            const pool = ['headTilt', 'waveHand', 'earTwitch', 'happyBounce'];
-            if (state.poseMix > 0.9) pool.push('earTuck');
+            state.nextGestureIn = prefersReducedMotion
+              ? 13.0 + Math.random() * 6.0
+              : 6.0 + Math.random() * 5.0;
+            const pool = prefersReducedMotion
+              ? ['headTilt', 'waveHand']
+              : ['headTilt', 'waveHand', 'earTwitch', 'happyBounce'];
+            if (!prefersReducedMotion && state.poseMix > 0.9) pool.push('earTuck');
             const filtered = pool.filter((g) => g !== state.lastGesture);
             const pick = filtered[Math.floor(Math.random() * filtered.length)];
             const dir = Math.random() < 0.5 ? -1 : 1;
@@ -1117,7 +1401,7 @@ function init() {
     renderer.render(scene, camera);
   }
 
-  requestAnimationFrame(tick);
+  rafId = requestAnimationFrame(tick);
 }
 
 init();

@@ -218,7 +218,7 @@ function buildBunnyEar(materials, opts) {
   const outerGeo = createParametricEarGeometry(opts);
   const outerMesh = new THREE.Mesh(outerGeo, materials.suit);
   outerMesh.name = 'bunny_ear_outer';
-  attachOutline(outerMesh, materials.outlinePurple, 0.0095);
+  attachOutline(outerMesh, materials.outlinePurple, 0.0082);
   pivot.add(outerMesh);
 
   const innerGeo = createParametricEarGeometry({
@@ -246,73 +246,81 @@ function buildBunnyEar(materials, opts) {
 function buildWelcomeHand(materials) {
   const hand = new THREE.Group();
 
-  const palmGeo = new THREE.SphereGeometry(0.052, 10, 8);
-  palmGeo.scale(0.92, 0.54, 1.0);
+  const palmGeo = new THREE.SphereGeometry(0.050, 10, 8);
+  palmGeo.scale(0.92, 0.52, 1.02);
   const palm = new THREE.Mesh(palmGeo, materials.skin);
-  palm.position.set(0, 0, 0.042);
-  attachOutline(palm, materials.outlineSkin, 0.0065);
+  palm.position.set(0, 0, 0.040);
+  attachOutline(palm, materials.outlineSkin, 0.0052);
   hand.add(palm);
 
-  // Aligned neat fingers gently curved together
+  // Aligned neat fingers gently curved together with fine outline
   const fingerSpecs = [
-    { x: -0.025, len: 0.044, r: 0.013 },
-    { x: -0.008, len: 0.050, r: 0.0135 },
-    { x: 0.009, len: 0.047, r: 0.013 },
-    { x: 0.025, len: 0.038, r: 0.012 },
+    { x: -0.025, len: 0.045, r: 0.0125 },
+    { x: -0.008, len: 0.052, r: 0.013 },
+    { x: 0.009, len: 0.049, r: 0.0125 },
+    { x: 0.025, len: 0.040, r: 0.0115 },
   ];
 
   for (const spec of fingerSpecs) {
-    const fGeo = new THREE.CapsuleGeometry(spec.r, spec.len * 0.55, 4, 7);
+    const fGeo = new THREE.CapsuleGeometry(spec.r, spec.len * 0.58, 4, 7);
     fGeo.rotateX(Math.PI * 0.5);
     const finger = new THREE.Mesh(fGeo, materials.skin);
-    finger.position.set(spec.x, 0.003, 0.084 + spec.len * 0.16);
+    finger.position.set(spec.x, 0.003, 0.084 + spec.len * 0.17);
     finger.rotation.x = -0.10; // slight graceful upward curl
-    attachOutline(finger, materials.outlineSkin, 0.0055);
+    attachOutline(finger, materials.outlineSkin, 0.0038);
     hand.add(finger);
   }
 
   // Neat thumb angled cleanly along inner edge
-  const thumbGeo = new THREE.CapsuleGeometry(0.014, 0.028, 4, 7);
+  const thumbGeo = new THREE.CapsuleGeometry(0.013, 0.028, 4, 7);
   thumbGeo.rotateX(Math.PI * 0.5);
   const thumb = new THREE.Mesh(thumbGeo, materials.skin);
-  thumb.position.set(-0.044, 0.015, 0.046);
+  thumb.position.set(-0.042, 0.015, 0.046);
   thumb.rotation.y = -0.45;
   thumb.rotation.x = -0.20;
-  attachOutline(thumb, materials.outlineSkin, 0.0055);
+  attachOutline(thumb, materials.outlineSkin, 0.0038);
   hand.add(thumb);
 
-  hand.scale.setScalar(0.90);
+  hand.scale.setScalar(0.92);
   return mergeGroupByMaterial(hand);
 }
 
 /**
- * Cute plump mitten-style resting hand for the lap/thigh.
+ * Cute soft resting hand with delicate rounded fingers for waist / lap.
  */
 function buildMittenHand(materials) {
   const hand = new THREE.Group();
 
-  const palmGeo = new THREE.SphereGeometry(0.055, 10, 8);
-  palmGeo.scale(0.95, 0.62, 1.05);
+  const palmGeo = new THREE.SphereGeometry(0.050, 10, 8);
+  palmGeo.scale(0.90, 0.54, 1.0);
   const palm = new THREE.Mesh(palmGeo, materials.skin);
-  palm.position.set(0, 0, 0.038);
-  attachOutline(palm, materials.outlineSkin, 0.0068);
+  palm.position.set(0, 0, 0.036);
+  attachOutline(palm, materials.outlineSkin, 0.0052);
   hand.add(palm);
 
-  // Soft rounded mitten finger pad (gentle unified curve + subtle thumb)
-  const mittenGeo = new THREE.SphereGeometry(0.044, 10, 8);
-  mittenGeo.scale(0.94, 0.52, 0.92);
-  const mitten = new THREE.Mesh(mittenGeo, materials.skin);
-  mitten.position.set(0, -0.006, 0.076);
-  mitten.rotation.x = 0.18;
-  attachOutline(mitten, materials.outlineSkin, 0.0062);
-  hand.add(mitten);
+  // Softly grouped curved fingers so waist-resting hand shows graceful fingertips
+  const fSpecs = [
+    { x: -0.020, y: -0.008, z: 0.072, r: 0.012, len: 0.024 },
+    { x: -0.003, y: -0.010, z: 0.077, r: 0.0125, len: 0.028 },
+    { x: 0.014, y: -0.009, z: 0.074, r: 0.012, len: 0.025 },
+    { x: 0.029, y: -0.005, z: 0.068, r: 0.0108, len: 0.020 },
+  ];
+  for (const s of fSpecs) {
+    const fgGeo = new THREE.CapsuleGeometry(s.r, s.len, 4, 6);
+    fgGeo.rotateX(Math.PI * 0.5);
+    const fg = new THREE.Mesh(fgGeo, materials.skin);
+    fg.position.set(s.x, s.y, s.z);
+    fg.rotation.x = 0.28;
+    attachOutline(fg, materials.outlineSkin, 0.0038);
+    hand.add(fg);
+  }
 
-  const thumbGeo = new THREE.CapsuleGeometry(0.0155, 0.022, 4, 7);
+  const thumbGeo = new THREE.CapsuleGeometry(0.013, 0.022, 4, 7);
   thumbGeo.rotateX(Math.PI * 0.5);
   const thumb = new THREE.Mesh(thumbGeo, materials.skin);
-  thumb.position.set(0.042, 0.008, 0.048);
-  thumb.rotation.y = 0.48;
-  attachOutline(thumb, materials.outlineSkin, 0.0055);
+  thumb.position.set(0.038, 0.008, 0.044);
+  thumb.rotation.y = 0.46;
+  attachOutline(thumb, materials.outlineSkin, 0.0038);
   hand.add(thumb);
 
   hand.scale.setScalar(0.94);
@@ -469,10 +477,11 @@ export function createBunnyCharacter(materials, faceTexture) {
     hipPivot.name = side < 0 ? 'hip_r' : 'hip_l';
     hipPivot.position.set(side * 0.088, 0.32, -0.02);
 
-    // Outline-free hip & knee spheres bridge thigh/shin seamlessly at any bend angle
+    // Outline-free hip & knee spheres bridge thigh/shin seamlessly and merge with segment fishnet
+    const thighPartGroup = new THREE.Group();
     const hipBallGeo = new THREE.SphereGeometry(0.092, 12, 10);
     const hipBall = new THREE.Mesh(hipBallGeo, materials.fishnet);
-    hipPivot.add(hipBall);
+    thighPartGroup.add(hipBall);
 
     // Start thigh cylinder buried inside opaque purple pelvis (y = +0.02) so zero rim/crease shows on butt/hips
     const thighCurve = [
@@ -487,17 +496,20 @@ export function createBunnyCharacter(materials, faceTexture) {
       12
     );
     const thighMesh = new THREE.Mesh(thighGeo, materials.fishnet);
-    attachOutline(thighMesh, materials.outlineDark, 0.0088);
-    hipPivot.add(thighMesh);
+    attachOutline(thighMesh, materials.outlineDark, 0.0076);
+    thighPartGroup.add(thighMesh);
+    mergeGroupByMaterial(thighPartGroup);
+    hipPivot.add(thighPartGroup);
 
     const kneePivot = new THREE.Group();
     kneePivot.name = side < 0 ? 'knee_r' : 'knee_l';
     kneePivot.position.set(0, -thighLen, 0);
     hipPivot.add(kneePivot);
 
+    const shinPartGroup = new THREE.Group();
     const kneeBallGeo = new THREE.SphereGeometry(0.074, 12, 10);
     const kneeBall = new THREE.Mesh(kneeBallGeo, materials.fishnet);
-    kneePivot.add(kneeBall);
+    shinPartGroup.add(kneeBall);
 
     const kneeBottomMarker = new THREE.Object3D();
     kneeBottomMarker.position.set(0, -0.072, 0.045);
@@ -517,8 +529,10 @@ export function createBunnyCharacter(materials, faceTexture) {
       12
     );
     const shinMesh = new THREE.Mesh(shinGeo, materials.fishnet);
-    attachOutline(shinMesh, materials.outlineDark, 0.0085);
-    kneePivot.add(shinMesh);
+    attachOutline(shinMesh, materials.outlineDark, 0.0074);
+    shinPartGroup.add(shinMesh);
+    mergeGroupByMaterial(shinPartGroup);
+    kneePivot.add(shinPartGroup);
 
     const anklePivot = new THREE.Group();
     anklePivot.name = side < 0 ? 'ankle_r' : 'ankle_l';
@@ -594,16 +608,16 @@ export function createBunnyCharacter(materials, faceTexture) {
   torsoPivot.rotation.x = 0.11;  // cute slight forward lean
   hipsGroup.add(torsoPivot);
 
+  // All static torso meshes grouped and merged by material for low draw calls
+  const torsoStaticGroup = new THREE.Group();
+  torsoPivot.add(torsoStaticGroup);
+
   // Single neat butterfly bow on unobstructed outer hip (+X) facing front-right
   const hipBow = buildHipRibbonBow(materials);
   hipBow.position.set(0.172, 0.015, 0.068);
   hipBow.rotation.set(0.06, Math.PI * 0.72, -0.08);
   hipBow.scale.setScalar(1.16);
-  torsoPivot.add(hipBow);
-
-  // Static torso suit (bodice + angled sweetheart bust cups)
-  const torsoSuitGroup = new THREE.Group();
-  torsoPivot.add(torsoSuitGroup);
+  torsoStaticGroup.add(hipBow);
 
   const bodicePoints = [
     new THREE.Vector2(0.155, 0.0),
@@ -616,8 +630,8 @@ export function createBunnyCharacter(materials, faceTexture) {
   const bodiceGeo = new THREE.LatheGeometry(bodicePoints, 18);
   bodiceGeo.scale(1.10, 1, 0.88);
   const bodice = new THREE.Mesh(bodiceGeo, materials.suit);
-  attachOutline(bodice, materials.outlinePurple, 0.0095);
-  torsoSuitGroup.add(bodice);
+  attachOutline(bodice, materials.outlinePurple, 0.0085);
+  torsoStaticGroup.add(bodice);
 
   // Sweetheart bust cups forming an M/heart neckline dip in center
   const cupGeo = new THREE.SphereGeometry(0.094, 14, 10);
@@ -626,88 +640,77 @@ export function createBunnyCharacter(materials, faceTexture) {
     const cup = new THREE.Mesh(cupGeo, materials.suit);
     cup.position.set(side * 0.082, 0.255, 0.092);
     cup.rotation.z = side * 0.16;
-    attachOutline(cup, materials.outlinePurple, 0.008);
-    torsoSuitGroup.add(cup);
+    attachOutline(cup, materials.outlinePurple, 0.0075);
+    torsoStaticGroup.add(cup);
   }
-  mergeGroupByMaterial(torsoSuitGroup);
-
-  // Static torso skin (sloping upper chest + neck + center sweetheart skin dip)
-  const torsoSkinGroup = new THREE.Group();
-  torsoPivot.add(torsoSkinGroup);
 
   const chestGeo = new THREE.SphereGeometry(0.152, 16, 12);
   chestGeo.scale(1.14, 0.72, 0.78);
   const chest = new THREE.Mesh(chestGeo, materials.skin);
   chest.position.set(0, 0.328, 0.005);
-  attachOutline(chest, materials.outlineSkin, 0.0085);
-  torsoSkinGroup.add(chest);
+  attachOutline(chest, materials.outlineSkin, 0.0075);
+  torsoStaticGroup.add(chest);
 
   // Center V-dip skin sphere to emphasize sweetheart neckline
   const centerDipGeo = new THREE.SphereGeometry(0.056, 10, 8);
   const centerDip = new THREE.Mesh(centerDipGeo, materials.skin);
   centerDip.position.set(0, 0.295, 0.096);
-  torsoSkinGroup.add(centerDip);
+  torsoStaticGroup.add(centerDip);
 
   const neckGeo = new THREE.CylinderGeometry(0.072, 0.086, 0.15, 12);
   const neck = new THREE.Mesh(neckGeo, materials.skin);
   neck.position.set(0, 0.432, 0.0);
-  attachOutline(neck, materials.outlineSkin, 0.0075);
-  torsoSkinGroup.add(neck);
-  mergeGroupByMaterial(torsoSkinGroup);
+  attachOutline(neck, materials.outlineSkin, 0.0068);
+  torsoStaticGroup.add(neck);
 
   // Clear soft shadow strip at neck under chin so head reads distinctly anchored
   const neckShadowGeo = new THREE.CylinderGeometry(0.078, 0.086, 0.048, 12);
   const neckShadow = new THREE.Mesh(neckShadowGeo, materials.skinShadow);
   neckShadow.position.set(0, 0.468, 0.008);
-  torsoPivot.add(neckShadow);
+  torsoStaticGroup.add(neckShadow);
 
   const collarGeo = new THREE.CylinderGeometry(0.096, 0.118, 0.074, 16, 1, false);
   const collar = new THREE.Mesh(collarGeo, materials.white);
   collar.position.set(0, 0.412, 0.005);
-  attachOutline(collar, materials.outlineWhite, 0.007);
-  torsoPivot.add(collar);
+  attachOutline(collar, materials.outlineWhite, 0.0065);
+  torsoStaticGroup.add(collar);
 
   const bowTie = buildBowTie(materials);
   bowTie.position.set(0, 0.398, 0.118);
   bowTie.scale.setScalar(0.92);
-  torsoPivot.add(bowTie);
+  torsoStaticGroup.add(bowTie);
 
-  // --- RIGHT ARM (sloping shoulder, seamless arm cylinder buried inside shoulder/elbow, cute mitten hand) ---
+  mergeGroupByMaterial(torsoStaticGroup);
+
+  // --- RIGHT ARM (sloping shoulder, seamless arm cylinder deeply recessed inside shoulder, soft resting hand) ---
   const rightArmPivot = new THREE.Group();
   rightArmPivot.name = 'right_arm_pivot';
   rightArmPivot.position.set(-0.162, 0.282, 0.006);
   torsoPivot.add(rightArmPivot);
 
-  // Seamless shoulder fill (radius 0.052 > arm+outline 0.049 so upperArm top rim is buried inside)
+  // Seamless shoulder fill (upperArm top edge at -0.026 lies cleanly inside 0.052 sphere)
   const jointGeo = new THREE.SphereGeometry(0.052, 10, 8);
   const rShoulder = new THREE.Mesh(jointGeo, materials.skin);
   rightArmPivot.add(rShoulder);
 
-  const upperArmGeo = new THREE.CylinderGeometry(0.042, 0.040, 0.165, 12, 1, true);
+  const upperArmGeo = new THREE.CylinderGeometry(0.041, 0.039, 0.152, 12, 1, true);
   const rUpperArm = new THREE.Mesh(upperArmGeo, materials.skin);
-  rUpperArm.position.set(0, -0.095, 0);
-  attachOutline(rUpperArm, materials.outlineSkin, 0.007);
+  rUpperArm.position.set(0, -0.102, 0);
+  attachOutline(rUpperArm, materials.outlineSkin, 0.0066);
   rightArmPivot.add(rUpperArm);
 
   const rightElbowPivot = new THREE.Group();
+  rightElbowPivot.name = 'right_elbow_pivot';
   rightElbowPivot.position.set(0, -0.185, 0);
   rightArmPivot.add(rightElbowPivot);
 
-  const rElbow = new THREE.Mesh(jointGeo, materials.skin);
-  rElbow.scale.setScalar(0.92);
-  rightElbowPivot.add(rElbow);
-
-  const forearmGeo = new THREE.CylinderGeometry(0.039, 0.037, 0.145, 12, 1, true);
-  const rForearm = new THREE.Mesh(forearmGeo, materials.skin);
-  rForearm.position.set(0, -0.075, 0);
-  attachOutline(rForearm, materials.outlineSkin, 0.007);
-  rightElbowPivot.add(rForearm);
+  const forearmGeo = new THREE.CylinderGeometry(0.038, 0.036, 0.145, 12, 1, true);
 
   const buildCuff = (buttonSide) => {
     const cuffGroup = new THREE.Group();
     const cuffGeo = new THREE.CylinderGeometry(0.056, 0.048, 0.080, 12);
     const cuff = new THREE.Mesh(cuffGeo, materials.white);
-    attachOutline(cuff, materials.outlineWhite, 0.007);
+    attachOutline(cuff, materials.outlineWhite, 0.0062);
     cuffGroup.add(cuff);
 
     const btnGeo = new THREE.SphereGeometry(0.012, 7, 7);
@@ -717,9 +720,19 @@ export function createBunnyCharacter(materials, faceTexture) {
     return cuffGroup;
   };
 
+  const rForearmGroup = new THREE.Group();
+  const rElbow = new THREE.Mesh(jointGeo, materials.skin);
+  rElbow.scale.setScalar(0.92);
+  rForearmGroup.add(rElbow);
+  const rForearm = new THREE.Mesh(forearmGeo, materials.skin);
+  rForearm.position.set(0, -0.075, 0);
+  attachOutline(rForearm, materials.outlineSkin, 0.0066);
+  rForearmGroup.add(rForearm);
   const rCuff = buildCuff(-1);
   rCuff.position.set(0, -0.155, 0);
-  rightElbowPivot.add(rCuff);
+  rForearmGroup.add(rCuff);
+  mergeGroupByMaterial(rForearmGroup);
+  rightElbowPivot.add(rForearmGroup);
 
   const rightWristPivot = new THREE.Group();
   rightWristPivot.name = 'right_wrist_pivot';
@@ -744,8 +757,8 @@ export function createBunnyCharacter(materials, faceTexture) {
   leftArmPivot.add(lShoulder);
 
   const lUpperArm = new THREE.Mesh(upperArmGeo, materials.skin);
-  lUpperArm.position.set(0, -0.095, 0);
-  attachOutline(lUpperArm, materials.outlineSkin, 0.007);
+  lUpperArm.position.set(0, -0.102, 0);
+  attachOutline(lUpperArm, materials.outlineSkin, 0.0066);
   leftArmPivot.add(lUpperArm);
 
   const leftElbowPivot = new THREE.Group();
@@ -753,18 +766,19 @@ export function createBunnyCharacter(materials, faceTexture) {
   leftElbowPivot.position.set(0, -0.185, 0);
   leftArmPivot.add(leftElbowPivot);
 
+  const lForearmGroup = new THREE.Group();
   const lElbow = new THREE.Mesh(jointGeo, materials.skin);
   lElbow.scale.setScalar(0.92);
-  leftElbowPivot.add(lElbow);
-
+  lForearmGroup.add(lElbow);
   const lForearm = new THREE.Mesh(forearmGeo, materials.skin);
   lForearm.position.set(0, -0.075, 0);
-  attachOutline(lForearm, materials.outlineSkin, 0.007);
-  leftElbowPivot.add(lForearm);
-
+  attachOutline(lForearm, materials.outlineSkin, 0.0066);
+  lForearmGroup.add(lForearm);
   const lCuff = buildCuff(1);
   lCuff.position.set(0, -0.155, 0);
-  leftElbowPivot.add(lCuff);
+  lForearmGroup.add(lCuff);
+  mergeGroupByMaterial(lForearmGroup);
+  leftElbowPivot.add(lForearmGroup);
 
   const leftWristPivot = new THREE.Group();
   leftWristPivot.name = 'left_wrist_pivot';
@@ -806,17 +820,17 @@ export function createBunnyCharacter(materials, faceTexture) {
   headMeshGroup.add(headSkinGroup);
 
   const headGeo = createChibiHeadGeometry(0.42);
-  const headMesh = new THREE.Mesh(headGeo, materials.skin);
+  const headMesh = new THREE.Mesh(headGeo, materials.faceSkin);
   headMesh.name = 'head_skin';
-  attachOutline(headMesh, materials.outlineSkin, 0.0095);
+  attachOutline(headMesh, materials.outlineSkin, 0.0058);
   headSkinGroup.add(headMesh);
 
   const humanEarGeo = new THREE.SphereGeometry(0.064, 9, 8);
   humanEarGeo.scale(0.55, 1.0, 0.65);
   for (const side of [-1, 1]) {
-    const hEar = new THREE.Mesh(humanEarGeo, materials.skin);
+    const hEar = new THREE.Mesh(humanEarGeo, materials.faceSkin);
     hEar.position.set(side * 0.41, -0.06, -0.02);
-    attachOutline(hEar, materials.outlineSkin, 0.007);
+    attachOutline(hEar, materials.outlineSkin, 0.0052);
     headSkinGroup.add(hEar);
   }
   mergeGroupByMaterial(headSkinGroup);
@@ -871,28 +885,9 @@ export function createBunnyCharacter(materials, faceTexture) {
     staticHairGroup.add(temple);
   }
 
-  // Smooth tapered angel-ring highlights nestled flush on front bangs crown
-  const haloLeftPts = [];
-  const haloRightPts = [];
-  for (let i = 0; i <= 6; i++) {
-    const u = i / 6;
-    const aL = -0.68 + u * 0.54;
-    const aR = 0.14 + u * 0.56;
-    haloLeftPts.push(new THREE.Vector3(Math.sin(aL) * 0.375, 0.305 + Math.cos(aL) * 0.025, 0.20 + Math.cos(aL) * 0.095));
-    haloRightPts.push(new THREE.Vector3(Math.sin(aR) * 0.375, 0.305 + Math.cos(aR) * 0.025, 0.20 + Math.cos(aR) * 0.095));
-  }
-  for (const pts of [haloLeftPts, haloRightPts]) {
-    const hArcGeo = createTaperedTube(
-      pts,
-      (t) => 0.020 * Math.sin(t * Math.PI) + 0.002,
-      12,
-      6,
-      0.38
-    );
-    staticHairGroup.add(new THREE.Mesh(hArcGeo, materials.hairHighlight));
-  }
+  // Crown "天使の輪" gloss band is rendered seamlessly in materials.hair shader across topDome + bangs
 
-  const addFluffyHairLock = (parent, pts, maxR, flattenZ = 0.65, _minTip = 0.002, highlight = false) => {
+  const addFluffyHairLock = (parent, pts, maxR, flattenZ = 0.65, _minTip = 0.002, highlight = false, outlineThickness = 0.0056) => {
     const geo = createTaperedTube(
       pts,
       (t) => {
@@ -911,7 +906,7 @@ export function createBunnyCharacter(materials, faceTexture) {
       flattenZ
     );
     const mesh = new THREE.Mesh(geo, materials.hair);
-    attachOutline(mesh, materials.outlineHair, 0.0042);
+    attachOutline(mesh, materials.outlineHair, outlineThickness);
     parent.add(mesh);
 
     // Sleek chestnut shine crescent nestled softly on outer curl belly
@@ -1137,7 +1132,8 @@ export function createBunnyCharacter(materials, faceTexture) {
       0.115,
       0.62,
       0.42,
-      true
+      true,
+      0.0068
     );
   }
 
@@ -1224,14 +1220,14 @@ export function createBunnyCharacter(materials, faceTexture) {
       leftHipRot: new THREE.Euler(-0.44, -0.34, -0.08),
       leftKneeRot: new THREE.Euler(0.76, 0, 0.04),
       leftAnkleRot: new THREE.Euler(-0.16, -0.14, 0.04),
-      // Right hand cleanly perched on outer hip waist silhouette (no body clipping)
-      rightArmRot: new THREE.Euler(-0.12, 0.18, -0.62),
-      rightElbowRot: new THREE.Euler(-0.48, 0.16, 0.92),
-      rightWristRot: new THREE.Euler(0.14, 0.18, 0.28),
-      // Left hand extending outward in welcoming "どうぞ" palm-up
-      leftArmRot: new THREE.Euler(-0.06, 0.10, 0.64),
-      leftElbowRot: new THREE.Euler(-0.88, 0.08, 0.62),
-      leftWristRot: new THREE.Euler(-0.34, 0.28, -0.24),
+      // Right hand softly perched on outer hip waist showing curved fingers
+      rightArmRot: new THREE.Euler(-0.14, 0.16, -0.60),
+      rightElbowRot: new THREE.Euler(-0.44, 0.22, 0.86),
+      rightWristRot: new THREE.Euler(0.24, -0.32, 0.36),
+      // Left hand extending outward in welcoming "どうぞ" showing aligned fingertips clearly
+      leftArmRot: new THREE.Euler(-0.08, 0.12, 0.64),
+      leftElbowRot: new THREE.Euler(-0.88, 0.10, 0.60),
+      leftWristRot: new THREE.Euler(-0.26, 0.36, -0.18),
     },
     midStand: {
       hipsPos: new THREE.Vector3(0, 0.14, 0.02),
